@@ -3,6 +3,8 @@ import os
 import pptk
 import time
 import sys
+import pyvista
+import open3d
 
 import capturing
 
@@ -13,7 +15,7 @@ import capturing
 #             'data/numpy/bildstein_station3_xyz_intensity_rgb.labels.npy')
 
 classes_dict={'unlabeled': 0, 'man-made terrain': 1, 'natural terrain': 2, 'high vegetation': 3, 'low vegetation': 4, 'buildings': 5, 'hard scape': 6, 'scanning artefacts': 7, 'cars': 8}
-classes_colors={'unlabeled': (255,255,255), 'man-made terrain': (50,30,30), 'natural terrain': (30,50,30), 'high vegetation': (120,255,120), 'low vegetation': (80,255,80), 'buildings': (255,255,0), 'hard scape': (0,255,255), 'scanning artefacts': (255,0,0), 'cars': (0,0,255)}
+classes_colors={'unlabeled': (255,255,255), 'man-made terrain': (60,30,30), 'natural terrain': (30,60,30), 'high vegetation': (120,255,120), 'low vegetation': (80,255,80), 'buildings': (255,255,0), 'hard scape': (0,255,255), 'scanning artefacts': (255,0,0), 'cars': (0,0,255)}
 
 def convert_txt(filepath_points, filepath_labels_in, filepath_xyz, filepath_rgb, filepath_labels_out):
     assert os.path.isfile(filepath_points)
@@ -46,7 +48,8 @@ def convert_txt(filepath_points, filepath_labels_in, filepath_xyz, filepath_rgb,
 
     point_cloud=None
 
-def load_files(base_path, halve_points=False, remove_artifacts=True, remove_unlabeled=True, expand_artifacts=True):
+#Limit to 20M points
+def load_files(base_path, max_points=int(20e6), remove_artifacts=True, remove_unlabeled=True, expand_artifacts=True):
     p_xyz=base_path+'.xyz.npy'
     p_rgb=base_path+'.rgb.npy'
     p_labels=base_path+'.labels.npy'
@@ -57,9 +60,15 @@ def load_files(base_path, halve_points=False, remove_artifacts=True, remove_unla
     rgba= np.hstack((rgb, 255*np.ones((len(rgb),1))))
     rgb=None #Clear memory
 
-    if halve_points:
-        print('halving points')
-        xyz, rgba, lbl= xyz[::2], rgba[::2], lbl[::2]
+    #Limit points
+    step=int(np.ceil(len(xyz)/max_points))
+    xyz,rgba,lbl= xyz[::step,:].copy(), rgba[::step,:].copy(), lbl[::step].copy()
+    print(f'Limited points, step {step}, num-points: {len(xyz)}')
+
+    # if halve_points:
+    #     print('halving points CARE: QUARTER!')
+    #     xyz, rgba, lbl= xyz[::4], rgba[::4], lbl[::4]
+
     
     #Iteratively expand the artifacts into unknowns
     k=5
@@ -95,48 +104,34 @@ def load_files(base_path, halve_points=False, remove_artifacts=True, remove_unla
         labels_rgba[mask,3]=0
         print(f'hidden {np.sum(mask)/len(rgba):0.3f} unlabeled (in labels_rgba)')
 
+    xyz=xyz[lbl!=classes_dict['scanning artefacts']]
+    rgba=rgba[lbl!=classes_dict['scanning artefacts']]
+
     return xyz, rgba, labels_rgba
 
-# def capture_360(viewer, name, point_size_color=0.013, point_size_labels=0.026, num_angles=4):
-#     assert viewer.get('num_attributes')[0]==2
 
-#     viewer.set(show_grid=False, show_info=False, show_axis=False)
-#     viewer.set(bg_color=(0,0,0,1))
-#     viewer.set(bg_color_bottom=(0,0,0,1))
-#     viewer.set(bg_color_top=(0,0,0,1))
-
-
-#     st=2.0
-#     #Render color images
-#     viewer.set(curr_attribute_id=0)
-#     viewer.set(point_size=point_size_color)
-#     time.sleep(st)
-#     for i,phi in enumerate(np.linspace(np.pi, 0,num_angles+1)[0:-1]): 
-#         viewer.set(phi=phi,theta=0.0,r=5.0)
-#         time.sleep(st)
-#         viewer.capture(f'{name}_{i:02d}_color.png')
-
-#     #Render label images
-#     viewer.set(curr_attribute_id=1)
-#     viewer.set(point_size=point_size_labels)
-#     time.sleep(st)
-#     for i,phi in enumerate(np.linspace(np.pi, 0,num_angles+1)[0:-1]): 
-#         viewer.set(phi=phi,theta=0.0,r=5.0)
-#         time.sleep(st)
-#         viewer.capture(f'{name}_{i:02d}_label.png')        
-
-#     viewer.set(show_grid=True, show_info=True, show_axis=True)
-
-def view_pptk(base_path, halve_points=False, remove_artifacts=False, remove_unlabeled=True):
-    xyz, rgba, labels_rgba=load_files(base_path,halve_points=halve_points, remove_artifacts=remove_artifacts, remove_unlabeled=remove_unlabeled)
+def view_pptk(base_path, remove_artifacts=False, remove_unlabeled=True,max_points=None):
+    if max_points is not None:
+        xyz, rgba, labels_rgba=load_files(base_path, remove_artifacts=remove_artifacts, remove_unlabeled=remove_unlabeled, max_points=max_points)
+    else:
+        xyz, rgba, labels_rgba=load_files(base_path, remove_artifacts=remove_artifacts, remove_unlabeled=remove_unlabeled)
 
     viewer=pptk.viewer(xyz)
     viewer.attributes(rgba.astype(np.float32)/255.0,labels_rgba.astype(np.float32)/255.0)
 
     #viewer.color_map('hsv')
-    viewer.set(point_size=0.013)
+    viewer.set(point_size=0.025)
     return viewer
 
+#PyVista bad for viewing?
+def view_pyvista(base_path, camera_pose):
+    xyz, rgba, labels_rgba=load_files(base_path,halve_points=True, remove_artifacts=True, remove_unlabeled=True)
+    mesh=pyvista.PolyData(xyz)
+    plotter=pyvista.Plotter()
+    plotter.add_mesh(mesh)
+    plotter.show(cpos=camera_pose, screenshot='testpose_vista.png')
+
+#Deprecated?
 def find_unlabeled_artifacts(xyz,lbl):
     unknown_labels=  lbl==classes_dict['unlabeled']
     artifact_labels= lbl==classes_dict['scanning artefacts']
@@ -147,15 +142,105 @@ def find_unlabeled_artifacts(xyz,lbl):
 
     neighbour_labels=np.take(lbl, neighbour_indices) # [N,k] array of the labels of the k neighbours each
 
-scene_name='domfountain_station1_xyz_intensity_rgb'
-viewer=view_pptk('data/numpy/'+scene_name,halve_points=True, remove_artifacts=True, remove_unlabeled=True)
-base_path='data/pointcloud_images/'+scene_name+'/'
+def resize_window():
+    os.system('wmctrl -r viewer -e 0,100,100,1080,1080')
 
-input('Enter to continue...')
-points=capturing.scene_config[scene_name]['points']
-point_size=capturing.scene_config[scene_name]['point_size_rgb']
-poses=capturing.points2poses(points,25)
-capturing.capture_poses(viewer,base_path+'rgb',base_path+'lbl',base_path+'poses.npy',poses,point_size,2*point_size,8)
+#wmctrl -r viewer -e 0,100,100,1080,1080
+
+scene_name='neugasse_station1_xyz_intensity_rgb'
+
+#viewer=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True)
+#quit()
+
+#Automatic rendering
+if False:
+    viewer=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True,max_points=int(28e6)) #int(28e6)
+    base_path='data/pointcloud_images/'+scene_name+'/'
+    resize_window()
+    time.sleep(2)
+
+    input('Enter to continue...')
+    points=capturing.scene_config[scene_name]['points']
+    point_size=capturing.scene_config[scene_name]['point_size_rgb']
+    poses=capturing.points2poses(points,20)
+    capturing.capture_poses(viewer,base_path+'rgb',base_path+'lbl',base_path+'poses.npy',poses,point_size,2*point_size,num_angles=12)
+    #Use wmctrl for window!
+    quit()
+
+# eye=np.array([-22.36111259,  40.53964615,  28.96756744])
+# lookat=np.array([-11.29156113,   9.60231495,   5.21776962])
+# up=np.array([ 0.19734934, -0.55155456,  0.81045717])
+
+
+#Open3D
+if False:
+    xyz, rgba, labels_rgba=load_files('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True, max_points=int(15e6))
+    labels_rgba=None
+
+    point_cloud=open3d.geometry.PointCloud()
+    point_cloud.points=open3d.utility.Vector3dVector(xyz)
+    point_cloud.colors=open3d.utility.Vector3dVector(rgba[:,0:3]/255.0)
+
+    #open3d.visualization.draw_geometries([point_cloud])
+    vis = open3d.visualization.Visualizer()
+    vis.create_window(width=2160, height=2160)
+    
+    opt = vis.get_render_option()
+    opt.background_color = np.asarray([0, 0, 0])
+
+    vis.add_geometry(point_cloud)
+    vis.run()
+    vis.capture_screen_image('compare_o3d.jpg')
+    vis.destroy_window()
+
+
+    quit()
+
+# visualizer=open3d.visualization.Visualizer()
+# visualizer.create_window(width=1080, height=1080)
+# visualizer.add_geometry(point_cloud)
+# visualizer.update_geometry(point_cloud)
+# visualizer.poll_events()
+# visualizer.update_renderer()
+
+# controls=visualizer.get_view_control()
+# #visualizer.capture_screen_image('testpose_open3d.jpg')
+
+# quit()
+
+#PyVista rendering
+#view_pyvista('data/numpy/'+scene_name, [(-11.70296001,  27.92738342,  27.04918671), (-9.4, 8.265, 1.358), (0.09213677, -0.78672975,  0.6103828)])
+xyz, rgba, labels_rgba=load_files('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True)
+labels_rgba=None
+rgb=rgba[:,0:3].copy() / 255.0
+rgba=None
+
+
+mesh=pyvista.PolyData(xyz)
+mesh['colors']=rgb
+
+
+#Smoothing
+#volume = mesh.delaunay_3d(alpha=17) #Takes too long
+
+plotter=pyvista.Plotter(window_size=[1920,2160], point_smoothing=False)
+plotter.add_mesh(mesh,scalars='colors', rgb=True)
+#CARE: pptk positions and PyVista positions don't match exactly!
+#res=plotter.show(cpos=[eye,lookat - eye,up],screenshot='testpose_vista_2.png', window_size=[1918,2029])
+
+res=plotter.show(window_size=[1920,2160])
+print(res)
+quit()
+
+
+#Automatic rendering
+# base_path='data/pointcloud_images/'+scene_name+'/'
+
+# input('Enter to continue...')
+# points=capturing.scene_config[scene_name]['points']
+# point_size=capturing.scene_config[scene_name]['point_size_rgb']
+# poses=capturing.points2poses(points,25)
+# capturing.capture_poses(viewer,base_path+'rgb',base_path+'lbl',base_path+'poses.npy',poses,point_size,2*point_size,8)
 
 
 #capturing.capture_poses(viewer,'t','rgb','lbl',poses[0:3],0.025,0.05,4)
@@ -167,11 +252,12 @@ TODO:
 -render on SLURM-> not possible ✖
 -possible to remove unlabeled near artifacts? -> yes, at least partly by kd-tree ✓ 
 -load remaining training scenes -> Done on SLURM
+-attempt NetVLAD on 200 pics, w/ and w/o label -> loss drops at least ✓
 
--attempt NetVLAD on 200 pics, w/ and w/o label:
 -compare quality full points at dense scene / otherwise:
 -(PyntCloud/VTK testen: meshed rendering besser? on slurm? dynamic point size?)
 -automatically render images&seg-images from all scenes, start w/ best-case stuff, clear floors&holes w/ color-masks
+-build basic SG creating&matching
 
 '''
 
@@ -205,3 +291,18 @@ TODO:
 #     lbl=cv2.imread(n+'_label.png')
 #     i=np.hstack((img,lbl))
 #     cv2.imwrite(n+'.jpg',i)
+
+
+import numpy as np
+import pyvista
+plotter=pyvista.Plotter(off_screen=True, window_size=(1248,1248))
+xyz=np.random.rand(1000,3)*10
+color=np.zeros_like(xyz)
+color[:,0]=1.0
+
+mesh=pyvista.PolyData(xyz)
+mesh['colors']=color
+
+plotter.add_mesh(mesh,scalars='colors', rgb=True)
+plotter.show(screenshot='pyvista_color.png', window_size=[1080,1080])
+

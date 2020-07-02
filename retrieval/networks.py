@@ -21,3 +21,6 @@ def get_encoder_resnet18():
     model=torchvision.models.resnet18(pretrained=True)
     extractor = nn.Sequential(model.conv1,model.bn1,model.relu,model.maxpool,model.layer1,model.layer2,model.layer3,model.layer4)    
     return extractor
+
+def get_encoder_fcn_resnet101():
+    model=torchvision.models.segmentation.fcn_resnet101(pretrained=True)

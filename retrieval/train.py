@@ -15,15 +15,23 @@ from retrieval.netvlad import NetVLAD, EmbedNet
 '''
 TODO:
 -basic Resnet18+NetVLAD -> loss doesn't drop much
+-check feature-alikeness vs. Aachen/DeepLoc (norm w/ norms) -> ✖ can't confirm - possibly distorted by a/p alikeness
+-enforce closest anchor -> ✓ Yes, seems to help. Before the was sometimes barely overlap.
+-check for reasons the loss is not dropping -> Positive pairs to close
+
+-overfit 200 images, evaluate top-k dists, train on more scenes
+-go to 12-16 angles or 1:1 images, take near-enough positives again
 
 -bigger encoder (FCN-Resnet101), too big for my GPU
--check feature-alikeness vs. Aachen/DeepLoc (norm w/ norms)
 -ggf. train segmentation model (check avg p/n feature alikeness before/after)
--check for reasons the loss is not dropping -> ??
+
+
+MODELS:
+resnet18, 200 images: ({1: 1.5981454108206739, 5: 3.4949463674080286, 10: 5.17567078938991}, {1: 0.0, 5: 0.3612831551628262, 10: 0.4162610266006476})
 '''
 
-IMAGE_LIMIT=8 #CARE: not used
-BATCH_SIZE=2
+IMAGE_LIMIT=None
+BATCH_SIZE=8
 LR_GAMMA=0.75
 NUM_CLUSTERS=8
 
@@ -50,12 +58,26 @@ for lr in (5e-1,2.5e-1,1e-1,):
 
     model=EmbedNet(encoder, netvlad_layer).cuda()
 
+    # encoder=encoder.cuda()
+    # a,p,n=next(iter(data_loader))
+    # a_out=encoder(a.cuda())
+    # p_out=encoder(p.cuda())
+    # n_out=encoder(n.cuda())
+    # norm=torch.norm(a_out)
+    # p_diff=torch.norm(a_out-p_out)
+    # n_diff=torch.norm(a_out-n_out)
+    # print(p_diff)
+    # print(n_diff)
+    # print(p_diff/n_diff)
+
+    # quit()
+
     criterion=nn.TripletMarginLoss(margin=1.0)
     optimizer=optim.Adam(model.parameters(), lr=lr)    
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)    
 
     loss_dict[lr]=[]
-    for epoch in range(12):
+    for epoch in range(6):
         epoch_loss_sum=0.0
         for i_batch, batch in enumerate(data_loader):
             a,p,n=batch        
@@ -76,7 +98,7 @@ for lr in (5e-1,2.5e-1,1e-1,):
         
         scheduler.step()
 
-        epoch_loss_sum/=i_batch
+        epoch_loss_sum/= i_batch+1
         print(f'\n epoch {epoch} avg-loss {epoch_loss_sum}',end='')
         loss_dict[lr].append(epoch_loss_sum)
 
@@ -84,7 +106,7 @@ for lr in (5e-1,2.5e-1,1e-1,):
         best_loss=loss_dict[lr][-1]
         best_model=model
 
-print('----')           
+print('\n----')           
 print('Saving best model')
 torch.save(best_model.state_dict(),'last_best_model.pth')
 
