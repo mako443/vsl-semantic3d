@@ -13,8 +13,8 @@ class Semantic3dData(Dataset):
         self.dirpath_main=dirpath_main
         self.transform=transform
 
-        self.positive_thresh=np.array((2.5,np.pi/3)) #CARE: currently using closest positive
-        self.negative_thresh=np.array((10,np.pi/2))
+        self.positive_thresh=np.array((7.5,2*np.pi/12*1.01))
+        self.negative_thresh=np.array((10,np.pi / 2))
 
         self.scene_names=[folder_name for folder_name in os.listdir(dirpath_main) if os.path.isdir(os.path.join(dirpath_main,folder_name))]
         print('Semantic3dData scene names: ',self.scene_names)
@@ -32,14 +32,6 @@ class Semantic3dData(Dataset):
 
         assert len(self.image_paths)==len(self.image_poses)
 
-        # #Read all poses
-        # #TODO: put poses into one array, build_distances() with inf for cross-scene?
-        # self.poses_dict={}
-        # for scene_name in self.scene_names:
-        #     p=os.path.join(dirpath_main,scene_name,'poses.npy')
-        #     assert os.path.isfile(p)
-        #     self.poses_dict[scene_name]=np.fromfile(p).reshape((-1,6)) # [x,y,z,phi,theta,r]
-
         if image_limit and image_limit>0:
             self.image_limit=image_limit
         else:
@@ -55,7 +47,7 @@ class Semantic3dData(Dataset):
         #         anchor_index=anchor_index-count
         #         break
 
-        scene_name=self.image_paths[anchor_index].split('/')[2] #The scene-name for the image at anchor_index
+        scene_name=self.get_scene_name(anchor_index) #The scene-name for the image at anchor_index
 
         # scene_poses=self.poses_dict[scene_name]
         # location_dists=scene_poses[:,0:3]-scene_poses[anchor_index,0:3]
@@ -78,23 +70,26 @@ class Semantic3dData(Dataset):
         indices= (location_dists<self.positive_thresh[0]) & (orientation_dists<self.positive_thresh[1]) & (np.core.defchararray.find(self.image_paths, scene_name)!=-1) #location&ori. dists small enough, same scene
         assert np.sum(indices)>0
         indices=np.argwhere(indices==True).flatten()
-        #positive_index=np.random.choice(indices)
-        min_index=np.argmin(orientation_dists[indices]) #the sub-index of indicies corresponding to the smalles orientation-dist
-        positive_index=indices[min_index]
+        if len(indices)<2: print('Warning: only 1 pos. index choice')
+        positive_index=np.random.choice(indices)
+        
+        #min_index=np.argmin(orientation_dists[indices]) #the sub-index of indicies corresponding to the smalles orientation-dist
+        #positive_index=indices[min_index]
 
         #Find negative index
-        if np.random.choice([True,False]): #Pick an index of the same scene
+        #if np.random.choice([True,False]): #Pick an index of the same scene
+        if True:
             location_dists[anchor_index]=0
             orientation_dists[anchor_index]=0
             indices= (location_dists>=self.negative_thresh[0]) & (orientation_dists>=self.negative_thresh[1]) & (np.core.defchararray.find(self.image_paths, scene_name)!=-1)# loc.&ori. dists big enough, same scene
             assert np.sum(indices)>0
             indices=np.argwhere(indices==True).flatten()
             negative_index=np.random.choice(indices)
-        else: #Pick an index of another scene
-            indices=np.flatnonzero(np.core.defchararray.find(self.image_paths, scene_name)==-1) #
-            negative_index=np.random.choice(indices)
+        # else: #Pick an index of another scene
+        #     indices=np.flatnonzero(np.core.defchararray.find(self.image_paths, scene_name)==-1) #
+        #     negative_index=np.random.choice(indices)
 
-        print(anchor_index, positive_index, negative_index)
+        #print(anchor_index, positive_index, negative_index)
 
         anchor  =  Image.open(self.image_paths[anchor_index]).convert('RGB')
         positive = Image.open(self.image_paths[positive_index]).convert('RGB')
@@ -112,11 +107,15 @@ class Semantic3dData(Dataset):
         if self.image_limit:
             return self.image_limit
         else:
-            return np.sum([len(self.images_dict[scene_name]) for scene_name in self.scene_names])
+            return len(self.image_paths)
+
+    def get_scene_name(self,idx):
+        return self.image_paths[idx].split('/')[2]
+
 
 
 if __name__ == "__main__":
-    dataset=Semantic3dData('data/pointcloud_images')
-    a,p,n=dataset[0]
+    dataset=Semantic3dData('data/pointcloud_images_3_2')
+    a,p,n=dataset[1]
     a.show(); p.show(); n.show()
 

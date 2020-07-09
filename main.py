@@ -104,9 +104,6 @@ def load_files(base_path, max_points=int(20e6), remove_artifacts=True, remove_un
         labels_rgba[mask,3]=0
         print(f'hidden {np.sum(mask)/len(rgba):0.3f} unlabeled (in labels_rgba)')
 
-    xyz=xyz[lbl!=classes_dict['scanning artefacts']]
-    rgba=rgba[lbl!=classes_dict['scanning artefacts']]
-
     return xyz, rgba, labels_rgba
 
 
@@ -143,28 +140,32 @@ def find_unlabeled_artifacts(xyz,lbl):
     neighbour_labels=np.take(lbl, neighbour_indices) # [N,k] array of the labels of the k neighbours each
 
 def resize_window():
-    os.system('wmctrl -r viewer -e 0,100,100,1080,1080')
+    os.system('wmctrl -r viewer -e 0,100,100,1620,1080')
 
 #wmctrl -r viewer -e 0,100,100,1080,1080
 
-scene_name='neugasse_station1_xyz_intensity_rgb'
+#scene_name='untermaederbrunnen_station1_xyz_intensity_rgb'
 
-#viewer=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True)
-#quit()
+# viewer=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True, max_points=int(28e6))
+# resize_window()
+# quit()
 
 #Automatic rendering
-if False:
-    viewer=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True,max_points=int(28e6)) #int(28e6)
-    base_path='data/pointcloud_images/'+scene_name+'/'
-    resize_window()
-    time.sleep(2)
+if True:
+    #for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
+    for scene_name in ('sg27_station2_intensity_rgb',):
+        viewer=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True,max_points=int(28e6)) #int(28e6)
+        base_path='data/pointcloud_images_3_2/'+scene_name+'/'
+        resize_window()
+        time.sleep(2)
 
-    input('Enter to continue...')
-    points=capturing.scene_config[scene_name]['points']
-    point_size=capturing.scene_config[scene_name]['point_size_rgb']
-    poses=capturing.points2poses(points,20)
-    capturing.capture_poses(viewer,base_path+'rgb',base_path+'lbl',base_path+'poses.npy',poses,point_size,2*point_size,num_angles=12)
-    #Use wmctrl for window!
+        #input('Enter to continue...')
+        points=capturing.scene_config[scene_name]['points']
+        point_size=capturing.scene_config[scene_name]['point_size_rgb']
+        poses=capturing.points2poses(points,20)
+        capturing.capture_poses(viewer,base_path+'rgb',base_path+'lbl',base_path+'poses.npy',poses,point_size,2*point_size,num_angles=12)
+        
+        viewer.close()
     quit()
 
 # eye=np.array([-22.36111259,  40.53964615,  28.96756744])

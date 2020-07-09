@@ -28,12 +28,11 @@ scene_config['sg27_station2_intensity_rgb']={
 }
 scene_config['untermaederbrunnen_station1_xyz_intensity_rgb']={
     #Nx3 array
-    'points':np.array([[ -6.0826149 , -10.84108067,  -0.47515669],
-                        [ 11.70654488,   2.82316375,  -0.63986057],
-                        [ -3.53419304,   6.66469336,  -1.23404467],
-                        [ -9.69842243,  16.25053406,  -0.83181179],
-                        [-20.42951202,  14.87146854,  -0.99465424],
-                        [ -3.56727743,   2.67799139,  -1.03917301]]), 
+    'points':np.array([[  2.03187799,  -2.71359539,  -0.16611724],
+                        [  1.21940982,   5.60008621,  -0.61616558],
+                        [-18.17295837,  17.23288536,   0.42189693],
+                        [-14.96191025,   6.38012838,  -0.22417469],
+                        [ -1.3910284 ,   1.32536995,  -0.45402691]]),
     'point_size_rgb':0.025, #labels always double
 }
 scene_config['neugasse_station1_xyz_intensity_rgb']={
@@ -74,34 +73,41 @@ def capture_poses(viewer, path_rgb, path_labels, filepath_poses, poses, point_si
     viewer.set(curr_attribute_id=0)
     viewer.set(point_size=point_size_color)
     for i_pose, pose in enumerate(poses):
-        print(f'\r color pose {i_pose} of {len(poses)}',end='')
+        print(f'\r color pose {i_pose} of {len(poses)}',end='')    
+        if i_pose<19: continue 
         viewer.set(lookat=pose)
         time.sleep(st)
         for i_angle,phi in enumerate(np.linspace(np.pi, -np.pi,num_angles+1)[0:-1]): 
             viewer.set(phi=phi,theta=0.0,r=5.0)
             time.sleep(st)
-            viewer.capture(os.path.join(path_rgb,f'{i_pose:03d}_{i_angle:02d}.png'))
+            target_path=os.path.join(path_rgb,f'{i_pose:03d}_{i_angle:02d}.png')
+            viewer.capture(target_path)
 
             poses_array.append(np.hstack(( pose,phi,0.0,5.0 )))
+    time.sleep(st) #sleep again to finish capturing
 
     #Render label images
     viewer.set(curr_attribute_id=1)
     viewer.set(point_size=point_size_labels)
     for i_pose, pose in enumerate(poses):
         print(f'\r label pose {i_pose} of {len(poses)}',end='')
+        if i_pose<19: continue
         viewer.set(lookat=pose)        
         time.sleep(st)
         for i_angle,phi in enumerate(np.linspace(np.pi, -np.pi,num_angles+1)[0:-1]): 
             viewer.set(phi=phi,theta=0.0,r=5.0)
             time.sleep(st)
-            viewer.capture(os.path.join(path_labels,f'{i_pose:03d}_{i_angle:02d}.png'))
+            target_path=os.path.join(path_labels,f'{i_pose:03d}_{i_angle:02d}.png')
+            viewer.capture(target_path)
+
+    time.sleep(st) #sleep again to finish capturing
 
     viewer.set(show_grid=True, show_info=True, show_axis=True)
     
     print('\n Saving poses...')
     np.array(poses_array).tofile(filepath_poses)
 
-
+#TODO: also visualize with red points, very fine interp. + noise if necessary
 def visualize_poses(viewer,poses,ts=0.2):
     if poses.shape[1]==3:
         #poses=np.hstack(( poses,np.array([[0,0,5],]).repeat(len(poses),axis=0) ))
