@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 
 from retrieval import data_loading, networks
 from retrieval.netvlad import NetVLAD, EmbedNet
+from retrieval.utils import get_split_indices
 
 '''
 TODO:
@@ -19,9 +20,14 @@ TODO:
 -enforce closest anchor -> ✓ Yes, seems to help. Before the was sometimes barely overlap.
 -check for reasons the loss is not dropping -> Positive pairs to close
 -overfit 200 images, evaluate top-k dists, train on more scenes ✓
+-Train&eval 4 scenes 3:2 aspect no split and 3-1 split: ✓ scene-retrieval good, high 
+
+-Redo splitting w/ disjoint trajectories, less locations, random angles
+
+-calc. average location dist, compare: 
 
 -Splitting&near-enough positives: bigger fov, check point-size, enough overlap w/ 12 angles
--Compare training w/ nearest vs. random candidate
+-Compare training w/ nearest vs. random positive-anchor
 
 -bigger encoder (FCN-Resnet101), too big for my GPU
 -ggf. train segmentation model (check avg p/n feature alikeness before/after)
@@ -33,16 +39,19 @@ resnet18, 200 images            : ({1: 1.598, 5: 3.49, 10: 5.17}, {1: 0.0,   5: 
 resnet18, 480i, 50-50 neg. idx  : ({1: 5.681, 5: 8.44, 10: 9.98}, {1: 0.701, 5: 0.955, 10: 1.087}, {1: 0.92, 5: 0.868, 10: 0.80})
 resnet18, 480i, same scene neg. :
 
-resnet18, near-enough, 2x overl.:
-same, every 3rd to test-split   :
+resnet18, 480i, 3:2 , no split  : ({1: 4.805, 5: 7.617, 10: 9.23}, {1: 0.2932, 5: 0.463, 10: 0.609}, {1: 1.0, 5: 0.964, 10: 0.95})
+same, 3-1 split test->train ret.: ({1: 4.55, 5: 5.336, 10: 6.27}, {1: 1.184, 5: 1.171, 10: 1.283}, {1: 1.0, 5: 0.988, 10: 0.976}) -> CARE: Higher ori. error because the nearest ones are "taken"
+same, random                    : ({1: 5.887, 5: 10.17, 10: 12.414}, {1: 0.4817, 5: 1.416, 10: 1.522}, {1: 0.34, 5: 0.288, 10: 0.276}) #CARE: random can be quite volatile
+
 '''
 
 IMAGE_LIMIT=None
 BATCH_SIZE=6
 LR_GAMMA=0.75
 NUM_CLUSTERS=8
+TEST_SPLIT=4
 
-print(f'image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} clusters: {NUM_CLUSTERS}')
+print(f'image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} clusters: {NUM_CLUSTERS} test-split: {TEST_SPLIT}')
 
 transform=transforms.Compose([
     #transforms.Resize((950,1000)),
@@ -50,14 +59,16 @@ transform=transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
-data_set=data_loading.Semantic3dData('data/pointcloud_images_3_2', transform=transform, image_limit=IMAGE_LIMIT)
+train_indices, test_indices=get_split_indices(TEST_SPLIT, 4*240)
+
+data_set=data_loading.Semantic3dData('data/pointcloud_images_3_2', transform=transform, image_limit=IMAGE_LIMIT, split_indices=train_indices)
 data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)
 
 loss_dict={}
 best_loss=np.inf
 best_model=None
 
-for lr in (2.5e-1,5e-2,1e-2):
+for lr in (5e-2,1e-2, 5e-3):
     print('\n\nlr: ',lr)
     encoder=networks.get_encoder_resnet18()
     encoder.requires_grad_(False) #Don't train encoder
@@ -124,4 +135,4 @@ for k in loss_dict.keys():
     line.set_label(k)
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}.png')    
+plt.savefig(f'loss_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_split{TEST_SPLIT}.png')    

@@ -5,7 +5,6 @@ import time
 import sys
 import pyvista
 import open3d
-
 import capturing
 
 # convert_txt('data/xyz_rgb/bildstein_station3_xyz_intensity_rgb.txt',
@@ -107,7 +106,7 @@ def load_files(base_path, max_points=int(20e6), remove_artifacts=True, remove_un
     return xyz, rgba, labels_rgba
 
 
-def view_pptk(base_path, remove_artifacts=False, remove_unlabeled=True,max_points=None):
+def view_pptk(base_path, remove_artifacts=False, remove_unlabeled=True,max_points=None, return_xyz=False):
     if max_points is not None:
         xyz, rgba, labels_rgba=load_files(base_path, remove_artifacts=remove_artifacts, remove_unlabeled=remove_unlabeled, max_points=max_points)
     else:
@@ -118,7 +117,11 @@ def view_pptk(base_path, remove_artifacts=False, remove_unlabeled=True,max_point
 
     #viewer.color_map('hsv')
     viewer.set(point_size=0.025)
-    return viewer
+
+    if return_xyz:
+        return viewer,xyz
+    else:
+        return viewer
 
 #PyVista bad for viewing?
 def view_pyvista(base_path, camera_pose):
@@ -142,168 +145,170 @@ def find_unlabeled_artifacts(xyz,lbl):
 def resize_window():
     os.system('wmctrl -r viewer -e 0,100,100,1620,1080')
 
-#wmctrl -r viewer -e 0,100,100,1080,1080
+if __name__ == "__main__":
+    #wmctrl -r viewer -e 0,100,100,1080,1080
 
-#scene_name='untermaederbrunnen_station1_xyz_intensity_rgb'
+    scene_name='domfountain_station1_xyz_intensity_rgb'
 
-# viewer=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True, max_points=int(28e6))
-# resize_window()
-# quit()
+    viewer=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True, max_points=int(5e6))
+    resize_window()
 
-#Automatic rendering
-if True:
-    #for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
-    for scene_name in ('sg27_station2_intensity_rgb',):
-        viewer=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True,max_points=int(28e6)) #int(28e6)
-        base_path='data/pointcloud_images_3_2/'+scene_name+'/'
-        resize_window()
-        time.sleep(2)
+    # xyz, rgba, labels_rgba=load_files('data/numpy/'+scene_name, remove_artifacts=True, remove_unlabeled=True, max_points=int(5e6))
+    quit()
 
-        #input('Enter to continue...')
-        points=capturing.scene_config[scene_name]['points']
-        point_size=capturing.scene_config[scene_name]['point_size_rgb']
-        poses=capturing.points2poses(points,20)
-        capturing.capture_poses(viewer,base_path+'rgb',base_path+'lbl',base_path+'poses.npy',poses,point_size,2*point_size,num_angles=12)
+    #Automatic rendering
+    if True:
+        #for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
+        for scene_name in ('sg27_station2_intensity_rgb',):
+            viewer, xyz=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True,max_points=int(28e6), return_xyz=True) #int(28e6)
+            base_path='data/pointcloud_images_3_2_depth/'+scene_name+'/'
+            resize_window()
+            time.sleep(2)
+
+            #input('Enter to continue...')
+            points=capturing.scene_config[scene_name]['points']
+            point_size=capturing.scene_config[scene_name]['point_size_rgb']
+            poses=capturing.points2poses(points,3)
+            capturing.capture_poses(viewer,base_path+'rgb',base_path+'lbl',base_path+'poses.npy',poses,point_size,2*point_size,num_angles=3, path_depth=base_path+'depth', xyz=xyz)
+            
+            viewer.close()
+        quit()
+
+    # eye=np.array([-22.36111259,  40.53964615,  28.96756744])
+    # lookat=np.array([-11.29156113,   9.60231495,   5.21776962])
+    # up=np.array([ 0.19734934, -0.55155456,  0.81045717])
+
+
+    #Open3D
+    if False:
+        xyz, rgba, labels_rgba=load_files('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True, max_points=int(15e6))
+        labels_rgba=None
+
+        point_cloud=open3d.geometry.PointCloud()
+        point_cloud.points=open3d.utility.Vector3dVector(xyz)
+        point_cloud.colors=open3d.utility.Vector3dVector(rgba[:,0:3]/255.0)
+
+        #open3d.visualization.draw_geometries([point_cloud])
+        vis = open3d.visualization.Visualizer()
+        vis.create_window(width=2160, height=2160)
         
-        viewer.close()
-    quit()
+        opt = vis.get_render_option()
+        opt.background_color = np.asarray([0, 0, 0])
 
-# eye=np.array([-22.36111259,  40.53964615,  28.96756744])
-# lookat=np.array([-11.29156113,   9.60231495,   5.21776962])
-# up=np.array([ 0.19734934, -0.55155456,  0.81045717])
+        vis.add_geometry(point_cloud)
+        vis.run()
+        vis.capture_screen_image('compare_o3d.jpg')
+        vis.destroy_window()
 
 
-#Open3D
-if False:
-    xyz, rgba, labels_rgba=load_files('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True, max_points=int(15e6))
+        quit()
+
+    # visualizer=open3d.visualization.Visualizer()
+    # visualizer.create_window(width=1080, height=1080)
+    # visualizer.add_geometry(point_cloud)
+    # visualizer.update_geometry(point_cloud)
+    # visualizer.poll_events()
+    # visualizer.update_renderer()
+
+    # controls=visualizer.get_view_control()
+    # #visualizer.capture_screen_image('testpose_open3d.jpg')
+
+    # quit()
+
+    #PyVista rendering
+    #view_pyvista('data/numpy/'+scene_name, [(-11.70296001,  27.92738342,  27.04918671), (-9.4, 8.265, 1.358), (0.09213677, -0.78672975,  0.6103828)])
+    xyz, rgba, labels_rgba=load_files('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True)
     labels_rgba=None
-
-    point_cloud=open3d.geometry.PointCloud()
-    point_cloud.points=open3d.utility.Vector3dVector(xyz)
-    point_cloud.colors=open3d.utility.Vector3dVector(rgba[:,0:3]/255.0)
-
-    #open3d.visualization.draw_geometries([point_cloud])
-    vis = open3d.visualization.Visualizer()
-    vis.create_window(width=2160, height=2160)
-    
-    opt = vis.get_render_option()
-    opt.background_color = np.asarray([0, 0, 0])
-
-    vis.add_geometry(point_cloud)
-    vis.run()
-    vis.capture_screen_image('compare_o3d.jpg')
-    vis.destroy_window()
+    rgb=rgba[:,0:3].copy() / 255.0
+    rgba=None
 
 
+    mesh=pyvista.PolyData(xyz)
+    mesh['colors']=rgb
+
+
+    #Smoothing
+    #volume = mesh.delaunay_3d(alpha=17) #Takes too long
+
+    plotter=pyvista.Plotter(window_size=[1920,2160], point_smoothing=False)
+    plotter.add_mesh(mesh,scalars='colors', rgb=True)
+    #CARE: pptk positions and PyVista positions don't match exactly!
+    #res=plotter.show(cpos=[eye,lookat - eye,up],screenshot='testpose_vista_2.png', window_size=[1918,2029])
+
+    res=plotter.show(window_size=[1920,2160])
+    print(res)
     quit()
 
-# visualizer=open3d.visualization.Visualizer()
-# visualizer.create_window(width=1080, height=1080)
-# visualizer.add_geometry(point_cloud)
-# visualizer.update_geometry(point_cloud)
-# visualizer.poll_events()
-# visualizer.update_renderer()
 
-# controls=visualizer.get_view_control()
-# #visualizer.capture_screen_image('testpose_open3d.jpg')
+    #Automatic rendering
+    # base_path='data/pointcloud_images/'+scene_name+'/'
 
-# quit()
-
-#PyVista rendering
-#view_pyvista('data/numpy/'+scene_name, [(-11.70296001,  27.92738342,  27.04918671), (-9.4, 8.265, 1.358), (0.09213677, -0.78672975,  0.6103828)])
-xyz, rgba, labels_rgba=load_files('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True)
-labels_rgba=None
-rgb=rgba[:,0:3].copy() / 255.0
-rgba=None
+    # input('Enter to continue...')
+    # points=capturing.scene_config[scene_name]['points']
+    # point_size=capturing.scene_config[scene_name]['point_size_rgb']
+    # poses=capturing.points2poses(points,25)
+    # capturing.capture_poses(viewer,base_path+'rgb',base_path+'lbl',base_path+'poses.npy',poses,point_size,2*point_size,8)
 
 
-mesh=pyvista.PolyData(xyz)
-mesh['colors']=rgb
+    #capturing.capture_poses(viewer,'t','rgb','lbl',poses[0:3],0.025,0.05,4)
 
+    '''
+    TODO:
+    -what's up with the 2 colors mixed? -> many unlabeled points
+    -show L&Q -> done, Q approves
+    -render on SLURM-> not possible ✖
+    -possible to remove unlabeled near artifacts? -> yes, at least partly by kd-tree ✓ 
+    -load remaining training scenes -> Done on SLURM
+    -attempt NetVLAD on 200 pics, w/ and w/o label -> loss drops at least ✓
 
-#Smoothing
-#volume = mesh.delaunay_3d(alpha=17) #Takes too long
+    -compare quality full points at dense scene / otherwise:
+    -(PyntCloud/VTK testen: meshed rendering besser? on slurm? dynamic point size?)
+    -automatically render images&seg-images from all scenes, start w/ best-case stuff, clear floors&holes w/ color-masks
+    -build basic SG creating&matching
 
-plotter=pyvista.Plotter(window_size=[1920,2160], point_smoothing=False)
-plotter.add_mesh(mesh,scalars='colors', rgb=True)
-#CARE: pptk positions and PyVista positions don't match exactly!
-#res=plotter.show(cpos=[eye,lookat - eye,up],screenshot='testpose_vista_2.png', window_size=[1918,2029])
+    '''
 
-res=plotter.show(window_size=[1920,2160])
-print(res)
-quit()
+    # base_name=sys.argv[1]
+    # print('converting',base_name)
+    # convert_txt(f'data/raw/{base_name}.txt',f'data/labels/{base_name}.labels',f'data/numpy/{base_name}.xyz.npy', f'data/numpy/{base_name}.rgb.npy', f'data/numpy/{base_name}.labels.npy')
+    # print('done!\n\n')
 
+    # print('loading pc...')
+    # xyz=np.load(open('xyz_full.npy','rb'))
+    # rgb=np.load(open('rgb_full.npy','rb'))
+    # lbl=np.load(open('lbl_full.npy','rb'))
 
-#Automatic rendering
-# base_path='data/pointcloud_images/'+scene_name+'/'
-
-# input('Enter to continue...')
-# points=capturing.scene_config[scene_name]['points']
-# point_size=capturing.scene_config[scene_name]['point_size_rgb']
-# poses=capturing.points2poses(points,25)
-# capturing.capture_poses(viewer,base_path+'rgb',base_path+'lbl',base_path+'poses.npy',poses,point_size,2*point_size,8)
-
-
-#capturing.capture_poses(viewer,'t','rgb','lbl',poses[0:3],0.025,0.05,4)
-
-'''
-TODO:
--what's up with the 2 colors mixed? -> many unlabeled points
--show L&Q -> done, Q approves
--render on SLURM-> not possible ✖
--possible to remove unlabeled near artifacts? -> yes, at least partly by kd-tree ✓ 
--load remaining training scenes -> Done on SLURM
--attempt NetVLAD on 200 pics, w/ and w/o label -> loss drops at least ✓
-
--compare quality full points at dense scene / otherwise:
--(PyntCloud/VTK testen: meshed rendering besser? on slurm? dynamic point size?)
--automatically render images&seg-images from all scenes, start w/ best-case stuff, clear floors&holes w/ color-masks
--build basic SG creating&matching
-
-'''
-
-# base_name=sys.argv[1]
-# print('converting',base_name)
-# convert_txt(f'data/raw/{base_name}.txt',f'data/labels/{base_name}.labels',f'data/numpy/{base_name}.xyz.npy', f'data/numpy/{base_name}.rgb.npy', f'data/numpy/{base_name}.labels.npy')
-# print('done!\n\n')
-
-# print('loading pc...')
-# xyz=np.load(open('xyz_full.npy','rb'))
-# rgb=np.load(open('rgb_full.npy','rb'))
-# lbl=np.load(open('lbl_full.npy','rb'))
-
-# viewer=pptk.viewer(xyz,lbl)
-# viewer.attributes(rgb.astype(np.float32)/255.0)
+    # viewer=pptk.viewer(xyz,lbl)
+    # viewer.attributes(rgb.astype(np.float32)/255.0)
 
 
 
-# Sem3d
-# -per image render from multiple locations with a full circle each
-# -retrieval based on SG&NetVLAD, localization based on NetVLAD
-# -possibly guide NetVLAD training w/ high-level semantics
+    # Sem3d
+    # -per image render from multiple locations with a full circle each
+    # -retrieval based on SG&NetVLAD, localization based on NetVLAD
+    # -possibly guide NetVLAD training w/ high-level semantics
 
-# -NetVLAD failures (vis. distinct objects ranked as similar)
+    # -NetVLAD failures (vis. distinct objects ranked as similar)
 
-# Aachen
-# -check NetVLAD pairs (in dataset or Torstens github, Quinjie link)
+    # Aachen
+    # -check NetVLAD pairs (in dataset or Torstens github, Quinjie link)
 
-# for n in ('tc0_01', 'tc1_00', 'tc2_03'):
-#     img=cv2.imread(n+'_color.png')
-#     lbl=cv2.imread(n+'_label.png')
-#     i=np.hstack((img,lbl))
-#     cv2.imwrite(n+'.jpg',i)
+    # for n in ('tc0_01', 'tc1_00', 'tc2_03'):
+    #     img=cv2.imread(n+'_color.png')
+    #     lbl=cv2.imread(n+'_label.png')
+    #     i=np.hstack((img,lbl))
+    #     cv2.imwrite(n+'.jpg',i)
 
 
-import numpy as np
-import pyvista
-plotter=pyvista.Plotter(off_screen=True, window_size=(1248,1248))
-xyz=np.random.rand(1000,3)*10
-color=np.zeros_like(xyz)
-color[:,0]=1.0
+    import numpy as np
+    import pyvista
+    plotter=pyvista.Plotter(off_screen=True, window_size=(1248,1248))
+    xyz=np.random.rand(1000,3)*10
+    color=np.zeros_like(xyz)
+    color[:,0]=1.0
 
-mesh=pyvista.PolyData(xyz)
-mesh['colors']=color
+    mesh=pyvista.PolyData(xyz)
+    mesh['colors']=color
 
-plotter.add_mesh(mesh,scalars='colors', rgb=True)
-plotter.show(screenshot='pyvista_color.png', window_size=[1080,1080])
-
+    plotter.add_mesh(mesh,scalars='colors', rgb=True)
+    plotter.show(screenshot='pyvista_color.png', window_size=[1080,1080])

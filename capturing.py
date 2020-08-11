@@ -55,11 +55,25 @@ def points2poses(points, num_poses):
         poses[:,i]=np.interp(np.linspace(0,len(points)-1,num_poses), np.arange(len(points)), points[:,i])
     return poses
 
+#TODO: improve from euclidean distance to view-dir. distance (inner product w/ max-length view-vector?)
+#CARE: set viewer.color_map([[0,0,0],[0,0,1]], scale=[0,1]), returning relative distances!
+def compute_depth_attribute(xyz, eye):
+    depth=xyz-eye.astype(np.float32) #Keep all as float32 to reduce memory
+    assert len(depth.shape)==2
+    depth=np.linalg.norm(depth,axis=1)
+    depth=depth/np.max(depth)
+    return depth
+
 #INPUT: lookat-poses
 #OUTPUT: lookat-poses, theta-angles
-def capture_poses(viewer, path_rgb, path_labels, filepath_poses, poses, point_size_color, point_size_labels, num_angles=12):
+def capture_poses(viewer, path_rgb, path_labels, filepath_poses, poses, point_size_color, point_size_labels,path_depth=None, xyz=None, num_angles=12):
     assert viewer.get('num_attributes')[0]==2
     assert os.path.exists(path_rgb) and os.path.exists(path_labels)
+
+    if path_depth is None or xyz is None:
+        print('capture_poses(): not rendering depth')
+    else:
+        assert os.path.isdir(path_depth)
 
     viewer.set(show_grid=False, show_info=False, show_axis=False)
     viewer.set(bg_color=(0,0,0,1))
@@ -74,7 +88,6 @@ def capture_poses(viewer, path_rgb, path_labels, filepath_poses, poses, point_si
     viewer.set(point_size=point_size_color)
     for i_pose, pose in enumerate(poses):
         print(f'\r color pose {i_pose} of {len(poses)}',end='')    
-        if i_pose<19: continue 
         viewer.set(lookat=pose)
         time.sleep(st)
         for i_angle,phi in enumerate(np.linspace(np.pi, -np.pi,num_angles+1)[0:-1]): 
@@ -91,7 +104,6 @@ def capture_poses(viewer, path_rgb, path_labels, filepath_poses, poses, point_si
     viewer.set(point_size=point_size_labels)
     for i_pose, pose in enumerate(poses):
         print(f'\r label pose {i_pose} of {len(poses)}',end='')
-        if i_pose<19: continue
         viewer.set(lookat=pose)        
         time.sleep(st)
         for i_angle,phi in enumerate(np.linspace(np.pi, -np.pi,num_angles+1)[0:-1]): 
@@ -99,6 +111,22 @@ def capture_poses(viewer, path_rgb, path_labels, filepath_poses, poses, point_si
             time.sleep(st)
             target_path=os.path.join(path_labels,f'{i_pose:03d}_{i_angle:02d}.png')
             viewer.capture(target_path)
+
+    #Render depth images
+    if path_depth is not None and xyz is not None:
+        viewer.color_map([[0,0,0],[0,0,1]], scale=[0,1])
+        for i_pose, pose in enumerate(poses):
+            print(f'\r depth pose {i_pose} of {len(poses)}',end='')  
+            viewer.set(lookat=pose)
+            time.sleep(st)
+            for i_angle,phi in enumerate(np.linspace(np.pi, -np.pi,num_angles+1)[0:-1]): 
+                viewer.set(phi=phi,theta=0.0,r=5.0)   
+                depth=compute_depth_attribute(xyz, viewer.get('eye'))
+                viewer.attributes(depth + 0.01) #Add 0.01 depth to distinguish to black
+                time.sleep(st)
+                target_path=os.path.join(path_depth,f'{i_pose:03d}_{i_angle:02d}.png')
+                viewer.capture(target_path)
+
 
     time.sleep(st) #sleep again to finish capturing
 

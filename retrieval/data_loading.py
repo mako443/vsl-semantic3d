@@ -7,7 +7,7 @@ import os
 
 #TODO: how to handle "distance" between scenes?
 class Semantic3dData(Dataset):
-    def __init__(self, dirpath_main, transform=None, image_limit=None):
+    def __init__(self, dirpath_main, transform=None, image_limit=None, split_indices=None):
         assert os.path.isdir(dirpath_main)
 
         self.dirpath_main=dirpath_main
@@ -30,7 +30,17 @@ class Semantic3dData(Dataset):
             assert os.path.isfile(poses_path)
             self.image_poses=np.vstack((self.image_poses,np.fromfile(poses_path).reshape((-1,6))))# [x,y,z,phi,theta,r]
 
+        self.image_paths, self.image_poses=np.array(self.image_paths), np.array(self.image_poses)
         assert len(self.image_paths)==len(self.image_poses)
+
+        if split_indices is None:
+            print('No splitting...')
+        else:
+            print(f'Splitting, using {np.sum(split_indices)} of {len(self.image_paths)} indices')
+            assert len(split_indices)==len(self.image_paths)
+            self.image_paths=self.image_paths[split_indices]
+            self.image_poses=self.image_poses[split_indices]
+            assert len(self.image_paths)==len(self.image_poses)
 
         if image_limit and image_limit>0:
             self.image_limit=image_limit
@@ -105,7 +115,7 @@ class Semantic3dData(Dataset):
 
     def __len__(self):
         if self.image_limit:
-            return self.image_limit
+            return min(self.image_limit, len(self.image_paths))
         else:
             return len(self.image_paths)
 
@@ -115,7 +125,12 @@ class Semantic3dData(Dataset):
 
 
 if __name__ == "__main__":
-    dataset=Semantic3dData('data/pointcloud_images_3_2')
-    a,p,n=dataset[1]
-    a.show(); p.show(); n.show()
+    test_indices=np.zeros(4*240,dtype=np.bool)
+    test_indices[::4]=True
+    train_indices=np.invert(test_indices)
+
+    dataset_train=Semantic3dData('data/pointcloud_images_3_2', split_indices=train_indices)
+    dataset_test =Semantic3dData('data/pointcloud_images_3_2', split_indices=test_indices)
+    #a,p,n=dataset[1]
+    #a.show(); p.show(); n.show()
 
