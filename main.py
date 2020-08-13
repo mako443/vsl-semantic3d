@@ -6,15 +6,18 @@ import sys
 import pyvista
 import open3d
 import capturing
+import cv2
+from semantic.clustering import ClusteredObject
+from graphics.rendering import Pose, CLASSES_DICT, CLASSES_COLORS
+import semantic.geometry
+import semantic.utils
+import pickle
 
 # convert_txt('data/xyz_rgb/bildstein_station3_xyz_intensity_rgb.txt',
 #             'data/labels/bildstein_station3_xyz_intensity_rgb.labels',
 #             'data/numpy/bildstein_station3_xyz_intensity_rgb.xyz.npy',
 #             'data/numpy/bildstein_station3_xyz_intensity_rgb.rgb.npy',
 #             'data/numpy/bildstein_station3_xyz_intensity_rgb.labels.npy')
-
-classes_dict={'unlabeled': 0, 'man-made terrain': 1, 'natural terrain': 2, 'high vegetation': 3, 'low vegetation': 4, 'buildings': 5, 'hard scape': 6, 'scanning artefacts': 7, 'cars': 8}
-classes_colors={'unlabeled': (255,255,255), 'man-made terrain': (60,30,30), 'natural terrain': (30,60,30), 'high vegetation': (120,255,120), 'low vegetation': (80,255,80), 'buildings': (255,255,0), 'hard scape': (0,255,255), 'scanning artefacts': (255,0,0), 'cars': (0,0,255)}
 
 def convert_txt(filepath_points, filepath_labels_in, filepath_xyz, filepath_rgb, filepath_labels_out):
     assert os.path.isfile(filepath_points)
@@ -73,32 +76,32 @@ def load_files(base_path, max_points=int(20e6), remove_artifacts=True, remove_un
     k=5
     iterations=2
     if expand_artifacts:
-        print(f"artefacts before: {np.sum(lbl==classes_dict['scanning artefacts'])/len(rgba):0.3f}")
+        print(f"artefacts before: {np.sum(lbl==CLASSES_DICT['scanning artefacts'])/len(rgba):0.3f}")
         kd_tree=pptk.kdtree._build(xyz)
         for i in range(iterations):
             print('query tree...')
-            neighbors=pptk.kdtree._query(kd_tree, lbl==classes_dict['scanning artefacts'], k=5) #Neighbors for every artifact point, kd-query returns absolute indices apparently
+            neighbors=pptk.kdtree._query(kd_tree, lbl==CLASSES_DICT['scanning artefacts'], k=5) #Neighbors for every artifact point, kd-query returns absolute indices apparently
             neighbors=np.array(neighbors).flatten() #All neighbors of artifact points
-            neighbors=neighbors[lbl[neighbors]==classes_dict['unlabeled']] #Neighbors of artefacts that are unknown
-            lbl[neighbors]=classes_dict['scanning artefacts']
+            neighbors=neighbors[lbl[neighbors]==CLASSES_DICT['unlabeled']] #Neighbors of artefacts that are unknown
+            lbl[neighbors]=CLASSES_DICT['scanning artefacts']
             neighbors=None
-        print(f"artefacts after: {np.sum(lbl==classes_dict['scanning artefacts'])/len(rgba):0.3f}")
+        print(f"artefacts after: {np.sum(lbl==CLASSES_DICT['scanning artefacts'])/len(rgba):0.3f}")
 
     labels_rgba=rgba.copy()
-    for k in classes_dict.keys():
-        mask= lbl==classes_dict[k]
-        labels_rgba[mask,0:3]=classes_colors[k]            
+    for k in CLASSES_DICT.keys():
+        mask= lbl==CLASSES_DICT[k]
+        labels_rgba[mask,0:3]=CLASSES_COLORS[k]            
 
     #Hide artifacts in rgba and labels_rgba
     if remove_artifacts:
-        mask= lbl==classes_dict['scanning artefacts']
+        mask= lbl==CLASSES_DICT['scanning artefacts']
         rgba[mask,3]=0
         labels_rgba[mask,3]=0
         print(f'hidden {np.sum(mask)/len(rgba):0.3f} artifacts (in rgba and labels_rgba)')
 
     #Hide unlabeled in labels_rgba
     if remove_unlabeled:
-        mask = lbl==classes_dict['unlabeled']
+        mask = lbl==CLASSES_DICT['unlabeled']
         #rgba[mask,3]=0
         labels_rgba[mask,3]=0
         print(f'hidden {np.sum(mask)/len(rgba):0.3f} unlabeled (in labels_rgba)')
@@ -146,20 +149,37 @@ def resize_window():
     os.system('wmctrl -r viewer -e 0,100,100,1620,1080')
 
 if __name__ == "__main__":
-    #wmctrl -r viewer -e 0,100,100,1080,1080
 
-    scene_name='domfountain_station1_xyz_intensity_rgb'
+    # scene_name='domfountain_station1_xyz_intensity_rgb'
+    # viewer=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True, max_points=int(5e6))
+    # resize_window()
 
-    viewer=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True, max_points=int(5e6))
-    resize_window()
+    # scene_objects=pickle.load( open('data/numpy/'+scene_name+'.objects.pkl','rb'))
 
-    # xyz, rgba, labels_rgba=load_files('data/numpy/'+scene_name, remove_artifacts=True, remove_unlabeled=True, max_points=int(5e6))
-    quit()
+    # #Sanity check: get_camera_matrices, project objects, draw objects
+    
+    # print('press to continue')
+    # _=input()
+    # pose = Pose(scene_name, viewer.get('eye'), viewer.get('right'), viewer.get('up'), viewer.get('view'))
+    # I,E=semantic.geometry.get_camera_matrices(pose)
+
+    # img=semantic.utils.viewer_to_image(viewer)
+    # for obj in scene_objects:
+    #     obj.project(I,E)
+    #     if obj.in_fov():
+    #         obj.draw_on_image(img)
+
+    # cv2.imshow("",img); cv2.waitKey()
+    # cv2.imwrite("im.png",img)
+
+    # quit()
+    
 
     #Automatic rendering
     if True:
         #for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
         for scene_name in ('sg27_station2_intensity_rgb',):
+            print('CAPTURING SCENE',scene_name)
             viewer, xyz=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True,max_points=int(28e6), return_xyz=True) #int(28e6)
             base_path='data/pointcloud_images_3_2_depth/'+scene_name+'/'
             resize_window()
@@ -168,8 +188,17 @@ if __name__ == "__main__":
             #input('Enter to continue...')
             points=capturing.scene_config[scene_name]['points']
             point_size=capturing.scene_config[scene_name]['point_size_rgb']
-            poses=capturing.points2poses(points,3)
-            capturing.capture_poses(viewer,base_path+'rgb',base_path+'lbl',base_path+'poses.npy',poses,point_size,2*point_size,num_angles=3, path_depth=base_path+'depth', xyz=xyz)
+            poses=capturing.points2poses(points,10)
+            #capturing.capture_poses(viewer,base_path+'rgb',base_path+'lbl',base_path+'poses.npy',poses,point_size,2*point_size,num_angles=3, path_depth=base_path+'depth', xyz=xyz)
+            capturing.capture_poses(viewer,out_filepath_poses=base_path+'poses.pkl', 
+                                    poses=poses, 
+                                    point_size_color=point_size, 
+                                    point_size_labels=2*point_size, 
+                                    path_rgb=base_path+'rgb',
+                                    path_labels=base_path+'lbl',
+                                    path_depth=base_path+'depth',
+                                    xyz=xyz,
+                                    num_angles=10)
             
             viewer.close()
         quit()

@@ -1,38 +1,62 @@
 import numpy as np
 import cv2
 import os
-from main import load_files, classes_dict
+#from main import load_files, CLASSES_DICT
 import open3d
 import pptk
-from sklearn.cluster import AgglomerativeClustering
 from sklearn.cluster import DBSCAN
 import pickle
+from .geometry import project_point, IMAGE_WIDHT, IMAGE_HEIGHT
+from graphics.rendering import Pose, CLASSES_DICT, CLASSES_COLORS
 import semantic.utils
 
 class ClusteredObject:
+    #TODO: input as floor_rect, (zmin,zmax), in project -> cv2.boxPoints -> meshgrid -> project
     def __init__(self, label, bbox, num_points):
         self.label=label
         self.bbox=bbox #BBOX as [xmin,ymin,zmin,xmax,ymax,zmax]
         self.num_points=num_points
         self.bbox_projected=None
+        self.image_rect=None
 
     def __str__(self):
         return f'ClusteredObject: {self.label} at {self.bbox}, {self.num_points} points'
 
+    def get_bbox_points(self):
+        return np.array(np.meshgrid([ self.bbox[0],self.bbox[3] ],[ self.bbox[1],self.bbox[4] ],[ self.bbox[2],self.bbox[5] ])).T.reshape((8,3))
+
+    def get_bbox_projected_points(self):
+        return np.array(np.meshgrid([ self.bbox_projected[0],self.bbox_projected[3] ],[ self.bbox_projected[1],self.bbox_projected[4] ],[ self.bbox_projected[2],self.bbox_projected[5] ])).T.reshape((8,3))        
+
     #Naively project all 8 bbox-points -> formulate as new bbox
     #CARE: bbox_image now in image-coordinates!
+    #TODO: project like todo above, set floor-box-points and image-box-points
     def project(self,I,E):
-        bbox_points=np.array(np.meshgrid([ self.bbox[0],self.bbox[3] ],[ self.bbox[1],self.bbox[4] ],[ self.bbox[2],self.bbox[5] ])).T.reshape((8,3))
-        bbox_points= [semantic.utils.project_point(I,E, point) for point in bbox_points]
-        self.bbox_projected=np.concatenate((np.min(bbox_points, axis=0), np.max(bbox_points, axis=0)), axis=None)
+        bbox_points=self.get_bbox_points()
+        bbox_points_projected= np.array([project_point(I,E, point) for point in bbox_points])
+        self.bbox_projected=np.concatenate((np.min(bbox_points_projected, axis=0), np.max(bbox_points_projected, axis=0)), axis=None)
+        self.image_rect=cv2.minAreaRect(bbox_points_projected[:,0:2].astype(np.float32)) #Bug w/o float32
     
-    def draw_rectangle(self, img):
+    #Does not check occlusions!
+    def in_fov(self):
+        if self.bbox_projected is None:
+            print("ClusteredObject::is_visible(): not projected")        
+        else:
+            return self.bbox_projected[2]>0 and (self.bbox_projected[3]>0.1*IMAGE_WIDHT or self.bbox_projected[0]<0.9*IMAGE_WIDHT) and (self.bbox_projected[4]>0.1*IMAGE_HEIGHT or self.bbox_projected[2]<0.9*IMAGE_HEIGHT)
+    
+    def draw_on_image(self, img):
         if self.bbox_projected is None:
             print("ClusteredObject::draw_rectangle(): not projected")
         else:
             b=np.int32(self.bbox_projected)
-            _=cv2.rectangle(img,(b[0], b[1]), (b[3],b[4]), (255,255,255))
-        
+            #_=cv2.rectangle(img,(b[0], b[1]), (b[3],b[4]), (255,255,0),thickness=2)
+            box=np.int0(cv2.boxPoints(self.image_rect))
+            cv2.drawContours(img,[box],0,(255,255,0),thickness=2)
+            _=cv2.putText(img,self.label,(b[0]+5, b[1]+5),cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255,255,0))
+
+    # def get_image_rect(self):
+    #     points=self.get_bbox_projected_points()
+    #     return cv2.minAreaRect(points[:,0:2].astype(np.float32)) #Bug w/o float32
 
 
 #TODO: remove scanning artifacts by clustering -> reject all in BBOX?
@@ -95,7 +119,7 @@ def cluster_scene(scene_name, return_visualization=False):
         options=CLUSTERING_OPTIONS[label]
 
         #Load all points of that label w/o reduction
-        xyz=load_files_for_label('data/numpy/'+scene_name, label=classes_dict[label], max_points=None)
+        xyz=load_files_for_label('data/numpy/'+scene_name, label=CLASSES_DICT[label], max_points=None)
         if xyz is None:
             print(f'No points for label {label} in {scene_name}, skipping')
             continue
@@ -176,7 +200,7 @@ if __name__ == "__main__":
     quit()
 
     scene_name='domfountain_station1_xyz_intensity_rgb'
-    xyz=load_files_for_label('data/numpy/'+scene_name, label=classes_dict['cars'], max_points=None)
+    xyz=load_files_for_label('data/numpy/'+scene_name, label=CLASSES_DICT['cars'], max_points=None)
 
     #Downsample xyz via Voxel-Grid
     pcd=open3d.geometry.PointCloud()
@@ -194,7 +218,7 @@ if __name__ == "__main__":
 
     quit()
 
-    #xyz=load_files_for_label('data/numpy/'+scene_name, label=classes_dict['high vegetation'], max_points=int(50e3))
+    #xyz=load_files_for_label('data/numpy/'+scene_name, label=CLASSES_DICT['high vegetation'], max_points=int(50e3))
 
     #150 min_samples for 30k
     #Cars, 60k with 300 samples

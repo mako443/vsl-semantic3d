@@ -3,15 +3,15 @@ import numpy as np
 import os
 import time
 import semantic.clustering
-from main import classes_colors
+from graphics.rendering import CLASSES_DICT, CLASSES_COLORS
 import cv2
 
-#CARE: Only define here, import everywhere else
-#FOV estimated "by hand"
-FOV_W=64.0
-FOV_H=44.8
-IMAGE_WIDHT=1620
-IMAGE_HEIGHT=1080
+# #CARE: Only define here, import everywhere else
+# #FOV estimated "by hand"
+# FOV_W=64.0
+# FOV_H=44.8
+# IMAGE_WIDHT=1620
+# IMAGE_HEIGHT=1080
 
 def viewer_to_image(viewer):
     viewer.capture('tmp.png')
@@ -33,32 +33,45 @@ def reduce_points(points, max_points):
 def calc_fov(radius, camera_y):
     return 2*np.rad2deg( np.arctan2(radius, camera_y) )
 
+def draw_patches(img, patches):
+    for p in patches:
+        cv2.rectangle(img, (p.bbox[0], p.bbox[1]), (p.bbox[0]+p.bbox[2], p.bbox[1]+p.bbox[3]), (0,0,255), thickness=2)
+
+def draw_relationships(img, relationships):
+    for rel in relationships:
+        for p in (rel.sub_label, rel.obj_label):
+            cv2.rectangle(img, (p.bbox[0], p.bbox[1]), (p.bbox[0]+p.bbox[2], p.bbox[1]+p.bbox[3]), (0,0,255), thickness=1)
+
+        cv2.arrowedLine(img, (rel.sub_label.center[0], rel.sub_label.center[1]), (rel.obj_label.center[0], rel.obj_label.center[1]), (0,0,255), thickness=3)
+        cv2.putText(img,rel.rel_type+" of",(rel.sub_label.center[0], rel.sub_label.center[1]),cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255))
+    
+
 #Assuming a pinhole-model
-def calc_intrinsic_camera_matrix():
-    mat=np.zeros((3,3))
-    mat[0,0]=IMAGE_WIDHT/2.0 / np.tan( np.deg2rad(FOV_W/2.0) ) #f_x
-    mat[1,1]=IMAGE_HEIGHT/2.0 / np.tan( np.deg2rad(FOV_H/2.0) ) #f_y
-    mat[0,1]=0.0 #s
-    mat[0,2]=IMAGE_WIDHT/2.0 #x
-    mat[1,2]=IMAGE_HEIGHT/2.0 #y
-    mat[2,2]=1.0
-    return mat
+# def calc_intrinsic_camera_matrix():
+#     mat=np.zeros((3,3))
+#     mat[0,0]=IMAGE_WIDHT/2.0 / np.tan( np.deg2rad(FOV_W/2.0) ) #f_x
+#     mat[1,1]=IMAGE_HEIGHT/2.0 / np.tan( np.deg2rad(FOV_H/2.0) ) #f_y
+#     mat[0,1]=0.0 #s
+#     mat[0,2]=IMAGE_WIDHT/2.0 #x
+#     mat[1,2]=IMAGE_HEIGHT/2.0 #y
+#     mat[2,2]=1.0
+#     return mat
 
-def calc_extrinsic_camera_matrix(viewer):
-    view,up,right=viewer.get('view'), viewer.get('up'), viewer.get('right')
+# def calc_extrinsic_camera_matrix(viewer):
+#     view,up,right=viewer.get('view'), viewer.get('up'), viewer.get('right')
 
-    R=np.vstack((right, up, view))
-    t=-viewer.get('eye')
-    Rt= np.reshape(R@t,(3,1))
-    mat=np.hstack((R,Rt))
-    return mat
+#     R=np.vstack((right, up, view))
+#     t=-viewer.get('eye')
+#     Rt= np.reshape(R@t,(3,1))
+#     mat=np.hstack((R,Rt))
+#     return mat
 
-def get_camera(viewer):
-    return calc_intrinsic_camera_matrix(), calc_extrinsic_camera_matrix(viewer)
+# def get_camera(viewer):
+#     return calc_intrinsic_camera_matrix(), calc_extrinsic_camera_matrix(viewer)
 
-def project_point(I,E,point):
-    point=I@E@np.hstack((point,1))
-    return np.array(( IMAGE_WIDHT-point[0]/point[2], point[1]/point[2], -point[2] ))
+# def project_point(I,E,point):
+#     point=I@E@np.hstack((point,1))
+#     return np.array(( IMAGE_WIDHT-point[0]/point[2], point[1]/point[2], -point[2] ))
     # point[0:2]/=point[2]
     # point[0]=IMAGE_WIDHT-point[0]
     # point[2]*=-1

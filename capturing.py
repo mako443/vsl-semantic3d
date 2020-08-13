@@ -3,6 +3,7 @@ import os
 import pptk
 import time
 import sys
+import pickle
 
 #play()/record() expect lookat-poses ✖ not possible: glitches
 
@@ -66,66 +67,86 @@ def compute_depth_attribute(xyz, eye):
 
 #INPUT: lookat-poses
 #OUTPUT: lookat-poses, theta-angles
-def capture_poses(viewer, path_rgb, path_labels, filepath_poses, poses, point_size_color, point_size_labels,path_depth=None, xyz=None, num_angles=12):
+def capture_poses(viewer, out_filepath_poses, poses, point_size_color, point_size_labels, path_rgb=None, path_labels=None, path_depth=None, xyz=None, num_angles=12):
     assert viewer.get('num_attributes')[0]==2
-    assert os.path.exists(path_rgb) and os.path.exists(path_labels)
+
+    R_VALUE=0.0
 
     if path_depth is None or xyz is None:
         print('capture_poses(): not rendering depth')
-    else:
-        assert os.path.isdir(path_depth)
 
     viewer.set(show_grid=False, show_info=False, show_axis=False)
     viewer.set(bg_color=(0,0,0,1))
     viewer.set(bg_color_bottom=(0,0,0,1))
     viewer.set(bg_color_top=(0,0,0,1))
 
-    poses_array=[]
-
     st=2.0
-    #Render color images
-    viewer.set(curr_attribute_id=0)
-    viewer.set(point_size=point_size_color)
-    for i_pose, pose in enumerate(poses):
-        print(f'\r color pose {i_pose} of {len(poses)}',end='')    
-        viewer.set(lookat=pose)
-        time.sleep(st)
-        for i_angle,phi in enumerate(np.linspace(np.pi, -np.pi,num_angles+1)[0:-1]): 
-            viewer.set(phi=phi,theta=0.0,r=5.0)
-            time.sleep(st)
-            target_path=os.path.join(path_rgb,f'{i_pose:03d}_{i_angle:02d}.png')
-            viewer.capture(target_path)
+    #CARE: Setting poses_dict redundantly for every type
 
-            poses_array.append(np.hstack(( pose,phi,0.0,5.0 )))
+    #Render color images
+    if path_rgb is not None:
+        print('\nRendering rgb...')
+        assert os.path.isdir(path_rgb)
+        poses_dict={}
+
+        viewer.set(curr_attribute_id=0)
+        viewer.set(point_size=point_size_color)
+        for i_pose, pose in enumerate(poses):
+            print(f'\r color pose {i_pose} of {len(poses)}',end='')    
+            viewer.set(lookat=pose)
+            time.sleep(st)
+            for i_angle,phi in enumerate(np.linspace(np.pi, -np.pi,num_angles+1)[0:-1]): 
+                viewer.set(phi=phi,theta=0.0,r=R_VALUE)
+                time.sleep(st)
+                file_name=f'{i_pose:03d}_{i_angle:02d}.png'
+                target_path=os.path.join(path_rgb,file_name)
+                viewer.capture(target_path)
+                poses_dict[file_name]=np.hstack(( pose,phi,0.0,R_VALUE ))
+
     time.sleep(st) #sleep again to finish capturing
 
     #Render label images
-    viewer.set(curr_attribute_id=1)
-    viewer.set(point_size=point_size_labels)
-    for i_pose, pose in enumerate(poses):
-        print(f'\r label pose {i_pose} of {len(poses)}',end='')
-        viewer.set(lookat=pose)        
-        time.sleep(st)
-        for i_angle,phi in enumerate(np.linspace(np.pi, -np.pi,num_angles+1)[0:-1]): 
-            viewer.set(phi=phi,theta=0.0,r=5.0)
+    if path_labels is not None:
+        print('\nRendering labels...')
+        assert os.path.isdir(path_labels)
+        poses_dict={}
+
+        viewer.set(curr_attribute_id=1)
+        viewer.set(point_size=point_size_labels)
+        for i_pose, pose in enumerate(poses):
+            print(f'\r label pose {i_pose} of {len(poses)}',end='')
+            viewer.set(lookat=pose)        
             time.sleep(st)
-            target_path=os.path.join(path_labels,f'{i_pose:03d}_{i_angle:02d}.png')
-            viewer.capture(target_path)
+            for i_angle,phi in enumerate(np.linspace(np.pi, -np.pi,num_angles+1)[0:-1]): 
+                viewer.set(phi=phi,theta=0.0,r=R_VALUE)
+                time.sleep(st)
+                file_name=f'{i_pose:03d}_{i_angle:02d}.png'
+                target_path=os.path.join(path_labels,file_name)
+                viewer.capture(target_path)
+                poses_dict[file_name]=np.hstack(( pose,phi,0.0,R_VALUE ))
+
+    time.sleep(st) #sleep again to finish capturing
 
     #Render depth images
     if path_depth is not None and xyz is not None:
+        print('\nRendering depth...')
+        assert os.path.isdir(path_depth)
+        poses_dict={}
+
         viewer.color_map([[0,0,0],[0,0,1]], scale=[0,1])
         for i_pose, pose in enumerate(poses):
             print(f'\r depth pose {i_pose} of {len(poses)}',end='')  
             viewer.set(lookat=pose)
             time.sleep(st)
             for i_angle,phi in enumerate(np.linspace(np.pi, -np.pi,num_angles+1)[0:-1]): 
-                viewer.set(phi=phi,theta=0.0,r=5.0)   
+                viewer.set(phi=phi,theta=0.0,r=R_VALUE)   
                 depth=compute_depth_attribute(xyz, viewer.get('eye'))
                 viewer.attributes(depth + 0.01) #Add 0.01 depth to distinguish to black
                 time.sleep(st)
-                target_path=os.path.join(path_depth,f'{i_pose:03d}_{i_angle:02d}.png')
+                file_name=f'{i_pose:03d}_{i_angle:02d}.png'
+                target_path=os.path.join(path_depth,file_name)
                 viewer.capture(target_path)
+                poses_dict[file_name]=np.hstack(( pose,phi,0.0,R_VALUE ))
 
 
     time.sleep(st) #sleep again to finish capturing
@@ -133,7 +154,7 @@ def capture_poses(viewer, path_rgb, path_labels, filepath_poses, poses, point_si
     viewer.set(show_grid=True, show_info=True, show_axis=True)
     
     print('\n Saving poses...')
-    np.array(poses_array).tofile(filepath_poses)
+    pickle.dump( poses_dict, open(out_filepath_poses,'wb') )
 
 #TODO: also visualize with red points, very fine interp. + noise if necessary
 def visualize_poses(viewer,poses,ts=0.2):
