@@ -58,9 +58,12 @@ class Semantic3dDataset(Dataset):
             self.image_patches.extend(scene_patches)
 
             #Load Scene-Graphs
+            scene_scenegraphs_dict=pickle.load( open(os.path.join(scene_path,'scenegraphs.pkl'), 'rb') )
+            scene_scenegraphs= [ scene_scenegraphs_dict[image_name] for image_name in scene_image_names ]
+            self.image_scenegraphs.extend(scene_scenegraphs)
             
 
-        assert len(self.image_paths)==len(self.image_poses)==len(self.image_patches)
+        assert len(self.image_paths)==len(self.image_poses)==len(self.image_patches)==len(self.image_scenegraphs)
 
         if split_indices is None:
             print('No splitting...')

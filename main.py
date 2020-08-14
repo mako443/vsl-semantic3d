@@ -150,9 +150,10 @@ def resize_window():
 
 if __name__ == "__main__":
 
-    # scene_name='domfountain_station1_xyz_intensity_rgb'
-    # viewer=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True, max_points=int(5e6))
+    # scene_name='sg27_station2_intensity_rgb'
+    # viewer=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=False, max_points=int(5e6))
     # resize_window()
+    # quit()
 
     # scene_objects=pickle.load( open('data/numpy/'+scene_name+'.objects.pkl','rb'))
 
@@ -180,7 +181,7 @@ if __name__ == "__main__":
         #for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
         for scene_name in ('sg27_station2_intensity_rgb',):
             print('CAPTURING SCENE',scene_name)
-            viewer, xyz=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True,max_points=int(28e6), return_xyz=True) #int(28e6)
+            viewer, xyz=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=False,max_points=int(28e6), return_xyz=True) #int(28e6)
             base_path='data/pointcloud_images_3_2_depth/'+scene_name+'/'
             resize_window()
             time.sleep(2)
@@ -290,10 +291,8 @@ if __name__ == "__main__":
     -load remaining training scenes -> Done on SLURM
     -attempt NetVLAD on 200 pics, w/ and w/o label -> loss drops at least ✓
 
-    -compare quality full points at dense scene / otherwise:
-    -(PyntCloud/VTK testen: meshed rendering besser? on slurm? dynamic point size?)
-    -automatically render images&seg-images from all scenes, start w/ best-case stuff, clear floors&holes w/ color-masks
-    -build basic SG creating&matching
+    -compare quality full points at dense scene
+    -SG (via both): Show unknowns? Possible to remove in RGB via NN?
 
     '''
 

@@ -1,15 +1,15 @@
 import numpy as np
 import cv2
 import os
+import random
+import pickle
 from graphics.rendering import CLASSES_DICT, CLASSES_COLORS
-#import open3d
-#import pptk
-#from sklearn.cluster import SpectralClustering
 from .clustering import ClusteredObject
 from .geometry import get_camera_matrices
 from semantic.geometry import IMAGE_WIDHT,IMAGE_HEIGHT
 from graphics.rendering import Pose
-import random
+from .patches import Patch
+from .utils import draw_relationships
 
 #Point-cloud clustering and hidden points: http://www.open3d.org/docs/release/tutorial/Basic/pointcloud.html -> Doesn't seem to work ✖
 #Simple depth-map: compute distance from eye for all points, color them accordingly (scaled to max)
@@ -21,12 +21,13 @@ TODO
 New strategy: search for small/big enough 2D blobs (dep. on class), describe 3D-relations using depth (small-small, small-big)
 check for congruent depth (small only)?
 Boden nur erwähnen (left, right, mid, across)
-
 Fit rotated rects for in-front-of / behind?
+
+Make scoring-logic same for both styles of creation? Otherwise split this file?
 '''
 
 RELATIONSHIP_TYPES=('left','right','below','above','infront','behind')
-DEPTH_DIST_FACTOR=IMAGE_WIDHT/255.0
+DEPTH_DIST_FACTOR=IMAGE_WIDHT/255.0*2
 
 class Relationship:
     def __init__(self, sub,rel_type,obj):
@@ -59,7 +60,7 @@ Logic via patches
 def get_patches_relationship(sub, obj):
     center_diff=obj.center-sub.center #sub -> obj vector
     depth_diff=obj.depth-sub.depth
-    if np.abs(depth_diff)*DEPTH_DIST_FACTOR*2>np.linalg.norm(center_diff):
+    if np.abs(depth_diff)*DEPTH_DIST_FACTOR>np.linalg.norm(center_diff):
         return 'infront' if depth_diff>0 else 'behind'
     else:
         dleft= obj.bbox[0]-(sub.bbox[0]+sub.bbox[2])
@@ -68,7 +69,18 @@ def get_patches_relationship(sub, obj):
         dabove= obj.bbox[1]-(sub.bbox[1]+sub.bbox[3])
         return RELATIONSHIP_TYPES[np.argmax((dleft,dright,dbelow,dabove))]
 
-#OPTION: relate any 2 patches / different classes / closest | Currently: closest of different class
+#Calculate in a way that can be 'reversed' for scoring
+def get_patches_relationship2(sub, obj):
+    dleft= obj.bbox[0]-(sub.bbox[0]+sub.bbox[2])
+    dright= sub.bbox[0]-(obj.bbox[0]+obj.bbox[2])
+    dbelow= sub.bbox[1]-(obj.bbox[1]+obj.bbox[3])
+    dabove= obj.bbox[1]-(sub.bbox[1]+sub.bbox[3])
+    dinfront= (obj.depth-sub.depth)*DEPTH_DIST_FACTOR
+    dbehind= (sub.depth-obj.depth)*DEPTH_DIST_FACTOR
+    distances = (dleft,dright,dbelow,dabove,dinfront,dbehind)
+    return RELATIONSHIP_TYPES[np.argmax(distances)]
+
+#OPTION: relate any 2 patches / different classes / closest | Currently: closest in image-plane of different class
 #TODO: pull subjects evenly from classes
 def scenegraph_for_view_from_patches(view_patches, max_rels=6, return_as_references=False):
     view_patches=view_patches.copy()
@@ -82,7 +94,8 @@ def scenegraph_for_view_from_patches(view_patches, max_rels=6, return_as_referen
             continue
 
         obj=obj_candidates[ np.argmin(obj_distances) ]
-        rel_type=get_patches_relationship(sub,obj)
+        #rel_type=get_patches_relationship(sub,obj)
+        rel_type=get_patches_relationship2(sub,obj)
 
         if return_as_references:
             relationships.append(Relationship2(sub, rel_type, obj))       
@@ -91,8 +104,41 @@ def scenegraph_for_view_from_patches(view_patches, max_rels=6, return_as_referen
 
     return relationships
 
+#Calculate the 'inverse' of get_patches_relationship2
+#CARE: hope this doesn't cause problems...
+def score_triplet(sub,rel_type,obj):
+    #CARE: Make sure these match!
+    dleft= obj.bbox[0]-(sub.bbox[0]+sub.bbox[2])
+    dright= sub.bbox[0]-(obj.bbox[0]+obj.bbox[2])
+    dbelow= sub.bbox[1]-(obj.bbox[1]+obj.bbox[3])
+    dabove= obj.bbox[1]-(sub.bbox[1]+sub.bbox[3])
+    dinfront= (obj.depth-sub.depth)*DEPTH_DIST_FACTOR
+    dbehind= (sub.depth-obj.depth)*DEPTH_DIST_FACTOR
+    distances = (dleft,dright,dbelow,dabove,dinfront,dbehind)
+    score= distances[RELATIONSHIP_TYPES.index(rel_type)] / np.max(distances)
+    return np.clip(score,0,1)
+
 #Returns the score and the relationships with object-references instead of label-texts
-def ground_scenegraph_to_patches(relationships, patches):
+def ground_scenegraph_to_patches(relations, patches):
+    MIN_SCORE=0.1 #OPTION: hardest penalty for relationship not found
+    best_groundings=[None for i in range(len(relations))]
+    best_scores=[MIN_SCORE for i in range(len(relations))] 
+
+    for i_relation,relation in enumerate(relations): #Walk through relations
+        subject_label, rel_type, object_label = relation.sub_label, relation.rel_type, relation.obj_label
+        #Walk through all possible groundings
+        for subj in [obj for obj in patches if obj.label==subject_label]: 
+            for obj in [obj for obj in patches if obj.label==object_label]:
+                if subj==obj: continue
+                score=score_triplet(subj,rel_type,obj)
+                if score>best_scores[i_relation]:
+                    best_groundings[i_relation]= Relationship2(subj, rel_type, obj) #(subj,rel_type,obj)
+                    best_scores[i_relation]=score
+
+    return np.prod(best_scores), best_groundings    
+
+#Can't assume completeness
+def score_scenegraph_pair(relations0, relations1):
     pass
     
 
@@ -153,5 +199,39 @@ def annotate_view(pose, scene_objects):
         closest_object=None #OPTION: closest or any visible?
 
 
+'''
+Data Scene-Graph creation
+'''
+#scene_relationships as { file_name: [rels] }
+def create_scenegraphs(base_path, scene_name):
+    print('Scenegraphs for scene',scene_name)
+    scene_patches=pickle.load(open(os.path.join(base_path, scene_name,'patches.pkl'), 'rb'))
+    scene_relationships={}
+
+    for file_name in scene_patches.keys():
+        print(file_name)
+        view_relationships=scenegraph_for_view_from_patches(scene_patches[file_name], return_as_references=False)
+        scene_relationships[file_name]=view_relationships
+        
+        # #Debugging
+        # view_relationships_reference=scenegraph_for_view_from_patches(scene_patches[file_name], return_as_references=True)
+        # image_rgb=cv2.imread(os.path.join(base_path, scene_name,'lbl', file_name))
+        # draw_relationships(image_rgb, view_relationships_reference)
+        # cv2.imshow("",image_rgb)
+        # #cv2.imwrite(file_name,image_rgb)
+        # #print(file_name,text_from_scenegraph(rels[0:3]))
+        # cv2.waitKey()
+
+        #break
+    return scene_relationships        
+
+
 if __name__ == "__main__":
-    pass
+    base_path='data/pointcloud_images_3_2_depth'
+    scene_name='sg27_station2_intensity_rgb'
+
+    '''
+    Scene-Graph creation
+    '''
+    scene_relationships=create_scenegraphs(base_path, scene_name)   
+    pickle.dump( scene_relationships, open(os.path.join(base_path, scene_name,'scenegraphs.pkl'), 'wb'))

@@ -5,15 +5,13 @@ import cv2
 import os
 from semantic.geometry import FOV_W,FOV_H,IMAGE_WIDHT,IMAGE_HEIGHT
 from graphics.rendering import CLASSES_DICT, CLASSES_COLORS
-from semantic.utils import draw_patches, draw_relationships
-from semantic.scene_graph import scenegraph_for_view_from_patches, text_from_scenegraph
+from semantic.utils import draw_patches
 
 '''
 TODO
 -Finish all pipeline w/ axis-aligned BBoxes, use min/max distance, evaluate
 OR
 -Finish pipeline via depth -> evaluate
-
 '''
 
 class Patch:
@@ -28,7 +26,7 @@ def extract_patches(image_labels,image_depth):
     patches=[]
 
     #for class_label in ('high vegetation',):
-    for class_label in CLASSES_DICT.keys():
+    for class_label in ('man-made terrain','natural terrain','high vegetation','low vegetation','buildings','hard scape','cars'): #Disregard unknowns and artifacts
         #Extract the mask for the current label
         mask= image_labels == (CLASSES_COLORS[class_label][2],CLASSES_COLORS[class_label][1],CLASSES_COLORS[class_label][0]) #CARE: RGB<->BGR
         mask= np.all(mask,axis=2)   
@@ -64,27 +62,6 @@ def gather_patches(base_path,scene_name):
         
     return scene_patches
 
-#scene_relationships as { file_name: [rels] }
-def create_scenegraphs(base_path, scene_name):
-    scene_patches=pickle.load(open(os.path.join(base_path, scene_name,'patches.pkl'), 'rb'))
-    scene_relationships={}
-
-    for file_name in scene_patches.keys():
-        view_relationships=scenegraph_for_view_from_patches(scene_patches[file_name], return_as_references=True)
-        rels=scenegraph_for_view_from_patches(scene_patches[file_name], return_as_references=False)
-        
-        #Debugging
-        image_rgb=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
-        draw_relationships(image_rgb, view_relationships)
-        cv2.imshow("",image_rgb)
-        cv2.imwrite(file_name,image_rgb)
-        print(file_name,text_from_scenegraph(rels[0:3]))
-        cv2.waitKey()
-
-        scene_relationships[file_name]=view_relationships
-    return scene_relationships
-
-
 if __name__ == "__main__":
     base_path='data/pointcloud_images_3_2_depth'
     scene_name='sg27_station2_intensity_rgb'
@@ -92,13 +69,9 @@ if __name__ == "__main__":
     '''
     Patches extraction
     '''
-    # scene_patches=gather_patches(base_path,scene_name)
-    # pickle.dump( scene_patches, open(os.path.join(base_path, scene_name,'patches.pkl'), 'wb'))
+    scene_patches=gather_patches(base_path,scene_name)
+    pickle.dump( scene_patches, open(os.path.join(base_path, scene_name,'patches.pkl'), 'wb'))
 
-    '''
-    Scene-Graph creation
-    '''
-    scene_relationships=create_scenegraphs(base_path, scene_name)
 
 
 
