@@ -7,8 +7,8 @@ import pyvista
 import open3d
 import capturing
 import cv2
-from semantic.clustering import ClusteredObject
-from graphics.rendering import Pose, CLASSES_DICT, CLASSES_COLORS
+from semantic.clustering import ClusteredObject, ClusteredObject2
+from graphics.rendering import Pose, CLASSES_DICT, CLASSES_COLORS, load_files2
 import semantic.geometry
 import semantic.utils
 import pickle
@@ -51,6 +51,7 @@ def convert_txt(filepath_points, filepath_labels_in, filepath_xyz, filepath_rgb,
     point_cloud=None
 
 #Limit to 20M points
+#Point treatment: Unknown points should be displayed in RGB-rendering for maximum texture-quality, but hidden in Label-rendering for clear label patches, artifacts should be expanded&hidden everywhere
 def load_files(base_path, max_points=int(20e6), remove_artifacts=True, remove_unlabeled=True, expand_artifacts=True):
     p_xyz=base_path+'.xyz.npy'
     p_rgb=base_path+'.rgb.npy'
@@ -107,7 +108,7 @@ def load_files(base_path, max_points=int(20e6), remove_artifacts=True, remove_un
         print(f'hidden {np.sum(mask)/len(rgba):0.3f} unlabeled (in labels_rgba)')
 
     return xyz, rgba, labels_rgba
-
+    
 
 def view_pptk(base_path, remove_artifacts=False, remove_unlabeled=True,max_points=None, return_xyz=False):
     if max_points is not None:
@@ -150,30 +151,37 @@ def resize_window():
 
 if __name__ == "__main__":
 
-    # scene_name='sg27_station2_intensity_rgb'
+    scene_name='domfountain_station1_xyz_intensity_rgb'
+
+    # # xyz, rgb, lbl=load_files2('data/numpy/', scene_name)
+    # # print(xyz.shape, rgb.shape, lbl.shape)
+    # # quit()
     # viewer=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=False, max_points=int(5e6))
     # resize_window()
     # quit()
 
-    # scene_objects=pickle.load( open('data/numpy/'+scene_name+'.objects.pkl','rb'))
 
-    # #Sanity check: get_camera_matrices, project objects, draw objects
+    # Sanity check: get_camera_matrices, project objects, draw objects
+    scene_objects=pickle.load( open('data/numpy/'+scene_name+'.objects.pkl','rb'))
+    viewer=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=False, max_points=int(5e6))
+    resize_window()
     
-    # print('press to continue')
-    # _=input()
-    # pose = Pose(scene_name, viewer.get('eye'), viewer.get('right'), viewer.get('up'), viewer.get('view'))
-    # I,E=semantic.geometry.get_camera_matrices(pose)
+    print('press to continue')
+    _=input()
+    pose = Pose(scene_name, viewer.get('eye'), viewer.get('right'), viewer.get('up'), viewer.get('view'))
+    I,E=semantic.geometry.get_camera_matrices(pose)
 
-    # img=semantic.utils.viewer_to_image(viewer)
-    # for obj in scene_objects:
-    #     obj.project(I,E)
-    #     if obj.in_fov():
-    #         obj.draw_on_image(img)
+    img=semantic.utils.viewer_to_image(viewer)
+    for obj in scene_objects:
+        obj.project(I,E)
+        if semantic.geometry.is_object_in_fov(obj):
+            obj.draw_on_image(img)
 
-    # cv2.imshow("",img); cv2.waitKey()
-    # cv2.imwrite("im.png",img)
+    cv2.imshow("",img); cv2.waitKey()
+    cv2.imwrite("im.png",img)
 
-    # quit()
+    quit()
+    HIER WEITER: 3D-box händisch zeichnen -> project -> testen | oder: Für 1 obj ori-bb projection "händisch" durchgehen
     
 
     #Automatic rendering
@@ -181,7 +189,7 @@ if __name__ == "__main__":
         #for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
         for scene_name in ('sg27_station2_intensity_rgb',):
             print('CAPTURING SCENE',scene_name)
-            viewer, xyz=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=False,max_points=int(28e6), return_xyz=True) #int(28e6)
+            viewer, xyz=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=True,max_points=int(28e6), return_xyz=True) #int(28e6)
             base_path='data/pointcloud_images_3_2_depth/'+scene_name+'/'
             resize_window()
             time.sleep(2)
@@ -293,7 +301,7 @@ if __name__ == "__main__":
 
     -compare quality full points at dense scene
     -SG (via both): Show unknowns? Possible to remove in RGB via NN?
-
+    -clear up this file, mostly to rendering&graphics.utils
     '''
 
     # base_name=sys.argv[1]

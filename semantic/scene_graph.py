@@ -20,14 +20,28 @@ from .utils import draw_relationships
 TODO
 New strategy: search for small/big enough 2D blobs (dep. on class), describe 3D-relations using depth (small-small, small-big)
 check for congruent depth (small only)?
-Boden nur erwähnen (left, right, mid, across)
-Fit rotated rects for in-front-of / behind?
 
 Make scoring-logic same for both styles of creation? Otherwise split this file?
+Add the attributes left/middle/right: evtl. score w/o identities, how to store identities?
+Add Graph-class for object oriented? (Inspo: https://www.bogotobogo.com/python/python_graph_data_structures.php)
 '''
 
 RELATIONSHIP_TYPES=('left','right','below','above','infront','behind')
 DEPTH_DIST_FACTOR=IMAGE_WIDHT/255.0*2
+
+class SceneGraph:
+    def __init__(self):
+        self.objects=[]
+
+    #Objects are vertices
+    def add_object(self, obj):
+        self.objects.append(obj)
+
+    def add_relationship(self, sub, rel_type, obj):
+        pass
+
+    def add_attribute(self, obj, attrib_type):
+        pass
 
 class Relationship:
     def __init__(self, sub,rel_type,obj):
@@ -145,11 +159,11 @@ def score_scenegraph_pair(relations0, relations1):
 '''
 Logic via 3D-Clustering
 '''
-#Naive approach: An object is (potentially) occluded if another object is closer to the camera and occludes more than half of it in the x-y-image-plane
-def is_object_occluded(obj, scene_objects):
-    for occluder in scene_objects:
-        if occluder==obj:
-            continue
+#Naive approach: An object is (potentially) occluded if another object is closer to the camera and occludes more than half of it in the x-y-image-plan
+# def is_object_occluded(obj, scene_objects):
+#     for occluder in scene_objects:
+#         if occluder==obj:
+#             continue
 
 def get_midpoint_distance(sub,obj):
     smid=0.5*(sub.bbox_projected[0:3]+sub.bbox_projected[3:6])
@@ -200,7 +214,7 @@ def annotate_view(pose, scene_objects):
 
 
 '''
-Data Scene-Graph creation
+Data creation: Scene-Graphs
 '''
 #scene_relationships as { file_name: [rels] }
 def create_scenegraphs(base_path, scene_name):

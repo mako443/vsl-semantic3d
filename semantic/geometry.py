@@ -35,5 +35,9 @@ def get_camera_matrices(pose : Pose):
 def project_point(I,E,point):
     point=I@E@np.hstack((point,1))
     return np.array(( IMAGE_WIDHT-point[0]/point[2], point[1]/point[2], -point[2] ))    
+
+def is_object_in_fov(obj):
+    assert obj.bbox_points_i is not None
+    return obj.maxdist_i>0 and (obj.bbox_points_i[:,0].min()>0.1*IMAGE_WIDHT or obj.bbox_points_i[:,0].max()<0.9*IMAGE_WIDHT) and (obj.bbox_points_i[:,1].min()>0.1*IMAGE_HEIGHT or obj.bbox_points_i[:,1].max()<0.9*IMAGE_WIDHT)
     
     

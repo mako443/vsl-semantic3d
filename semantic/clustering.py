@@ -58,6 +58,34 @@ class ClusteredObject:
     #     points=self.get_bbox_projected_points()
     #     return cv2.minAreaRect(points[:,0:2].astype(np.float32)) #Bug w/o float32
 
+class ClusteredObject2:
+    def __init__(self, label, bbox_points, num_points):
+        self.label=label
+        self.bbox_points_w=bbox_points # BBox in world-coords, 8x 3d-points
+        self.bbox_points_i=None
+        self.bbox_rect_i=None # BBox in image-coords, available after self.project(), cv2.RotatedRect object
+        self.mindist_i, self.maxdist_i= None, None #Distance in image-coords, available after self.project
+        self.num_points=num_points
+
+    def __str__(self):
+        return f'ClusteredObject2: {self.label} at {np.mean(self.bbox_points_w, axis=0)}, {self.num_points} points'
+
+    def project(self, I,E):
+        #Project all world-coordinate points to 3d image-points
+        self.bbox_points_i = np.array( [project_point(I,E, point) for point in self.bbox_points_w] )
+        #Set bbox_i as rotated rect in image-plane
+        self.bbox_rect_i=cv2.minAreaRect(self.bbox_points_i[:,0:2].astype(np.float32)) #Bug w/o float32
+        #Set image-plane distances
+        self.mindist_i, self.maxdist_i = np.min(self.bbox_points_i[:,2]), np.max(self.bbox_points_i[:,2])
+
+    # is_in_fov() and is_occluded() both external
+
+    def draw_on_image(self,img):
+        assert self.bbox_points_i is not None
+        box=np.int0(cv2.boxPoints(self.bbox_rect_i))
+        cv2.drawContours(img,[box],0,(255,255,0),thickness=2)
+        #_=cv2.putText(img, self.label, (points[0,0]+5, points[0,1]+5), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255,255,0))
+
 
 #TODO: remove scanning artifacts by clustering -> reject all in BBOX?
 #Assume pre-process: Full Voxel-Downsampling -> reduce to 100k 
@@ -114,7 +142,7 @@ def cluster_scene(scene_name, return_visualization=False):
     vis_xyz=np.array([]).reshape((0,3))
     vis_rgb=np.array([]).reshape((0,3))
 
-    for label in CLUSTERING_OPTIONS.keys():
+    for label in ('man-made terrain','natural terrain','high vegetation','low vegetation','buildings','hard scape','cars'): #Disregard unknowns and artifacts
     #for label in ('cars',):
         options=CLUSTERING_OPTIONS[label]
 
@@ -130,7 +158,7 @@ def cluster_scene(scene_name, return_visualization=False):
         down_pcd=pcd.voxel_down_sample(voxel_size=0.02)
         xyz=np.asarray(down_pcd.points)     
 
-        #Reduce the points further through simple removal to 100k points
+        #Reduce the points further through simple stepping to 100k points
         xyz=semantic.utils.reduce_points(xyz, int(1e5))           
 
         #Run DB-Scan to find the actual clusters
@@ -140,8 +168,12 @@ def cluster_scene(scene_name, return_visualization=False):
 
         for label_value in range(0, np.max(cluster.labels_)+1):
             object_xyz=xyz[cluster.labels_ == label_value]
-            bbox=np.concatenate((np.min(object_xyz, axis=0), np.max(object_xyz, axis=0)), axis=None)
-            scene_objects.append(ClusteredObject(label, bbox, len(object_xyz)))
+            #bbox=np.concatenate((np.min(object_xyz, axis=0), np.max(object_xyz, axis=0)), axis=None)
+            #scene_objects.append(ClusteredObject(label, bbox, len(object_xyz)))
+
+            oriented_bbox=open3d.geometry.OrientedBoundingBox.create_from_points(open3d.utility.Vector3dVector(object_xyz))
+            bbox_points=np.asarray( oriented_bbox.get_box_points() )
+            scene_objects.append( ClusteredObject2(label, bbox_points, len(object_xyz)) )
 
             if return_visualization:
                 object_rgb=np.random.rand(3)*np.ones_like(object_xyz)
@@ -174,21 +206,22 @@ TODO
 -Pull big scenes with 100M
 '''
 if __name__ == "__main__":
-    scene_name='domfountain_station1_xyz_intensity_rgb'
-    scene_objects, xyz, rgb=cluster_scene(scene_name, return_visualization=True)
-    #xyz, rgba, labels_rgba=load_files('data/numpy/'+scene_name,max_points=int(10e6))
-    #scene_objects=pickle.load(open('data/numpy/'+scene_name+'.objects.pkl','rb'))
+    # scene_name='domfountain_station1_xyz_intensity_rgb'
+    # scene_objects, xyz, rgb=cluster_scene(scene_name, return_visualization=True)
+    # #xyz, rgba, labels_rgba=load_files('data/numpy/'+scene_name,max_points=int(10e6))
+    # #scene_objects=pickle.load(open('data/numpy/'+scene_name+'.objects.pkl','rb'))
 
-    v=pptk.viewer(xyz)
-    v.attributes(rgb)
-    v.set(point_size=0.025)
+    # v=pptk.viewer(xyz)
+    # v.attributes(rgb)
+    # v.set(point_size=0.025)
 
-    bushes= [ o for o in scene_objects if "high" in o.label]
+    # #bushes= [ o for o in scene_objects if "high" in o.label]
 
+    # quit()
 
-
-    quit()
-
+    '''
+    Data creation: Clustered objects
+    '''
     for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
         print()
         print("Scene: ",scene_name)
@@ -196,54 +229,6 @@ if __name__ == "__main__":
 
         print('Saving scene objects...', len(scene_objects),'objects in total')
         pickle.dump( scene_objects, open('data/numpy/'+scene_name+'.objects.pkl', 'wb'))
+        break
 
-    quit()
-
-    scene_name='domfountain_station1_xyz_intensity_rgb'
-    xyz=load_files_for_label('data/numpy/'+scene_name, label=CLASSES_DICT['cars'], max_points=None)
-
-    #Downsample xyz via Voxel-Grid
-    pcd=open3d.geometry.PointCloud()
-    pcd.points=open3d.utility.Vector3dVector(xyz)
-    down_pcd=pcd.voxel_down_sample(voxel_size=0.02)
-    xyz=np.asarray(down_pcd.points)
-    print('After voxel:',len(xyz))
-
-    #Reduce further through simple removal
-    xyz=semantic.utils.reduce_points(xyz, int(1e5))
-
-    print(xyz.shape)
-    clustering=DBSCAN(eps=1.0, min_samples=300, leaf_size=30, n_jobs=-1).fit(xyz)
-    visualize_dbscan(xyz, clustering.labels_)
-
-    quit()
-
-    #xyz=load_files_for_label('data/numpy/'+scene_name, label=CLASSES_DICT['high vegetation'], max_points=int(50e3))
-
-    #150 min_samples for 30k
-    #Cars, 60k with 300 samples
-    #clustering=DBSCAN(eps=1.0, min_samples=300, leaf_size=30, n_jobs=-1).fit(xyz) #Runs for 60k, seems good for cars, leaf doesn't change much, more points might help <-> adjust min_samples
-
-    #Buildings, 30k, seem to come out as walls! ✓
-    #clustering=DBSCAN(eps=4.0, min_samples=150, leaf_size=30, n_jobs=-1).fit(xyz)
-
-    #Low veg, 60k
-    #clustering=DBSCAN(eps=1.0, min_samples=150, leaf_size=30, n_jobs=-1).fit(xyz)
-
-    #Hard scape, 30k, seems ok
-    #clustering=DBSCAN(eps=1.0, min_samples=150, leaf_size=30, n_jobs=-1).fit(xyz)
-
-    #Nat terrain, 30k max anyhow, CARE: scenes w/ more points
-    #clustering=DBSCAN(eps=1.5, min_samples=75, leaf_size=30, n_jobs=-1).fit(xyz)
-
-    #man-made terrain, 50k, care: BBox here ok?
-    #clustering=DBSCAN(eps=1.5, min_samples=300, leaf_size=30, n_jobs=-1).fit(xyz)
-
-    #High veg, 60k
-    #clustering=DBSCAN(eps=1.0, min_samples=150, leaf_size=30, n_jobs=-1).fit(xyz)
-
-    #print(clustering.labels_.max())
-    
-    #viewer=visualize_dbscan(xyz,clustering.labels_)
-
-    quit()
+    quit()  
