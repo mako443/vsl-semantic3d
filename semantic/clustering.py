@@ -7,7 +7,7 @@ import pptk
 from sklearn.cluster import DBSCAN
 import pickle
 from .geometry import project_point, IMAGE_WIDHT, IMAGE_HEIGHT
-from graphics.rendering import Pose, CLASSES_DICT, CLASSES_COLORS
+#from graphics.rendering import Pose, CLASSES_DICT, CLASSES_COLORS
 import semantic.utils
 
 class ClusteredObject:

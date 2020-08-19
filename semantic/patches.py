@@ -12,17 +12,21 @@ TODO
 -Finish all pipeline w/ axis-aligned BBoxes, use min/max distance, evaluate
 OR
 -Finish pipeline via depth -> evaluate
+
+-Convert all Patches/Clustered Objects to 'ViewObjects' (as opposed to SG-Objects)
 '''
 
+#CARE: depth is still relative
 class Patch:
-    __slots__ = ['label', 'bbox', 'depth', 'center']
-    def __init__(self, class_label, bbox, depth):
+    __slots__ = ['label', 'bbox', 'depth', 'center', 'color']
+    def __init__(self, class_label, bbox, depth, color):
         self.label=class_label
         self.bbox=np.int16(bbox) #As left,top,w,h
         self.depth=depth
-        self.center=np.int16(( bbox[0]+0.5*bbox[2], bbox[1]+0.5*bbox[3] ))
+        self.center=np.int16(( bbox[0]+0.5*bbox[2], bbox[1]+0.5*bbox[3] )) 
+        self.color=np.array( color )
 
-def extract_patches(image_labels,image_depth):
+def extract_patches(image_rgb, image_labels,image_depth):
     patches=[]
 
     #for class_label in ('high vegetation',):
@@ -35,11 +39,12 @@ def extract_patches(image_labels,image_depth):
         cc_retval, cc_labels, cc_stats, cc_centroids = cv2.connectedComponentsWithStats(np.uint8(mask))
         mask=np.zeros_like(image_labels)
         for i in range(1,len(cc_centroids)):
-            if cc_stats[i,cv2.CC_STAT_AREA]<4000: #OPTIONS: min-area
+            if cc_stats[i,cv2.CC_STAT_AREA]<6000: #OPTIONS: min-area, before: 4k
                 continue
                 
             patch_depth=np.mean(image_depth[ cc_labels==i, 0])
-            patches.append(Patch(class_label, cc_stats[i,0:4],patch_depth))
+            patch_color=np.mean( image_rgb[cc_labels==i,:], axis=0 )
+            patches.append( Patch(class_label, cc_stats[i,0:4],patch_depth, (patch_color[2], patch_color[1], patch_color[0])) ) #CARE: BGR->RGB
 
     return patches
 
@@ -56,19 +61,19 @@ def gather_patches(base_path,scene_name):
     scene_patches={}
     for file_name in os.listdir(dirpath_labels):
         print(file_name)
-        image_labels, image_depth= cv2.imread(os.path.join(dirpath_labels, file_name)), cv2.imread(os.path.join(dirpath_depth, file_name))
-        view_patches=extract_patches(image_labels, image_depth)
+        image_rgb, image_labels, image_depth= cv2.imread(os.path.join(dirpath_rgb, file_name)), cv2.imread(os.path.join(dirpath_labels, file_name)), cv2.imread(os.path.join(dirpath_depth, file_name))
+        view_patches=extract_patches(image_rgb, image_labels, image_depth)
         scene_patches[file_name]=view_patches
         
     return scene_patches
 
 if __name__ == "__main__":
-    base_path='data/pointcloud_images_3_2_depth'
-    scene_name='sg27_station2_intensity_rgb'
-    
     '''
     Patches extraction
     '''
+    base_path='data/pointcloud_images_3_2_depth'
+    scene_name='sg27_station2_intensity_rgb'
+
     scene_patches=gather_patches(base_path,scene_name)
     pickle.dump( scene_patches, open(os.path.join(base_path, scene_name,'patches.pkl'), 'wb'))
 

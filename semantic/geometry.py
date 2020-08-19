@@ -1,6 +1,6 @@
 import numpy as np
 import os
-from graphics.rendering import Pose
+#from graphics.rendering import Pose
 
 #CARE: Only define here, import everywhere else
 #FOV estimated "by hand"
@@ -12,7 +12,7 @@ IMAGE_HEIGHT=1080
 #CARE: projection with E has some inaccuracy and needs coordinate-system correction...
 #I from: https://codeyarns.com/2015/09/08/how-to-compute-intrinsic-camera-matrix-for-a-camera/
 #E from: https://math.stackexchange.com/questions/2062633/how-can-i-find-extrinsic-camera-matrix
-def get_camera_matrices(pose : Pose):
+def get_camera_matrices(pose):
     #Intrinsic matrix
     I=np.zeros((3,3))
     I[0,0]=IMAGE_WIDHT/2.0 / np.tan( np.deg2rad(FOV_W/2.0) ) #f_x

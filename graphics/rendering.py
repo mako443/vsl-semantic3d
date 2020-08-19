@@ -1,5 +1,8 @@
 import numpy as np
 import os
+#import main
+import pickle
+from semantic.clustering import ClusteredObject2
 
 class Pose:
     def __init__(self, scene_name, eye, right, up, forward):
@@ -46,10 +49,23 @@ def load_files2(base_path, scene_name, max_points=int(28e6)):
     return xyz, rgb, lbl
 
 
+'''
+Rendering via 3D clusters
+'''
+def capture_view(visualizer, pose, scene_objects):
+    pass
+
+if __name__ == "__main__":
+    scene_name='domfountain_station1_xyz_intensity_rgb'
+    scene_objects=pickle.load( open('data/numpy/'+scene_name+'.objects.pkl','rb'))
+
+    #xyz, rgba, labels_rgba=main.load_files('data/numpy/'+scene_name, remove_artifacts=True, remove_unlabeled=True, max_points=int(20e6))
+
+
 
 #RENDERING OPTIONS: 
 #Open3D SLURM: Can get Pinhole params, but blacked out or otherwise unfeasible?
-#PyVista SLURM: Perspective anders (korrekt?), camera also seems accessible: https://github.com/pyvista/pyvista-support/issues/85
+#PyVista SLURM: Perspective anders (korrekt?), camera also seems accessible: https://github.com/pyvista/pyvista-support/issues/85, not blacked
 #-> Beide waren schlecht zum "Umschauen", Perspektiven leicht verschieden...
 
 '''
@@ -74,7 +90,7 @@ mesh=pyvista.PolyData(points)
 
 plotter=pyvista.Plotter(off_screen=True)
 _=plotter.add_mesh(mesh)
-plotter.show(screenshot='pyvista.png', interactive=False)
+res=plotter.show(screenshot='pyvista.png', interactive=False)
 '''
 
 

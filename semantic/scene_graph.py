@@ -9,7 +9,7 @@ from .geometry import get_camera_matrices
 from semantic.geometry import IMAGE_WIDHT,IMAGE_HEIGHT
 from graphics.rendering import Pose
 from .patches import Patch
-from .utils import draw_relationships
+from .utils import draw_relationships, draw_view_objects, draw_scenegraph, draw_patches
 
 #Point-cloud clustering and hidden points: http://www.open3d.org/docs/release/tutorial/Basic/pointcloud.html -> Doesn't seem to work ✖
 #Simple depth-map: compute distance from eye for all points, color them accordingly (scaled to max)
@@ -29,19 +29,69 @@ Add Graph-class for object oriented? (Inspo: https://www.bogotobogo.com/python/p
 RELATIONSHIP_TYPES=('left','right','below','above','infront','behind')
 DEPTH_DIST_FACTOR=IMAGE_WIDHT/255.0*2
 
+#TODO: add dark-red (0.5,0,0), do as 8 corners of unit-cube, score relative to max qube-dist
+COLOR_NAMES=('red','green','blue','black','white')
+COLORS=np.array(( (1,0,0), (0,1,0), (0,0,1), (0,0,0), (1,1,1) )).reshape((5,3))
+
+CORNER_NAMES=('top-left','top-right','bottom-left','bottom-right','center')
+CORNERS=np.array(( (0.2, 0.5), (0.8,0.2), (0.2,0.8), (0.8,0.8), (0.5,0.5) )).reshape((5,2)) #Corners as relative (x,y) positions
+
+#TODO: attributes here or in graph? Should be possible to convert to graph
+class SceneGraphObject:
+    __slots__ = ['label', 'color', 'corner']
+
+    @classmethod
+    def from_viewobject(cls, v):
+        sgo=SceneGraphObject()
+        sgo.label=v.label
+
+        color_distances= np.linalg.norm( COLORS-v.color, axis=1 )
+        sgo.color=COLOR_NAMES[ np.argmin(color_distances) ]
+
+        corner_distances= np.linalg.norm( CORNERS-v.center, axis=1 )
+        sgo.corner= CORNER_NAMES[ np.argmin(corner_distances) ]
+
+        return sgo
+
+    def __str__(self):
+        return f'SceneGraphObject: {self.color} {self.label} at {self.corner}'
+
+    def get_text(self):
+        return str(self)        
+
+#Storing objects as references
+class SceneGraphRelationship:
+    __slots__ = ['sub', 'rel_type', 'obj']
+    def __init__(self, sub, rel_type, obj):
+        self.sub=sub
+        self.rel_type=rel_type
+        self.obj=obj
+
+#Retain possibility for pure Graph-structure for potential Graph-networks later on
 class SceneGraph:
     def __init__(self):
-        self.objects=[]
+        self.relationships=[]
 
-    #Objects are vertices
-    def add_object(self, obj):
-        self.objects.append(obj)
-
+    #Store relationship as (SG-object, rel_type, SG-object) triplet
     def add_relationship(self, sub, rel_type, obj):
+        self.relationships.append( (sub,rel_type,obj) ) 
+
+    #Going through all identity-assignment combinations: unfeasible
+    #All walks: here not possible because Graphs can be (very) incomplete
+    #Worst-case: evaluate just as before w/o identities?
+    #-> 2nd one! #Either evaluate w/o identities as before OR eval. relationships separately as before but also check sub.&obj. attribs (disregards identities *between* relationships same/different)
+    def score(self, view_objects):
+        #As before: for each relationship: for each possible subject: for each possible object | fingers crossed this is fast enough        
         pass
 
-    def add_attribute(self, obj, attrib_type):
-        pass
+    def get_text(self):
+        text=''
+        for rel in self.relationships:
+            sub, rel_type, obj=rel
+            text+=f'In the {sub.corner} there is a {sub.color} {sub.label} that is {rel_type} of a {obj.color} {obj.label}. '
+
+        return text
+
 
 class Relationship:
     def __init__(self, sub,rel_type,obj):
@@ -56,6 +106,28 @@ class Relationship2:
 
     def __str__(self):
         return f'Relationship2: {self.sub_label} is {self.rel_type} of {self.obj_label}'
+
+class ViewObject:
+    __slots__ = ['label', 'bbox', 'depth', 'center', 'color']
+
+    @classmethod
+    def from_patch(cls, patch):
+        v=ViewObject()
+        v.label=patch.label
+        v.bbox=patch.bbox #CARE: Center is normed, BBbox is not!
+        v.depth=patch.depth
+        v.center=patch.center/(IMAGE_WIDHT, IMAGE_HEIGHT) #Convert center [0,IMAGE_W/H] -> [0,1]
+        v.color=patch.color/255.0 #Convert color [0,255] -> [0,1]
+        return v
+
+    def __str__(self):
+        return f'ViewObject: {self.color} {self.label} at {self.center}'
+
+    def score_color(target_name):
+        pass
+
+    def score_corner(taget_name):
+        pass
 
 def text_from_scenegraph(relations):
     text="There is "
@@ -93,6 +165,51 @@ def get_patches_relationship2(sub, obj):
     dbehind= (sub.depth-obj.depth)*DEPTH_DIST_FACTOR
     distances = (dleft,dright,dbelow,dabove,dinfront,dbehind)
     return RELATIONSHIP_TYPES[np.argmax(distances)]
+
+def score_color():
+    pass
+
+#def find_best_corner
+
+#Uses new object-oriented SG model
+#TODO: ok to just put in relationships 
+#CARE: does not necessarily return relations with objects for each corner!
+def scenegraph_for_view_5corners(view_objects, keep_viewobjects=False, flip_relations=True):
+    
+    scene_graph=SceneGraph()
+
+    #Walk through all corners
+    for corner_idx, corner in enumerate(CORNERS):
+        #find the best-matching subject
+        corner_dists=[ np.linalg.norm(sub.center - corner) for sub in view_objects ]
+        sub = view_objects[ np.argmin(corner_dists) ]
+        #print(sub.label, sub.center)
+
+        #Find closest (in image-plane) object of other class; chosing other class also reduces merged/split problems
+        obj_candidates=[ p for p in view_objects if p.label!=sub.label]
+        obj_distances=[ np.linalg.norm(sub.center-obj.center) for obj in obj_candidates]
+
+        if len(obj_candidates)==0:
+            continue
+
+        obj=obj_candidates[ np.argmin(obj_distances) ]
+        rel_type=get_patches_relationship2(sub, obj)
+
+        if flip_relations:
+            if rel_type=='right':
+                sub,rel_type,obj= obj, 'left', sub
+            if rel_type=='above':
+                sub,rel_type,obj= obj, 'below', sub
+            if rel_type=='behind':
+                sub,rel_type,obj= obj, 'infront', sub
+
+        if keep_viewobjects: #Debugging
+            scene_graph.add_relationship( sub, rel_type,  obj )
+        else:
+            scene_graph.add_relationship( SceneGraphObject.from_viewobject(sub), rel_type,  SceneGraphObject.from_viewobject(obj) )
+
+    return scene_graph
+
 
 #OPTION: relate any 2 patches / different classes / closest | Currently: closest in image-plane of different class
 #TODO: pull subjects evenly from classes
@@ -151,10 +268,9 @@ def ground_scenegraph_to_patches(relations, patches):
 
     return np.prod(best_scores), best_groundings    
 
-#Can't assume completeness
+#Can't assume completeness, does this even make sense?
 def score_scenegraph_pair(relations0, relations1):
     pass
-    
 
 '''
 Logic via 3D-Clustering
@@ -241,11 +357,40 @@ def create_scenegraphs(base_path, scene_name):
 
 
 if __name__ == "__main__":
+    #Milestone: 5-corner creation, store, load, text for 1 scene (no eval)
+
     base_path='data/pointcloud_images_3_2_depth'
     scene_name='sg27_station2_intensity_rgb'
+    scene_patches=pickle.load(open(os.path.join(base_path, scene_name,'patches.pkl'), 'rb'))
+
+    file_name='004_07.png'
+    #view_objects=[ ViewObject.from_patch(p) for p in scene_patches[file_name] if p.label=='hard scape']
+    view_objects=[ ViewObject.from_patch(p) for p in scene_patches[file_name] ]
+
+    img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
+    texts=[ str(SceneGraphObject.from_viewobject(v)) for v in view_objects ]
+
+    sg=scenegraph_for_view_5corners(view_objects, keep_viewobjects=False)
+    print(sg.get_text())
+
+    sg=scenegraph_for_view_5corners(view_objects, keep_viewobjects=True)
+
+    #draw_view_objects(img, view_objects, texts)    
+    draw_scenegraph(img,sg)
+    #draw_patches(img, scene_patches[file_name])
+    cv2.imshow("",img)
+    cv2.waitKey()
+    cv2.imwrite("sg_demo.jpg",img)
+
+
+    quit()
+
 
     '''
     Scene-Graph creation
     '''
+    base_path='data/pointcloud_images_3_2_depth'
+    scene_name='sg27_station2_intensity_rgb'
+
     scene_relationships=create_scenegraphs(base_path, scene_name)   
     pickle.dump( scene_relationships, open(os.path.join(base_path, scene_name,'scenegraphs.pkl'), 'wb'))

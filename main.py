@@ -181,7 +181,7 @@ if __name__ == "__main__":
     cv2.imwrite("im.png",img)
 
     quit()
-    HIER WEITER: 3D-box händisch zeichnen -> project -> testen | oder: Für 1 obj ori-bb projection "händisch" durchgehen
+    #HIER WEITER: 3D-box händisch zeichnen -> project -> testen | oder: Für 1 obj ori-bb projection "händisch" durchgehen
     
 
     #Automatic rendering
