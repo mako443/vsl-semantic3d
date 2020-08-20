@@ -7,44 +7,44 @@ import pickle
 
 #play()/record() expect lookat-poses ✖ not possible: glitches
 
-scene_config={}
-scene_config['domfountain_station1_xyz_intensity_rgb']={
-    #Nx3 array
-    'points':np.array( [[-10.74167538,   7.32442617,  -0.50595516],
-                        [ -4.53943491,   5.41002083,  -0.57776338],
-                        [ -4.10716677,  -3.10575199,   0.08882368],
-                        [-10.06188583,  -7.36892557,   0.50089562],
-                        [-15.61357212,  -5.97002316,   0.73054999],
-                        [-15.33024597,  13.69128513,  -0.38836336]]), 
-    'point_size_rgb':0.025, #labels always double
-}
-scene_config['sg27_station2_intensity_rgb']={
-    #Nx3 array
-    'points':np.array( [[ -2.28320765, -13.30841255,   0.65572155],
-                        [ 14.10788918, -32.98677063,  -1.28365839],
-                        [ 26.90045547, -23.60473442,  -1.01840901],
-                        [ 23.01133728,   0.17587358,  -1.40091133],
-                        [ -1.34517264,  10.82786083,   0.17833348]]), 
-    'point_size_rgb':0.025, #labels always double
-}
-scene_config['untermaederbrunnen_station1_xyz_intensity_rgb']={
-    #Nx3 array
-    'points':np.array([[  2.03187799,  -2.71359539,  -0.16611724],
-                        [  1.21940982,   5.60008621,  -0.61616558],
-                        [-18.17295837,  17.23288536,   0.42189693],
-                        [-14.96191025,   6.38012838,  -0.22417469],
-                        [ -1.3910284 ,   1.32536995,  -0.45402691]]),
-    'point_size_rgb':0.025, #labels always double
-}
-scene_config['neugasse_station1_xyz_intensity_rgb']={
-    #Nx3 array
-    'points':np.array([[ 1.1074542e+01,  1.0536696e+00, -4.0069711e-01],
-                        [-3.3289959e+00,  1.0078371e-02,  1.9622801e-01],
-                        [-9.9907360e+00, -3.6623685e+00, -3.0740970e-01],
-                        [-3.0083437e+00, -8.5878935e+00, -9.0476435e-01],
-                        [ 1.7781239e+00, -3.6863661e+00, -9.0476412e-01]]), 
-    'point_size_rgb':0.025, #labels always double
-}
+# scene_config={}
+# scene_config['domfountain_station1_xyz_intensity_rgb']={
+#     #Nx3 array
+#     'points':np.array( [[-10.74167538,   7.32442617,  -0.50595516],
+#                         [ -4.53943491,   5.41002083,  -0.57776338],
+#                         [ -4.10716677,  -3.10575199,   0.08882368],
+#                         [-10.06188583,  -7.36892557,   0.50089562],
+#                         [-15.61357212,  -5.97002316,   0.73054999],
+#                         [-15.33024597,  13.69128513,  -0.38836336]]), 
+#     'point_size_rgb':0.025, #labels always double
+# }
+# scene_config['sg27_station2_intensity_rgb']={
+#     #Nx3 array
+#     'points':np.array( [[ -2.28320765, -13.30841255,   0.65572155],
+#                         [ 14.10788918, -32.98677063,  -1.28365839],
+#                         [ 26.90045547, -23.60473442,  -1.01840901],
+#                         [ 23.01133728,   0.17587358,  -1.40091133],
+#                         [ -1.34517264,  10.82786083,   0.17833348]]), 
+#     'point_size_rgb':0.025, #labels always double
+# }
+# scene_config['untermaederbrunnen_station1_xyz_intensity_rgb']={
+#     #Nx3 array
+#     'points':np.array([[  2.03187799,  -2.71359539,  -0.16611724],
+#                         [  1.21940982,   5.60008621,  -0.61616558],
+#                         [-18.17295837,  17.23288536,   0.42189693],
+#                         [-14.96191025,   6.38012838,  -0.22417469],
+#                         [ -1.3910284 ,   1.32536995,  -0.45402691]]),
+#     'point_size_rgb':0.025, #labels always double
+# }
+# scene_config['neugasse_station1_xyz_intensity_rgb']={
+#     #Nx3 array
+#     'points':np.array([[ 1.1074542e+01,  1.0536696e+00, -4.0069711e-01],
+#                         [-3.3289959e+00,  1.0078371e-02,  1.9622801e-01],
+#                         [-9.9907360e+00, -3.6623685e+00, -3.0740970e-01],
+#                         [-3.0083437e+00, -8.5878935e+00, -9.0476435e-01],
+#                         [ 1.7781239e+00, -3.6863661e+00, -9.0476412e-01]]), 
+#     'point_size_rgb':0.025, #labels always double
+# }
 
 #Care: repeat last point (or close by)
 #Poses = lookat-positions

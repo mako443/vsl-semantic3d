@@ -48,6 +48,7 @@ class Semantic3dDataset(Dataset):
             self.image_paths.extend( [os.path.join(scene_path_rgb, image_name) for image_name in scene_image_names] ) 
 
             #Load poses
+            #TODO: convert poses back to array
             scene_poses_dict=pickle.load( open(os.path.join(scene_path,'poses.pkl'), 'rb') )
             scene_image_poses=np.array([ scene_poses_dict[image_name] for image_name in scene_image_names ])
             self.image_poses=np.vstack(( self.image_poses, scene_image_poses ))

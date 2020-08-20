@@ -7,8 +7,11 @@ import pyvista
 import open3d
 import capturing
 import cv2
-from semantic.clustering import ClusteredObject, ClusteredObject2
-from graphics.rendering import Pose, CLASSES_DICT, CLASSES_COLORS, load_files2
+#from semantic.clustering import ClusteredObject, ClusteredObject2
+#from graphics.rendering import Pose, CLASSES_DICT, CLASSES_COLORS, load_files2
+from semantic.imports import ClusteredObject2
+from graphics.imports import Pose, CLASSES_DICT, CLASSES_COLORS#, load_files2
+
 import semantic.geometry
 import semantic.utils
 import pickle
@@ -137,7 +140,9 @@ def view_pyvista(base_path, camera_pose):
 
 #Deprecated?
 def find_unlabeled_artifacts(xyz,lbl):
-    unknown_labels=  lbl==classes_dict['unlabeled']
+    unknown_labels=  lbl==classes_dict['unlabeled']   
+    path_numpy='data/numpy/'
+    path_results=os.path.join('data','pointcloud_images_o3d')
     artifact_labels= lbl==classes_dict['scanning artefacts']
     
     kd_tree=pptk.kdtree._build(xyz)    
@@ -156,9 +161,9 @@ if __name__ == "__main__":
     # # xyz, rgb, lbl=load_files2('data/numpy/', scene_name)
     # # print(xyz.shape, rgb.shape, lbl.shape)
     # # quit()
-    # viewer=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=False, max_points=int(5e6))
-    # resize_window()
-    # quit()
+    viewer=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=False, max_points=int(5e6))
+    resize_window()
+    quit()
 
 
     # Sanity check: get_camera_matrices, project objects, draw objects

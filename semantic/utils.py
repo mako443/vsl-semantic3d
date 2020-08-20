@@ -3,7 +3,7 @@ import numpy as np
 import os
 import time
 import semantic.clustering
-from graphics.rendering import CLASSES_DICT, CLASSES_COLORS
+from graphics.imports import CLASSES_DICT, CLASSES_COLORS
 import cv2
 
 # #CARE: Only define here, import everywhere else

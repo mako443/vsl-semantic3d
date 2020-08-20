@@ -6,9 +6,11 @@ import open3d
 import pptk
 from sklearn.cluster import DBSCAN
 import pickle
-from .geometry import project_point, IMAGE_WIDHT, IMAGE_HEIGHT
+#from .geometry import project_point, IMAGE_WIDHT, IMAGE_HEIGHT
+from graphics.imports import IMAGE_WIDHT, IMAGE_HEIGHT, CLASSES_DICT, CLASSES_COLORS
 #from graphics.rendering import Pose, CLASSES_DICT, CLASSES_COLORS
 import semantic.utils
+from .imports import ClusteredObject2, project_point
 
 class ClusteredObject:
     #TODO: input as floor_rect, (zmin,zmax), in project -> cv2.boxPoints -> meshgrid -> project
@@ -58,33 +60,33 @@ class ClusteredObject:
     #     points=self.get_bbox_projected_points()
     #     return cv2.minAreaRect(points[:,0:2].astype(np.float32)) #Bug w/o float32
 
-class ClusteredObject2:
-    def __init__(self, label, bbox_points, num_points):
-        self.label=label
-        self.bbox_points_w=bbox_points # BBox in world-coords, 8x 3d-points
-        self.bbox_points_i=None
-        self.bbox_rect_i=None # BBox in image-coords, available after self.project(), cv2.RotatedRect object
-        self.mindist_i, self.maxdist_i= None, None #Distance in image-coords, available after self.project
-        self.num_points=num_points
+# class ClusteredObject2:
+#     def __init__(self, label, bbox_points, num_points):
+#         self.label=label
+#         self.bbox_points_w=bbox_points # BBox in world-coords, 8x 3d-points
+#         self.bbox_points_i=None
+#         self.bbox_rect_i=None # BBox in image-coords, available after self.project(), cv2.RotatedRect object
+#         self.mindist_i, self.maxdist_i= None, None #Distance in image-coords, available after self.project
+#         self.num_points=num_points
 
-    def __str__(self):
-        return f'ClusteredObject2: {self.label} at {np.mean(self.bbox_points_w, axis=0)}, {self.num_points} points'
+#     def __str__(self):
+#         return f'ClusteredObject2: {self.label} at {np.mean(self.bbox_points_w, axis=0)}, {self.num_points} points'
 
-    def project(self, I,E):
-        #Project all world-coordinate points to 3d image-points
-        self.bbox_points_i = np.array( [project_point(I,E, point) for point in self.bbox_points_w] )
-        #Set bbox_i as rotated rect in image-plane
-        self.bbox_rect_i=cv2.minAreaRect(self.bbox_points_i[:,0:2].astype(np.float32)) #Bug w/o float32
-        #Set image-plane distances
-        self.mindist_i, self.maxdist_i = np.min(self.bbox_points_i[:,2]), np.max(self.bbox_points_i[:,2])
+#     def project(self, I,E):
+#         #Project all world-coordinate points to 3d image-points
+#         self.bbox_points_i = np.array( [project_point(I,E, point) for point in self.bbox_points_w] )
+#         #Set bbox_i as rotated rect in image-plane
+#         self.bbox_rect_i=cv2.minAreaRect(self.bbox_points_i[:,0:2].astype(np.float32)) #Bug w/o float32
+#         #Set image-plane distances
+#         self.mindist_i, self.maxdist_i = np.min(self.bbox_points_i[:,2]), np.max(self.bbox_points_i[:,2])
 
-    # is_in_fov() and is_occluded() both external
+#     # is_in_fov() and is_occluded() both external
 
-    def draw_on_image(self,img):
-        assert self.bbox_points_i is not None
-        box=np.int0(cv2.boxPoints(self.bbox_rect_i))
-        cv2.drawContours(img,[box],0,(255,255,0),thickness=2)
-        #_=cv2.putText(img, self.label, (points[0,0]+5, points[0,1]+5), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255,255,0))
+#     def draw_on_image(self,img):
+#         assert self.bbox_points_i is not None
+#         box=np.int0(cv2.boxPoints(self.bbox_rect_i))
+#         cv2.drawContours(img,[box],0,(255,255,0),thickness=2)
+#         #_=cv2.putText(img, self.label, (points[0,0]+5, points[0,1]+5), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255,255,0))
 
 
 #TODO: remove scanning artifacts by clustering -> reject all in BBOX?
@@ -123,7 +125,7 @@ def load_files_for_label(base_path,label, max_points=int(60e6)):
     return xyz
 
 #New version for dbscan, other faulty?!
-def visualize_dbscan(xyz,labels):
+def visualize_dbscan_pptk(xyz,labels):
     print(f'label min {np.min(labels)} max {np.max(labels)}')
     rgb=np.zeros_like(xyz)
     for label_value in np.unique(labels):
@@ -137,6 +139,27 @@ def visualize_dbscan(xyz,labels):
     viewer.set(point_size=0.02)
     return viewer
 
+def visualize_dbscan_o3d(xyz,labels):
+    print(f'label min {np.min(labels)} max {np.max(labels)}')
+    rgb=np.zeros_like(xyz)
+    for label_value in np.unique(labels):
+        if label_value==-1:
+            color=(1,0,0) #Red marks unmarked!!
+        else:
+            color=np.random.rand(3)
+        rgb[labels==label_value,:]=color
+
+    point_cloud=open3d.geometry.PointCloud()
+    point_cloud.points=open3d.utility.Vector3dVector(xyz)    
+    point_cloud.colors=open3d.utility.Vector3dVector(rgb)   
+
+    vis = open3d.visualization.Visualizer()
+    vis.create_window(width=1620, height=1080)    
+    vis.get_render_option().background_color = np.asarray([0, 0, 0])
+    vis.add_geometry(point_cloud) 
+    vis.run()
+    return vis
+    
 def cluster_scene(scene_name, return_visualization=False):
     scene_objects=[]
     vis_xyz=np.array([]).reshape((0,3))
@@ -185,6 +208,13 @@ def cluster_scene(scene_name, return_visualization=False):
     else:
         return scene_objects
 
+def get_hull_points(points_w):
+    pcd=open3d.geometry.PointCloud()
+    pcd.points=open3d.utility.Vector3dVector(points_w)
+    hull,_=pcd.compute_convex_hull()
+    hull_points=np.asarray(hull.vertices)
+    return hull_points
+
 '''
 METHODS in sklearn:
 Spectral: need #clusters
@@ -202,22 +232,105 @@ def cluster_pointcloud():
 TODO
 -Always use Voxel-Downsampling? Load all -> downsample with all -> reduce -> scan 
 -Do all scenes, visualize all objects reduced points (mixed labels)
+-Use rotated bboxes after projection!
 
 -Pull big scenes with 100M
 '''
 if __name__ == "__main__":
-    # scene_name='domfountain_station1_xyz_intensity_rgb'
-    # scene_objects, xyz, rgb=cluster_scene(scene_name, return_visualization=True)
-    # #xyz, rgba, labels_rgba=load_files('data/numpy/'+scene_name,max_points=int(10e6))
-    # #scene_objects=pickle.load(open('data/numpy/'+scene_name+'.objects.pkl','rb'))
+    scene_name='domfountain_station1_xyz_intensity_rgb'
+    label='hard scape'
 
-    # v=pptk.viewer(xyz)
-    # v.attributes(rgb)
-    # v.set(point_size=0.025)
+    ### Project and BBox verify
+    # xyz=np.random.rand(100,3)
+    # pcd=open3d.geometry.PointCloud()
+    # pcd.points=open3d.utility.Vector3dVector(xyz)
+    # pcd.colors=open3d.utility.Vector3dVector(np.ones_like(xyz))
 
-    # #bushes= [ o for o in scene_objects if "high" in o.label]
+    # vis = open3d.visualization.Visualizer()
+    # vis.create_window(width=1620, height=1080)    
+    # vis.get_render_option().background_color = np.asarray([0, 0, 0])
+    # vis.add_geometry(pcd) 
+    # vis.run()    
 
+    # control=vis.get_view_control()
+    # params=control.convert_to_pinhole_camera_parameters()
+    # I,E=params.intrinsic.intrinsic_matrix, params.extrinsic
+
+    # img=np.asarray(vis.capture_screen_float_buffer())
+    # points_i=[ project_point(I,E, point) for point in xyz ]
+
+    # for p in points_i:
+    #     _=cv2.circle(img, (int(p[0]), int(p[1])), 6, (0,255,0))
+
+    # points_i=np.array(points_i)
+
+    # bbox=np.int0( (np.min(points_i[:,0]), np.min(points_i[:,1]), np.max(points_i[:,0]), np.max(points_i[:,1])) )
+    # _=cv2.rectangle( img, (bbox[0],bbox[1]), (bbox[2],bbox[3]), (0,255,0))
+
+    # cv2.imshow("",img); cv2.waitKey()
     # quit()
+    ### Project and BBox verify
+    
+    options=CLUSTERING_OPTIONS[label]
+    xyz=load_files_for_label('data/numpy/'+scene_name, label=CLASSES_DICT[label], max_points=None)
+    pcd=open3d.geometry.PointCloud()
+    pcd.points=open3d.utility.Vector3dVector(xyz)
+    down_pcd=pcd.voxel_down_sample(voxel_size=0.02)
+    xyz=np.asarray(down_pcd.points)     
+    xyz=semantic.utils.reduce_points(xyz, int(1e5)) 
+    #cluster=DBSCAN(eps=options['eps'], min_samples=options['min_samples'], leaf_size=30, n_jobs=-1).fit(xyz)
+    cluster=DBSCAN(eps=options['eps'], min_samples=500, leaf_size=30, n_jobs=-1).fit(xyz)
+
+    print(xyz.shape)
+    
+    vis=visualize_dbscan_o3d(xyz, cluster.labels_)
+    control=vis.get_view_control()
+    params=control.convert_to_pinhole_camera_parameters()
+    I,E=params.intrinsic.intrinsic_matrix, params.extrinsic
+
+    #boxes_w=[open3d.geometry.OrientedBoundingBox.create_from_points(open3d.utility.Vector3dVector( xyz[cluster.labels_ == idx] )) for idx in range(np.max(cluster.labels_)+1) ]
+
+    img=np.asarray(vis.capture_screen_float_buffer())
+    for idx in range(np.max(cluster.labels_)+1):
+        points_w=xyz[cluster.labels_ == idx]
+        print(points_w.shape)
+        points_w=get_hull_points(points_w)
+        print(points_w.shape)
+        print()
+        points_i=[ project_point(I,E, point) for point in points_w ]
+
+        # for p in points_i:
+        #     _=cv2.circle(img, (int(p[0]), int(p[1])), 6, (0,255,0))   
+        
+        points_i=np.array(points_i)         
+        bbox=np.int0( (np.min(points_i[:,0]), np.min(points_i[:,1]), np.max(points_i[:,0]), np.max(points_i[:,1])) )   
+        #_=cv2.rectangle( img, (bbox[0],bbox[1]), (bbox[2],bbox[3]), (0,255,0))  
+
+        rect=cv2.minAreaRect(points_i[:,0:2].astype(np.float32))
+        box=np.int0(cv2.boxPoints(rect))
+        cv2.drawContours(img,[box],0,(255,255,0),thickness=2)
+
+
+    cv2.imshow("",img); cv2.waitKey()        
+
+    
+    # hulls=[]
+    # for i in range(np.max(cluster.labels_)+1):
+    #     gem=open3d.geometry.PointCloud()
+    #     gem.points=open3d.utility.Vector3dVector(xyz[cluster.labels_ == i])
+    #     hull,_=gem.compute_convex_hull()
+    #     hulls.append(hull)
+
+    # for hull in hulls:
+    #     points_w=np.asarray(hull.vertices)
+    #     points_i=np.array( [project_point(I,E,point) for point in points_w ] )
+    #     points_i=np.int0(points_i)
+    #     _=cv2.rectangle(img, (np.min(points_i[:,0]), np.min(points_i[:,1])), (np.min(points_i[:,0]), np.min(points_i[:,1])), (0,0,255), thickness=2 )
+    #     for p in points_i:
+    #         _=cv2.circle(img, (p[0],p[1]), 2, (0,0,255))
+
+    
+    quit()
 
     '''
     Data creation: Clustered objects
@@ -232,3 +345,8 @@ if __name__ == "__main__":
         break
 
     quit()  
+
+
+'''
+CONVEX HULL bis projected oder ganz durch ist das LETZTE! Sonst via Images / nachfragen
+'''

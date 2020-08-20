@@ -1,13 +1,7 @@
 import numpy as np
 import os
 #from graphics.rendering import Pose
-
-#CARE: Only define here, import everywhere else
-#FOV estimated "by hand"
-FOV_W=64.0
-FOV_H=44.8
-IMAGE_WIDHT=1620
-IMAGE_HEIGHT=1080
+from graphics.imports import Pose
 
 #CARE: projection with E has some inaccuracy and needs coordinate-system correction...
 #I from: https://codeyarns.com/2015/09/08/how-to-compute-intrinsic-camera-matrix-for-a-camera/
@@ -32,9 +26,11 @@ def get_camera_matrices(pose):
 
     return I,E
 
-def project_point(I,E,point):
-    point=I@E@np.hstack((point,1))
-    return np.array(( IMAGE_WIDHT-point[0]/point[2], point[1]/point[2], -point[2] ))    
+# def project_point(I,E,point):
+#     point=I@E@np.hstack((point,1))
+#     return np.array(( IMAGE_WIDHT-point[0]/point[2], point[1]/point[2], -point[2] ))    
+
+
 
 def is_object_in_fov(obj):
     assert obj.bbox_points_i is not None
