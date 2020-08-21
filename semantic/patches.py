@@ -3,8 +3,7 @@ import semantic.utils
 import numpy as np
 import cv2
 import os
-from semantic.geometry import FOV_W,FOV_H,IMAGE_WIDHT,IMAGE_HEIGHT
-from graphics.rendering import CLASSES_DICT, CLASSES_COLORS
+from graphics.imports import CLASSES_DICT, CLASSES_COLORS, Pose, IMAGE_WIDHT, IMAGE_HEIGHT
 from semantic.utils import draw_patches
 
 '''

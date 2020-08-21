@@ -5,11 +5,13 @@ import random
 import pickle
 from graphics.rendering import CLASSES_DICT, CLASSES_COLORS
 from .clustering import ClusteredObject
-from .geometry import get_camera_matrices
-from semantic.geometry import IMAGE_WIDHT,IMAGE_HEIGHT
-from graphics.rendering import Pose
+#from .geometry import get_camera_matrices
+#from semantic.geometry import IMAGE_WIDHT,IMAGE_HEIGHT
+from graphics.imports import CLASSES_DICT, CLASSES_COLORS, Pose, IMAGE_WIDHT, IMAGE_HEIGHT
 from .patches import Patch
 from .utils import draw_relationships, draw_view_objects, draw_scenegraph, draw_patches
+import semantic.scene_graph_cluster3d_scoring
+from .imports import ViewObject, COLORS, COLOR_NAMES, CORNERS, CORNER_NAMES
 
 #Point-cloud clustering and hidden points: http://www.open3d.org/docs/release/tutorial/Basic/pointcloud.html -> Doesn't seem to work ✖
 #Simple depth-map: compute distance from eye for all points, color them accordingly (scaled to max)
@@ -26,15 +28,15 @@ Add the attributes left/middle/right: evtl. score w/o identities, how to store i
 Add Graph-class for object oriented? (Inspo: https://www.bogotobogo.com/python/python_graph_data_structures.php)
 '''
 
-RELATIONSHIP_TYPES=('left','right','below','above','infront','behind')
-DEPTH_DIST_FACTOR=IMAGE_WIDHT/255.0*2
+# RELATIONSHIP_TYPES=('left','right','below','above','infront','behind')
+# DEPTH_DIST_FACTOR=IMAGE_WIDHT/255.0*2
 
-#TODO: add dark-red (0.5,0,0), do as 8 corners of unit-cube, score relative to max qube-dist
-COLOR_NAMES=('red','green','blue','black','white')
-COLORS=np.array(( (1,0,0), (0,1,0), (0,0,1), (0,0,0), (1,1,1) )).reshape((5,3))
+# #TODO: add dark-red (0.5,0,0), do as 8 corners of unit-cube, score relative to max qube-dist
+# COLOR_NAMES=('red','green','blue','black','white')
+# COLORS=np.array(( (1,0,0), (0,1,0), (0,0,1), (0,0,0), (1,1,1) )).reshape((5,3))
 
-CORNER_NAMES=('top-left','top-right','bottom-left','bottom-right','center')
-CORNERS=np.array(( (0.2, 0.5), (0.8,0.2), (0.2,0.8), (0.8,0.8), (0.5,0.5) )).reshape((5,2)) #Corners as relative (x,y) positions
+# CORNER_NAMES=('top-left','top-right','bottom-left','bottom-right','center')
+# CORNERS=np.array(( (0.2, 0.5), (0.8,0.2), (0.2,0.8), (0.8,0.8), (0.5,0.5) )).reshape((5,2)) #Corners as relative (x,y) positions
 
 #TODO: attributes here or in graph? Should be possible to convert to graph
 class SceneGraphObject:
@@ -53,8 +55,23 @@ class SceneGraphObject:
 
         return sgo
 
+    #CARE: Potentially some differences!
+    @classmethod
+    def from_viewobject_cluster3d(cls, v):
+        sgo=SceneGraphObject()
+        sgo.label=v.label
+
+        color_distances= np.linalg.norm( COLORS-v.color, axis=1 )
+        sgo.color=COLOR_NAMES[ np.argmin(color_distances) ]
+
+        corner_distances= np.linalg.norm( CORNERS- (v.center[0]/IMAGE_WIDHT,v.center[1]/IMAGE_HEIGHT), axis=1 )
+        sgo.corner= CORNER_NAMES[ np.argmin(corner_distances) ]
+
+        return sgo
+    
+
     def __str__(self):
-        return f'SceneGraphObject: {self.color} {self.label} at {self.corner}'
+        return f'{self.color} {self.label} at {self.corner}'
 
     def get_text(self):
         return str(self)        
@@ -88,7 +105,9 @@ class SceneGraph:
         text=''
         for rel in self.relationships:
             sub, rel_type, obj=rel
-            text+=f'In the {sub.corner} there is a {sub.color} {sub.label} that is {rel_type} of a {obj.color} {obj.label}. '
+            rel_text=f'In the {sub.corner} there is a {sub.color} {sub.label} that is {rel_type} of a {obj.color} {obj.label}. '
+            if rel_text not in text: #Prevent doublicate sentences
+                text+=rel_text
 
         return text
 
@@ -106,28 +125,6 @@ class Relationship2:
 
     def __str__(self):
         return f'Relationship2: {self.sub_label} is {self.rel_type} of {self.obj_label}'
-
-class ViewObject:
-    __slots__ = ['label', 'bbox', 'depth', 'center', 'color']
-
-    @classmethod
-    def from_patch(cls, patch):
-        v=ViewObject()
-        v.label=patch.label
-        v.bbox=patch.bbox #CARE: Center is normed, BBbox is not!
-        v.depth=patch.depth
-        v.center=patch.center/(IMAGE_WIDHT, IMAGE_HEIGHT) #Convert center [0,IMAGE_W/H] -> [0,1]
-        v.color=patch.color/255.0 #Convert color [0,255] -> [0,1]
-        return v
-
-    def __str__(self):
-        return f'ViewObject: {self.color} {self.label} at {self.center}'
-
-    def score_color(target_name):
-        pass
-
-    def score_corner(taget_name):
-        pass
 
 def text_from_scenegraph(relations):
     text="There is "
@@ -210,6 +207,40 @@ def scenegraph_for_view_5corners(view_objects, keep_viewobjects=False, flip_rela
 
     return scene_graph
 
+def scenegraph_for_view_cluster3d_5corners(view_objects, keep_viewobjects=False, flip_relations=False):
+    scene_graph=SceneGraph()
+
+    for corner_idx, corner in enumerate(CORNERS):
+        #find subject closest to corner
+        corner_dists=[ np.linalg.norm(np.array(sub.center)/(IMAGE_WIDHT,IMAGE_HEIGHT) - corner) for sub in view_objects ]   
+        sub = view_objects[ np.argmin(corner_dists) ]
+
+        #Find closest (in image-plane) object of same or other class
+        obj_candidates=[ obj for obj in view_objects if obj!=sub]   
+        obj_distances=[ np.linalg.norm(np.array(sub.center)-np.array(obj.center)) for obj in obj_candidates]  
+
+        if len(obj_candidates)==0:
+            continue        
+
+        obj=obj_candidates[ np.argmin(obj_distances) ]
+        rel_type=semantic.scene_graph_cluster3d_scoring.get_relationship_type(sub, obj)
+
+        if flip_relations:
+            if rel_type=='right':
+                sub,rel_type,obj= obj, 'left', sub
+            if rel_type=='above':
+                sub,rel_type,obj= obj, 'below', sub
+            if rel_type=='behind':
+                sub,rel_type,obj= obj, 'infront', sub
+
+        if keep_viewobjects: #Debugging
+            scene_graph.add_relationship( sub, rel_type,  obj )
+        else:
+            scene_graph.add_relationship( SceneGraphObject.from_viewobject_cluster3d(sub), rel_type,  SceneGraphObject.from_viewobject_cluster3d(obj) )
+
+    return scene_graph                    
+
+
 
 #OPTION: relate any 2 patches / different classes / closest | Currently: closest in image-plane of different class
 #TODO: pull subjects evenly from classes
@@ -275,11 +306,6 @@ def score_scenegraph_pair(relations0, relations1):
 '''
 Logic via 3D-Clustering
 '''
-#Naive approach: An object is (potentially) occluded if another object is closer to the camera and occludes more than half of it in the x-y-image-plan
-# def is_object_occluded(obj, scene_objects):
-#     for occluder in scene_objects:
-#         if occluder==obj:
-#             continue
 
 def get_midpoint_distance(sub,obj):
     smid=0.5*(sub.bbox_projected[0:3]+sub.bbox_projected[3:6])
@@ -353,41 +379,44 @@ def create_scenegraphs(base_path, scene_name):
         # cv2.waitKey()
 
         #break
-    return scene_relationships        
+    return scene_relationships     
 
 
 if __name__ == "__main__":
     #Milestone: 5-corner creation, store, load, text for 1 scene (no eval)
 
-    base_path='data/pointcloud_images_3_2_depth'
-    scene_name='sg27_station2_intensity_rgb'
-    scene_patches=pickle.load(open(os.path.join(base_path, scene_name,'patches.pkl'), 'rb'))
+    ### Scene graph debugging for Cluster3d
+    base_path='data/pointcloud_images_o3d/'
+    scene_name='domfountain_station1_xyz_intensity_rgb'
+    scene_view_objects=pickle.load( open(os.path.join(base_path,scene_name,'view_objects.pkl'), 'rb') )
 
-    file_name='004_07.png'
-    #view_objects=[ ViewObject.from_patch(p) for p in scene_patches[file_name] if p.label=='hard scape']
-    view_objects=[ ViewObject.from_patch(p) for p in scene_patches[file_name] ]
+    file_name='013.png'
+    view_objects=scene_view_objects[file_name]
 
-    img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
-    texts=[ str(SceneGraphObject.from_viewobject(v)) for v in view_objects ]
+    texts=[ str(SceneGraphObject.from_viewobject_cluster3d(v)) for v in view_objects ]
+    print(texts)
+    print()
 
-    sg=scenegraph_for_view_5corners(view_objects, keep_viewobjects=False)
+    sg=scenegraph_for_view_cluster3d_5corners(view_objects, keep_viewobjects=False)
     print(sg.get_text())
 
-    sg=scenegraph_for_view_5corners(view_objects, keep_viewobjects=True)
+    sg=scenegraph_for_view_cluster3d_5corners(view_objects, keep_viewobjects=True)
 
-    #draw_view_objects(img, view_objects, texts)    
+    img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
+    draw_view_objects(img, view_objects, texts)    
+    cv2.imshow("",img); cv2.waitKey()
+
+    img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
     draw_scenegraph(img,sg)
-    #draw_patches(img, scene_patches[file_name])
-    cv2.imshow("",img)
-    cv2.waitKey()
-    cv2.imwrite("sg_demo.jpg",img)
-
-
+    cv2.imshow("",img); cv2.waitKey()
+    
+    # cv2.imwrite("sg_demo.jpg",img)
     quit()
+    ### Scene graph debugging for Cluster3d
 
 
     '''
-    Scene-Graph creation
+    Data creation: Scene-Graphs from view-objects
     '''
     base_path='data/pointcloud_images_3_2_depth'
     scene_name='sg27_station2_intensity_rgb'

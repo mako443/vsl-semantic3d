@@ -21,6 +21,7 @@ TODO:
 -check for reasons the loss is not dropping -> Positive pairs to close
 -overfit 200 images, evaluate top-k dists, train on more scenes ✓
 -Train&eval 4 scenes 3:2 aspect no split and 3-1 split: ✓ scene-retrieval good, high 
+-nächstes Mal r=0? -> Yes, bzw eh via Open3D ✓
 
 -Redo splitting w/ disjoint trajectories, less locations, random angles
 
@@ -32,7 +33,7 @@ TODO:
 -bigger encoder (FCN-Resnet101), too big for my GPU
 -ggf. train segmentation model (check avg p/n feature alikeness before/after)
 
--nächstes Mal r=0?
+-Find pairs via Open3D visible points?
 
 MODELS:
 resnet18, 200 images            : ({1: 1.598, 5: 3.49, 10: 5.17}, {1: 0.0,   5: 0.361, 10: 0.416})

@@ -40,6 +40,9 @@ def draw_patches(img, patches):
         cv2.rectangle(img, (p.bbox[0], p.bbox[1]), (p.bbox[0]+p.bbox[2], p.bbox[1]+p.bbox[3]), (c[2],c[1],c[0]), thickness=2)
         cv2.putText(img,p.label,(int(p.center[0]),int(p.center[1])),cv2.FONT_HERSHEY_SIMPLEX, 0.75, (c[2],c[1],c[0]), thickness=2)
 
+def draw_view_objects(img, view_objects):
+    pass
+
 #For old-style rel-list
 def draw_relationships(img, relationships):
     for rel in relationships:
@@ -54,18 +57,28 @@ def draw_scenegraph(img, scene_graph):
     h,w=img.shape[0:2]
     for rel in scene_graph.relationships:
         for p in (rel[0], rel[2]):
-            cv2.rectangle(img, (p.bbox[0], p.bbox[1]), (p.bbox[0]+p.bbox[2], p.bbox[1]+p.bbox[3]), (0,0,255), thickness=2)
+            #cv2.rectangle(img, (p.bbox[0], p.bbox[1]), (p.bbox[0]+p.bbox[2], p.bbox[1]+p.bbox[3]), (0,0,255), thickness=2)
+            bbox=p.get_bbox()
+            cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0,0,255), thickness=2)
 
-        p0,p1= np.int0(rel[0].center*(w,h)), np.int0(rel[2].center*(w,h))
+        p0,p1= np.int0(np.array(rel[0].center)), np.int0(np.array(rel[2].center))
         cv2.arrowedLine(img, (p0[0],p0[1]), (p1[0],p1[1]), (0,0,255), thickness=3)
         cv2.putText(img,rel[1]+" of",(p0[0],p0[1]),cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), thickness=2)
 
 
 def draw_view_objects(img, view_objects, object_texts=None):
+    # for i,o in enumerate(view_objects):
+    #     cv2.rectangle(img, (o.bbox[0], o.bbox[1]), (o.bbox[0]+o.bbox[2], o.bbox[1]+o.bbox[3]), (0,0,255), thickness=2)
+    #     if object_texts is not None:
+    #         cv2.putText(img,object_texts[i],(o.bbox[0], o.bbox[1]),cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255))
+
+    #From cluster3d
     for i,o in enumerate(view_objects):
-        cv2.rectangle(img, (o.bbox[0], o.bbox[1]), (o.bbox[0]+o.bbox[2], o.bbox[1]+o.bbox[3]), (0,0,255), thickness=2)
+        bbox=o.get_bbox()
+        cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0,0,255), thickness=2)
+        cv2.circle(img, (int(o.center[0]), int(o.center[1])), 6,(0,0,255), thickness=4)
         if object_texts is not None:
-            cv2.putText(img,object_texts[i],(o.bbox[0], o.bbox[1]),cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255))
+            cv2.putText(img,object_texts[i],(int(o.center[0]-100), int(o.center[1])),cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0,0,255),thickness=2)    
     
 
 #Assuming a pinhole-model

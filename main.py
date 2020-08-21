@@ -7,9 +7,7 @@ import pyvista
 import open3d
 import capturing
 import cv2
-#from semantic.clustering import ClusteredObject, ClusteredObject2
-#from graphics.rendering import Pose, CLASSES_DICT, CLASSES_COLORS, load_files2
-from semantic.imports import ClusteredObject2
+from semantic.imports import ClusteredObject
 from graphics.imports import Pose, CLASSES_DICT, CLASSES_COLORS#, load_files2
 
 import semantic.geometry

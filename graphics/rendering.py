@@ -4,10 +4,11 @@ import pickle
 import open3d
 import cv2
 import time
+import pptk
 
 from main import load_files
-from semantic.imports import ClusteredObject2
-from .imports import Pose
+from semantic.imports import ClusteredObject, project_point
+from .imports import Pose, CLASSES_COLORS, CLASSES_DICT
 
 
 def reduce_points(points, max_points):
@@ -32,10 +33,24 @@ def load_files2(base_path, scene_name, max_points=int(28e6)):
     #Load numpy files
     xyz, rgb, lbl=np.load(open(p_xyz,'rb')),np.load(open(p_rgb,'rb')),np.load(open(p_labels,'rb'))
 
+    #Iteratively expand the artifacts into unknowns
+    k=5
+    iterations=2
+    print(f"artefacts before: {np.sum(lbl==CLASSES_DICT['scanning artefacts'])/len(xyz):0.3f}")
+    kd_tree=pptk.kdtree._build(xyz)
+    for i in range(iterations):
+        # print('query tree...')
+        neighbors=pptk.kdtree._query(kd_tree, lbl==CLASSES_DICT['scanning artefacts'], k=5) #Neighbors for every artifact point, kd-query returns absolute indices apparently
+        neighbors=np.array(neighbors).flatten() #All neighbors of artifact points
+        neighbors=neighbors[lbl[neighbors]==CLASSES_DICT['unlabeled']] #Neighbors of artefacts that are unknown
+        lbl[neighbors]=CLASSES_DICT['scanning artefacts']
+        neighbors=None
+    print(f"artefacts after: {np.sum(lbl==CLASSES_DICT['scanning artefacts'])/len(xyz):0.3f}")    
+
     #TODO: blunt artifact removal ok?
     #Remove artifacts
     mask= lbl!=CLASSES_DICT['scanning artefacts']
-    print(f'Retaining {np.sum(mask) / len(xyz) : 0.3} of points after artifact removal')
+    print(f'Retaining {np.sum(mask) / len(xyz) : 0.3} of points after artifact removal, {len(xyz)} total points')
     xyz, rgb, lbl=xyz[mask,:], rgb[mask,:], lbl[mask]
 
     #Reduce the points via stepping to prevent memory erros
@@ -47,8 +62,8 @@ def load_files2(base_path, scene_name, max_points=int(28e6)):
 Rendering via 3D clusters
 -Unclear if O3D supports RGBA, for label-images w/ O3D possibly split I/O
 '''
-def capture_view(visualizer, pose, scene_objects):
-    set_pose(view_control,pose)
+# def capture_view(visualizer, pose, scene_objects):
+#     set_pose(view_control,pose)
 
 def capture_scene(dirpath, scene_name):
     filepath_poses=os.path.join(dirpath,scene_name,'poses.pkl')
@@ -56,9 +71,10 @@ def capture_scene(dirpath, scene_name):
     assert os.path.isfile(filepath_poses) and os.path.isdir(dirpath_out)
 
     scene_poses=pickle.load( open( filepath_poses, 'rb') )
+    poses_rendered={} #Dictionary for the rendered poses, indexed by file name, I,E added
 
     print(f'Capturing {len(scene_poses)} poses')
-    xyz, rgba, labels_rgba=load_files('data/numpy/'+scene_name, remove_artifacts=True, remove_unlabeled=True, max_points=int(30e6))
+    xyz, rgba, labels_rgba=load_files2('data/numpy/',scene_name, max_points=int(30e6)) #TODO: use load_files from here / new artifact removal, more points? (Seems to help!!)
     labels_rgba=None
     rgb=rgba[:,0:3].copy()
     rgba=None
@@ -76,15 +92,20 @@ def capture_scene(dirpath, scene_name):
     vis.add_geometry(point_cloud)
     for i_pose,pose in enumerate(scene_poses):
         print(f'\r Pose {i_pose} of {len(scene_poses)}',end='')    
-        set_pose(view_control,pose)
+        I,E=set_pose(view_control,pose)
         update(vis,point_cloud)
         time.sleep(0.5)
 
-        img=np.asarray(vis.capture_screen_float_buffer())
-        img=cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         file_name=f'{i_pose:03d}.png'
-        cv2.imwrite( os.path.join(dirpath_out,file_name), img*255)
+        vis.capture_screen_image(os.path.join(dirpath_out,file_name),do_render=True)
+
+        #Add I,E to the pose, add to dictionary
+        pose.I,pose.E=I,E
+        poses_rendered[file_name]=pose
+
     print()
+    print('Saving rendered poses...')
+    pickle.dump(poses_rendered, open(os.path.join(dirpath,scene_name,'poses_rendered.pkl'), 'wb'))
     print('Scene finished!')
 
 
@@ -94,11 +115,6 @@ def update(vis,geometry):
     vis.update_renderer()
 
 def set_pose(view_control, pose : Pose):
-    # view=np.array([ 0.57511449, -0.81660008,  0.04906747])
-    # up=np.array([-0.02825345,  0.04011682,  0.99879545])
-    # right=np.array([0.81758493, 0.57580805, 0.        ])   
-    # eye=np.array([-1.32071638,  0.7591362 ,  0.24045286])
-
     R=np.vstack((-1.0*pose.right, -1.0*pose.up, -1.0*pose.forward))
     t=-1.0*pose.eye
     
@@ -113,14 +129,69 @@ def set_pose(view_control, pose : Pose):
     #print(params_new.extrinsic)
 
     view_control.convert_from_pinhole_camera_parameters(params_new) 
+    I,E=params_new.intrinsic.intrinsic_matrix, params_new.extrinsic
+    return I,E
 
 
 if __name__ == "__main__":
+    ### Project & bbox verify 
+    scene_name='domfountain_station1_xyz_intensity_rgb'
+    file_name='016.png'
+    scene_objects=pickle.load( open('data/numpy/'+scene_name+'.objects.pkl', 'rb'))
+    poses_rendered=pickle.load( open( os.path.join('data','pointcloud_images_o3d',scene_name,'poses_rendered.pkl'), 'rb'))
+    img=cv2.imread( os.path.join('data','pointcloud_images_o3d',scene_name,'rgb', file_name) )
+
+    pose=poses_rendered[file_name]
+    I,E=pose.I, pose.E
+
+    for obj in scene_objects:
+        obj.project(pose.I, pose.E)
+        if obj.mindist_i>0:
+            obj.draw_on_image(img)
+
+    cv2.imshow("",img)
+    cv2.waitKey()
+    # quit()
+
+    xyz, rgba, labels_rgba=load_files('data/numpy/'+scene_name, remove_artifacts=True, remove_unlabeled=True, max_points=int(10e6))
+    point_cloud=open3d.geometry.PointCloud()
+    point_cloud.points=open3d.utility.Vector3dVector(xyz)
+    point_cloud.colors=open3d.utility.Vector3dVector(rgba[:,0:3]/255.0)
+
+    for obj in scene_objects:
+        pcd=open3d.geometry.PointCloud()
+        pcd.points=open3d.utility.Vector3dVector(obj.points_w)
+        pcd.colors=open3d.utility.Vector3dVector(np.ones_like(obj.points_w)*(1,0,0))
+
+    vis = open3d.visualization.Visualizer()
+    vis.create_window(width=1620, height=1080)
+
+    view_control=vis.get_view_control()
+    vis.get_render_option().background_color = np.asarray([0, 0, 0])
+
+    vis.add_geometry(point_cloud)
+    for obj in scene_objects:
+        pcd=open3d.geometry.PointCloud()
+        pcd.points=open3d.utility.Vector3dVector(obj.points_w)
+        color=np.random.rand(3)
+        pcd.colors=open3d.utility.Vector3dVector(np.ones_like(obj.points_w)*color)
+        vis.add_geometry(pcd)    
+
+    params_new=open3d.camera.PinholeCameraParameters(view_control.convert_to_pinhole_camera_parameters())
+    params_new.extrinsic=pose.E
+    view_control.convert_from_pinhole_camera_parameters(params_new)
+    vis.run()
+
+    quit()
+    ### Project & bbox verify
+
+
     '''
-    Open3D rendring for clusters: read poses -> render images
+    Data creation: Open3D rendering for clusters, read poses -> render images
     '''
-    # scene_name='domfountain_station1_xyz_intensity_rgb'
-    # capture_scene('data/pointcloud_images_o3d/',scene_name)
+    scene_name='domfountain_station1_xyz_intensity_rgb'
+    capture_scene('data/pointcloud_images_o3d/',scene_name)
+    quit()
 
 
     scene_name='domfountain_station1_xyz_intensity_rgb'
