@@ -95,7 +95,7 @@ class ViewObject:
         v.min_z_w, v.max_z_w= np.min(clustered_object.points_w[:,2]), np.max(clustered_object.points_w[:,2])
         v.center=np.array(v.rect[0])
         v.color=clustered_object.color #Color as [r,g,b] in [0,1]
-        v.corner=corner #TODO: Add here!
+        #v.corner=corner #TODO: Add here!
         return v
 
     def draw_on_image(self,img):

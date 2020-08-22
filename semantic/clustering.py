@@ -189,7 +189,7 @@ if __name__ == "__main__":
 
     # quit()      
 
-    scene_name='neugasse_station1_xyz_intensity_rgb'
+    scene_name='sg27_station2_intensity_rgb'
     #label='buildings'
     scene_objects, vis_xyz, vis_rgb=cluster_scene(scene_name, return_visualization=True)
     v=pptk.viewer(vis_xyz)

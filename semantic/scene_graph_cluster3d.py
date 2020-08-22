@@ -32,15 +32,17 @@ def is_object_in_fov(obj : ClusteredObject):
 #Alternative: Z-Buffer logic
 #TODO/Better: save the global indices of the visible points in ClusteredObjects (possible?), check that enough are visible now via open3d.hidden_point_removal() | Need to save a point_cloud object??
 #TODO: Rectangle-based occlusion checks do not work!
+#New strategy: checking for a single occluder that covers most of objects area and is completely closer
 def is_object_occluded(obj : ClusteredObject, visible_objects):
-    return False #Does not work / unreliable!
+    #return False #Does not work / unreliable!
     #For each occluder in fov and closer:
     # occlusion_area=0.0
+
     for occluder in visible_objects:
         if obj==occluder: 
             continue
 
-        if not occluder.mindist_i<obj.maxdist_i and occluder.maxdist_i>0: #TODO: like this?
+        if not obj.mindist_i-occluder.maxdist_i>2 and occluder.maxdist_i>0: #OPTION: distance difference
             continue
 
         #get the rotated-rect intersection
@@ -54,7 +56,7 @@ def is_object_occluded(obj : ClusteredObject, visible_objects):
         #Check for a single occluder that covers enough area (naive)
         if intersection_points is not None:
             intersection_rect=cv2.minAreaRect(intersection_points)
-            if np.prod(intersection_rect[1])>0.5*obj.get_area():
+            if np.prod(intersection_rect[1])>0.8*obj.get_area(): #Option: occlusion area
                 return True
     return False
 
@@ -66,34 +68,34 @@ def create_view_objects(scene_objects, view_pose : Pose):
         o.project(I,E)
 
     fov_objects=[ obj for obj in scene_objects if obj.rect_i is not None and is_object_in_fov(obj) ]
-    # print(f'Scene but not fov objects: {len(scene_objects) - len(fov_objects)}')
+    print(f'Scene but not fov objects: {len(scene_objects) - len(fov_objects)}')
     visible_objects=[ obj for obj in fov_objects if not is_object_occluded(obj, fov_objects) ]
-    # print(f'FoV but occluded objects: {len(fov_objects) - len(visible_objects)}')
+    print(f'FoV but occluded objects: {len(fov_objects) - len(visible_objects)}')
 
     view_objects=[ ViewObject.from_clustered_object(obj) for obj in visible_objects ]
     return view_objects
 
 if __name__ == "__main__":
-    # scene_name='domfountain_station1_xyz_intensity_rgb'
-    # scene_objects=pickle.load( open('data/numpy/'+scene_name+'.objects.pkl', 'rb'))
-    # poses_rendered=pickle.load( open( os.path.join('data','pointcloud_images_o3d',scene_name,'poses_rendered.pkl'), 'rb'))
+    scene_name='untermaederbrunnen_station1_xyz_intensity_rgb'
+    scene_objects=pickle.load( open('data/numpy/'+scene_name+'.objects.pkl', 'rb'))
+    poses_rendered=pickle.load( open( os.path.join('data','pointcloud_images_o3d',scene_name,'poses_rendered.pkl'), 'rb'))
     
-    # file_name='157.png'
-    # pose=poses_rendered[file_name]
-    # img=cv2.imread( os.path.join('data','pointcloud_images_o3d',scene_name,'rgb', file_name) )
+    file_name='123.png'
+    pose=poses_rendered[file_name]
+    img=cv2.imread( os.path.join('data','pointcloud_images_o3d',scene_name,'rgb', file_name) )
 
-    # view_objects=create_view_objects(scene_objects,pose)
-    # print('view objects',len(view_objects))
+    view_objects=create_view_objects(scene_objects,pose)
+    print('view objects',len(view_objects))
 
-    # for v in view_objects:
-    #     if "terrain" in v.label or True:
-    #         v.draw_on_image(img)
+    for v in view_objects:
+        if "terrain" in v.label or True:
+            v.draw_on_image(img)
 
-    # cv2.imshow("",img)
-    # cv2.waitKey()
+    cv2.imshow("",img)
+    cv2.waitKey()
 
 
-    # quit()
+    quit()
     '''
     Data creation: View objects from clustered objects
     '''
