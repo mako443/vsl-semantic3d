@@ -26,26 +26,38 @@ scene_config['sg27_station2_intensity_rgb']={
     'points':np.array( [[ -2.28320765, -13.30841255,   0.65572155],
                         [ 14.10788918, -32.98677063,  -1.28365839],
                         [ 26.90045547, -23.60473442,  -1.01840901],
-                        [ 23.01133728,   0.17587358,  -1.40091133],
+                        [ 23.01133728,  10.0      ,  -1.40091133],
                         [ -1.34517264,  10.82786083,   0.17833348]]), 
     'point_size_rgb':0.025, #labels always double
 }
+# scene_config['untermaederbrunnen_station1_xyz_intensity_rgb']={
+#     #Nx3 array
+#     'points':np.array([[  2.03187799,  -2.71359539,  -0.16611724],
+#                         [  1.21940982,   5.60008621,  -0.61616558],
+#                         [-18.17295837,  17.23288536,   0.42189693],
+#                         [-14.96191025,   6.38012838,  -0.22417469],
+#                         [ -1.3910284 ,   1.32536995,  -0.45402691]]),
+#     'point_size_rgb':0.025, #labels always double
+# }
+
+#TODO: Non-circle ok?
 scene_config['untermaederbrunnen_station1_xyz_intensity_rgb']={
     #Nx3 array
-    'points':np.array([[  2.03187799,  -2.71359539,  -0.16611724],
-                        [  1.21940982,   5.60008621,  -0.61616558],
-                        [-18.17295837,  17.23288536,   0.42189693],
-                        [-14.96191025,   6.38012838,  -0.22417469],
-                        [ -1.3910284 ,   1.32536995,  -0.45402691]]),
+    'points':np.array([[-8.15726089e+00, -1.17434473e+01, -2.00530887e-03],
+                        [9.46222305, 3.13939857, 0.07745753],
+                        [-7.56795025,  6.47402334, -0.09737678],
+                        [-19.66889381,  13.40221691,  -0.38015223]]),
     'point_size_rgb':0.025, #labels always double
 }
+
+#CARE: z changed to higher
 scene_config['neugasse_station1_xyz_intensity_rgb']={
     #Nx3 array
-    'points':np.array([[ 1.1074542e+01,  1.0536696e+00, -4.0069711e-01],
-                        [-3.3289959e+00,  1.0078371e-02,  1.9622801e-01],
-                        [-9.9907360e+00, -3.6623685e+00, -3.0740970e-01],
-                        [-3.0083437e+00, -8.5878935e+00, -9.0476435e-01],
-                        [ 1.7781239e+00, -3.6863661e+00, -9.0476412e-01]]), 
+    'points':np.array([[ 1.1074542e+01,  1.0536696e+00,  1.0],
+                        [-3.3289959e+00,  1.0078371e-02, 1.0],
+                        [-9.9907360e+00, -3.6623685e+00, 1.0],
+                        [-3.0083437e+00, -8.5878935e+00, 1.0],
+                        [ 1.7781239e+00, -3.6863661e+00, 1.0]]), 
     'point_size_rgb':0.025, #labels always double
 }
 
@@ -80,7 +92,7 @@ if __name__ == "__main__":
     '''
     View pptk -> write config -> interpolate&save poses
     '''    
-    scene_name='domfountain_station1_xyz_intensity_rgb'
+    scene_name='neugasse_station1_xyz_intensity_rgb'
     output_path_poses=os.path.join('data','pointcloud_images_o3d',scene_name,'poses.pkl')
 
     viewer=view_pptk('data/numpy/'+scene_name, remove_artifacts=True, remove_unlabeled=True, max_points=int(10e6))
@@ -88,6 +100,8 @@ if __name__ == "__main__":
 
     points=scene_config[scene_name]['points']
     points=interpolate_points(points,20)
+    # visualize_points(viewer,points)
+    # quit()
 
     poses=calculate_poses(viewer, scene_name, points, num_angles=10)
     print('num poses:',len(poses))

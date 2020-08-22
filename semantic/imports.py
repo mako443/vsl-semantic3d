@@ -6,9 +6,11 @@ from graphics.imports import IMAGE_WIDHT, IMAGE_HEIGHT, CLASSES_COLORS
 RELATIONSHIP_TYPES=('left','right','below','above','infront','behind')
 DEPTH_DIST_FACTOR=IMAGE_WIDHT/255.0*2
 
-#TODO: add dark-red (0.5,0,0), do as 8 corners of unit-cube, score relative to max qube-dist
-COLOR_NAMES=('red','green','blue','black','white')
-COLORS=np.array(( (1,0,0), (0,1,0), (0,0,1), (0,0,0), (1,1,1) )).reshape((5,3))
+#COLOR_NAMES=('red','green','blue','black','white')
+#COLORS=np.array(( (1,0,0), (0,1,0), (0,0,1), (0,0,0), (1,1,1) )).reshape((5,3))
+COLOR_NAMES=('black','red','green','blue','cyan','yellow', 'purple', 'white', 'gray') #Colors as 8 corners of unit-cube plus gray
+#COLORS=np.array(( (0,0,0), (1,0,0), (0,1,0), (0,0,1), (0,1,1), (1,1,0), (1,0,1), (1,1,1), (0.5,0.5,0.5) )).reshape((9,3))
+COLORS=np.array(( (0.0,0.0,0.0), (0.7,0.0,0.0), (0.0,0.7,0.0), (0.0,0.0,0.7), (0.0,0.7,0.7), (0.7,0.7,0.0), (0.7,0.0,0.7), (0.7,0.7,0.7), (0.3,0.3,0.3) )).reshape((9,3))
 
 CORNER_NAMES=('top-left','top-right','bottom-left','bottom-right','center')
 CORNERS=np.array(( (0.2, 0.2), (0.8,0.2), (0.2,0.8), (0.8,0.8), (0.5,0.5) )).reshape((5,2)) #Corners as relative (x,y) positions

@@ -98,8 +98,8 @@ if __name__ == "__main__":
     Data creation: View objects from clustered objects
     '''
     base_dir='data/pointcloud_images_o3d/'
-    #for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
-    for scene_name in ('domfountain_station1_xyz_intensity_rgb',):
+    for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
+    #for scene_name in ('sg27_station2_intensity_rgb',):
         print()
         print("Scene: ",scene_name)
         scene_objects=pickle.load( open('data/numpy/'+scene_name+'.objects.pkl', 'rb'))

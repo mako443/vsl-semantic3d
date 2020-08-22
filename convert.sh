@@ -1,0 +1,6 @@
+python3 main.py bildstein_station1_xyz_intensity_rgb
+python3 main.py bildstein_station5_xyz_intensity_rgb
+python3 main.py domfountain_station2_xyz_intensity_rgb
+python3 main.py domfountain_station3_xyz_intensity_rgb
+python3 main.py untermaederbrunnen_station1_xyz_intensity_rgb
+python3 main.py untermaederbrunnen_station3_xyz_intensity_rgb

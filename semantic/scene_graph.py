@@ -13,34 +13,22 @@ from .utils import draw_relationships, draw_view_objects, draw_scenegraph, draw_
 import semantic.scene_graph_cluster3d_scoring
 from .imports import ViewObject, COLORS, COLOR_NAMES, CORNERS, CORNER_NAMES
 
-#Point-cloud clustering and hidden points: http://www.open3d.org/docs/release/tutorial/Basic/pointcloud.html -> Doesn't seem to work ✖
-#Simple depth-map: compute distance from eye for all points, color them accordingly (scaled to max)
-#Occlusion check: if 2D-overlap >0.5 of object, check if other object is closer (simple bouding boxes 2D)
-#Artifacts try #2: cluster, then all inside 3d bboxes 
+
+'''
+Module to generate Scene Graphs and text descriptions from view-objects | Disregard patches-logic for now
+'''
 
 '''
 TODO
-New strategy: search for small/big enough 2D blobs (dep. on class), describe 3D-relations using depth (small-small, small-big)
-check for congruent depth (small only)?
-
-Make scoring-logic same for both styles of creation? Otherwise split this file?
-Add the attributes left/middle/right: evtl. score w/o identities, how to store identities?
-Add Graph-class for object oriented? (Inspo: https://www.bogotobogo.com/python/python_graph_data_structures.php)
+-remove deprecated
+-resolve angles infront/behind?
+-add "bottom/top" or "foreground/background" as corners (meaning across)?
+-refine obj/sub selection: use unused ones, just keep track in list
 '''
-
-# RELATIONSHIP_TYPES=('left','right','below','above','infront','behind')
-# DEPTH_DIST_FACTOR=IMAGE_WIDHT/255.0*2
-
-# #TODO: add dark-red (0.5,0,0), do as 8 corners of unit-cube, score relative to max qube-dist
-# COLOR_NAMES=('red','green','blue','black','white')
-# COLORS=np.array(( (1,0,0), (0,1,0), (0,0,1), (0,0,0), (1,1,1) )).reshape((5,3))
-
-# CORNER_NAMES=('top-left','top-right','bottom-left','bottom-right','center')
-# CORNERS=np.array(( (0.2, 0.5), (0.8,0.2), (0.2,0.8), (0.8,0.8), (0.5,0.5) )).reshape((5,2)) #Corners as relative (x,y) positions
 
 #TODO: attributes here or in graph? Should be possible to convert to graph
 class SceneGraphObject:
-    __slots__ = ['label', 'color', 'corner']
+    __slots__ = ['label', 'color', 'corner','maxdist']
 
     @classmethod
     def from_viewobject(cls, v):
@@ -66,6 +54,8 @@ class SceneGraphObject:
 
         corner_distances= np.linalg.norm( CORNERS- (v.center[0]/IMAGE_WIDHT,v.center[1]/IMAGE_HEIGHT), axis=1 )
         sgo.corner= CORNER_NAMES[ np.argmin(corner_distances) ]
+
+        #sgo.maxdist=v.maxdist
 
         return sgo
     
@@ -387,10 +377,11 @@ if __name__ == "__main__":
 
     ### Scene graph debugging for Cluster3d
     base_path='data/pointcloud_images_o3d/'
-    scene_name='domfountain_station1_xyz_intensity_rgb'
+    scene_name='neugasse_station1_xyz_intensity_rgb'
     scene_view_objects=pickle.load( open(os.path.join(base_path,scene_name,'view_objects.pkl'), 'rb') )
 
-    file_name='013.png'
+    #file_name='004.png'
+    file_name=np.random.choice(list(scene_view_objects.keys()))
     view_objects=scene_view_objects[file_name]
 
     texts=[ str(SceneGraphObject.from_viewobject_cluster3d(v)) for v in view_objects ]
@@ -410,7 +401,7 @@ if __name__ == "__main__":
     draw_scenegraph(img,sg)
     cv2.imshow("",img); cv2.waitKey()
     
-    # cv2.imwrite("sg_demo.jpg",img)
+    cv2.imwrite("sg_demo.jpg",img)
     quit()
     ### Scene graph debugging for Cluster3d
 

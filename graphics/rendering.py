@@ -73,7 +73,7 @@ def capture_scene(dirpath, scene_name):
     scene_poses=pickle.load( open( filepath_poses, 'rb') )
     poses_rendered={} #Dictionary for the rendered poses, indexed by file name, I,E added
 
-    print(f'Capturing {len(scene_poses)} poses')
+    print(f'Capturing {len(scene_poses)} poses for <{scene_name}>')
     xyz, rgba, labels_rgba=load_files2('data/numpy/',scene_name, max_points=int(30e6)) #TODO: use load_files from here / new artifact removal, more points? (Seems to help!!)
     labels_rgba=None
     rgb=rgba[:,0:3].copy()
@@ -107,6 +107,7 @@ def capture_scene(dirpath, scene_name):
     print('Saving rendered poses...')
     pickle.dump(poses_rendered, open(os.path.join(dirpath,scene_name,'poses_rendered.pkl'), 'wb'))
     print('Scene finished!')
+    vis.close()
 
 
 def update(vis,geometry):
@@ -134,64 +135,63 @@ def set_pose(view_control, pose : Pose):
 
 
 if __name__ == "__main__":
-    ### Project & bbox verify 
-    scene_name='domfountain_station1_xyz_intensity_rgb'
-    file_name='016.png'
-    scene_objects=pickle.load( open('data/numpy/'+scene_name+'.objects.pkl', 'rb'))
-    poses_rendered=pickle.load( open( os.path.join('data','pointcloud_images_o3d',scene_name,'poses_rendered.pkl'), 'rb'))
-    img=cv2.imread( os.path.join('data','pointcloud_images_o3d',scene_name,'rgb', file_name) )
-
-    pose=poses_rendered[file_name]
-    I,E=pose.I, pose.E
-
-    for obj in scene_objects:
-        obj.project(pose.I, pose.E)
-        if obj.mindist_i>0:
-            obj.draw_on_image(img)
-
-    cv2.imshow("",img)
-    cv2.waitKey()
-    # quit()
-
-    xyz, rgba, labels_rgba=load_files('data/numpy/'+scene_name, remove_artifacts=True, remove_unlabeled=True, max_points=int(10e6))
-    point_cloud=open3d.geometry.PointCloud()
-    point_cloud.points=open3d.utility.Vector3dVector(xyz)
-    point_cloud.colors=open3d.utility.Vector3dVector(rgba[:,0:3]/255.0)
-
-    for obj in scene_objects:
-        pcd=open3d.geometry.PointCloud()
-        pcd.points=open3d.utility.Vector3dVector(obj.points_w)
-        pcd.colors=open3d.utility.Vector3dVector(np.ones_like(obj.points_w)*(1,0,0))
-
-    vis = open3d.visualization.Visualizer()
-    vis.create_window(width=1620, height=1080)
-
-    view_control=vis.get_view_control()
-    vis.get_render_option().background_color = np.asarray([0, 0, 0])
-
-    vis.add_geometry(point_cloud)
-    for obj in scene_objects:
-        pcd=open3d.geometry.PointCloud()
-        pcd.points=open3d.utility.Vector3dVector(obj.points_w)
-        color=np.random.rand(3)
-        pcd.colors=open3d.utility.Vector3dVector(np.ones_like(obj.points_w)*color)
-        vis.add_geometry(pcd)    
-
-    params_new=open3d.camera.PinholeCameraParameters(view_control.convert_to_pinhole_camera_parameters())
-    params_new.extrinsic=pose.E
-    view_control.convert_from_pinhole_camera_parameters(params_new)
-    vis.run()
-
-    quit()
-    ### Project & bbox verify
-
-
     '''
     Data creation: Open3D rendering for clusters, read poses -> render images
     '''
-    scene_name='domfountain_station1_xyz_intensity_rgb'
-    capture_scene('data/pointcloud_images_o3d/',scene_name)
+    for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
+        capture_scene('data/pointcloud_images_o3d/',scene_name)
     quit()
+
+    ### Project & bbox verify 
+    # scene_name='domfountain_station1_xyz_intensity_rgb'
+    # file_name='016.png'
+    # scene_objects=pickle.load( open('data/numpy/'+scene_name+'.objects.pkl', 'rb'))
+    # poses_rendered=pickle.load( open( os.path.join('data','pointcloud_images_o3d',scene_name,'poses_rendered.pkl'), 'rb'))
+    # img=cv2.imread( os.path.join('data','pointcloud_images_o3d',scene_name,'rgb', file_name) )
+
+    # pose=poses_rendered[file_name]
+    # I,E=pose.I, pose.E
+
+    # for obj in scene_objects:
+    #     obj.project(pose.I, pose.E)
+    #     if obj.mindist_i>0:
+    #         obj.draw_on_image(img)
+
+    # cv2.imshow("",img)
+    # cv2.waitKey()
+    # # quit()
+
+    # xyz, rgba, labels_rgba=load_files('data/numpy/'+scene_name, remove_artifacts=True, remove_unlabeled=True, max_points=int(10e6))
+    # point_cloud=open3d.geometry.PointCloud()
+    # point_cloud.points=open3d.utility.Vector3dVector(xyz)
+    # point_cloud.colors=open3d.utility.Vector3dVector(rgba[:,0:3]/255.0)
+
+    # for obj in scene_objects:
+    #     pcd=open3d.geometry.PointCloud()
+    #     pcd.points=open3d.utility.Vector3dVector(obj.points_w)
+    #     pcd.colors=open3d.utility.Vector3dVector(np.ones_like(obj.points_w)*(1,0,0))
+
+    # vis = open3d.visualization.Visualizer()
+    # vis.create_window(width=1620, height=1080)
+
+    # view_control=vis.get_view_control()
+    # vis.get_render_option().background_color = np.asarray([0, 0, 0])
+
+    # vis.add_geometry(point_cloud)
+    # for obj in scene_objects:
+    #     pcd=open3d.geometry.PointCloud()
+    #     pcd.points=open3d.utility.Vector3dVector(obj.points_w)
+    #     color=np.random.rand(3)
+    #     pcd.colors=open3d.utility.Vector3dVector(np.ones_like(obj.points_w)*color)
+    #     vis.add_geometry(pcd)    
+
+    # params_new=open3d.camera.PinholeCameraParameters(view_control.convert_to_pinhole_camera_parameters())
+    # params_new.extrinsic=pose.E
+    # view_control.convert_from_pinhole_camera_parameters(params_new)
+    # vis.run()
+
+    # quit()
+    ### Project & bbox verify
 
 
     scene_name='domfountain_station1_xyz_intensity_rgb'
@@ -230,7 +230,7 @@ if __name__ == "__main__":
 
 
 #RENDERING OPTIONS: 
-#Open3D SLURM: Can get Pinhole params, but blacked out or otherwise unfeasible?
+#Open3D SLURM: Can get Pinhole params, but blacked out or otherwise unfeasible?, Camera setting ok now
 #PyVista SLURM: Perspective anders (korrekt?), camera also seems accessible: https://github.com/pyvista/pyvista-support/issues/85, not blacked
 #-> Beide waren schlecht zum "Umschauen", Perspektiven leicht verschieden...
 
@@ -238,7 +238,7 @@ if __name__ == "__main__":
 TODO
 -Possibly try SLURM again? -> No ✖, maybe if voxel-downsample fails
 -build from main&capturing, remove capturing
--voxel-downsample before rendering? Then on PyVista or Open3D?
+-voxel-downsample before rendering? 
 '''
 
 

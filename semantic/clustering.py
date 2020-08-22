@@ -12,19 +12,20 @@ from graphics.imports import IMAGE_WIDHT, IMAGE_HEIGHT, CLASSES_DICT, CLASSES_CO
 import semantic.utils
 from .imports import ClusteredObject, project_point
 
-#TODO: remove scanning artifacts by clustering -> reject all in BBOX?
+#TODO: remove scanning artifacts by clustering -> reject all in BBOX? OR Open3D outlier removal
+#TODO: add min_points for each class (~ evenly after voxel-down)
 #Assume pre-process: Full Voxel-Downsampling -> reduce to 100k 
 CLUSTERING_OPTIONS={
     'man-made terrain': {'max_points':60000, 'eps': 1.5, 'min_samples': 300},
     'natural terrain': {'max_points':30000, 'eps': 1.5, 'min_samples': 75},
     'high vegetation': {'max_points':60000, 'eps': 1.5, 'min_samples': 150},
     'low vegetation': {'max_points':30000, 'eps': 1.0, 'min_samples': 150}, #60k crashed for domfountain_station1
-    'buildings': {'max_points':30000, 'eps': 4.0, 'min_samples': 300},
+    'buildings': {'max_points':30000, 'eps': 3.0, 'min_samples': 300},
     'hard scape': {'max_points':30000, 'eps': 1.75, 'min_samples': 300},
     'cars': {'max_points':60000, 'eps': 0.75, 'min_samples': 300},
 }    
 
-def load_files_for_label(base_path,label, max_points=int(60e6)):
+def load_files_for_label(base_path,label, max_points=int(10e6)):
     p_xyz=base_path+'.xyz.npy'
     p_rgb=base_path+'.rgb.npy'
     p_labels=base_path+'.labels.npy'
@@ -100,7 +101,7 @@ def cluster_scene(scene_name, return_visualization=False):
     vis_rgb=np.array([]).reshape((0,3))
 
     for label in ('man-made terrain','natural terrain','high vegetation','low vegetation','buildings','hard scape','cars'): #Disregard unknowns and artifacts
-    #for label in ('cars',):
+    #for label in ('buildings',):
         options=CLUSTERING_OPTIONS[label]
 
         #Load all points of that label w/o reduction
@@ -139,13 +140,13 @@ def cluster_scene(scene_name, return_visualization=False):
             #bbox_points=np.asarray( oriented_bbox.get_box_points() )
             #scene_objects.append( ClusteredObject2(label, bbox_points, len(object_xyz)) )
 
-            if return_visualization:
-                object_rgb=np.random.rand(3)*np.ones_like(object_xyz)
-                vis_xyz, vis_rgb=np.vstack((vis_xyz,object_xyz)), np.vstack((vis_rgb,object_rgb))
-
             save_xyz=semantic.utils.reduce_points(object_xyz, int(1e4)) #Save max. 10k points per object
             obj=ClusteredObject(scene_name, label, save_xyz, len(object_xyz), object_color)
             scene_objects.append(obj)
+
+            if return_visualization:
+                object_rgb=np.random.rand(3)*np.ones_like(object_xyz)
+                vis_xyz, vis_rgb=np.vstack((vis_xyz,object_xyz)), np.vstack((vis_rgb,object_rgb))
 
     print(f'==> Clustered {scene_name}, {len(scene_objects)} objects total')
     if return_visualization:
@@ -173,23 +174,28 @@ TODO
 -Unstable projection error: Chance (not always) when some points are out of FoV, cv2.projectPoints same&no z -> use mine, norm-restriction didn't work, FoV restriction works
 '''
 if __name__ == "__main__":
+    #CARE WHAT HAS BEEN RE-CREATED AND WHAT HASN'T!
     '''
     Data creation: Clustered objects
     '''
-    for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
-        print()
-        print("Scene: ",scene_name)
-        scene_objects=cluster_scene(scene_name)
+    #for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
+    # for scene_name in ('neugasse_station1_xyz_intensity_rgb',):
+    #     print()
+    #     print("Scene: ",scene_name)
+    #     scene_objects=cluster_scene(scene_name)
 
-        print('Saving scene objects...', len(scene_objects),'objects in total')
-        pickle.dump( scene_objects, open('data/numpy/'+scene_name+'.objects.pkl', 'wb'))
+    #     print('Saving scene objects...', len(scene_objects),'objects in total')
+    #     pickle.dump( scene_objects, open('data/numpy/'+scene_name+'.objects.pkl', 'wb'))
 
-    quit()      
+    # quit()      
 
-    #WEITER: REJECT OFF-Z AND/OR keep all ClusteredObject-points
-
-    scene_name='domfountain_station1_xyz_intensity_rgb'
-    label='buildings'
+    scene_name='neugasse_station1_xyz_intensity_rgb'
+    #label='buildings'
+    scene_objects, vis_xyz, vis_rgb=cluster_scene(scene_name, return_visualization=True)
+    v=pptk.viewer(vis_xyz)
+    v.attributes(vis_rgb)
+    v.set(point_size=0.025)
+    quit()
 
     ### Project and BBox verify
     # xyz=np.random.rand(100,3)

@@ -14,6 +14,24 @@ import semantic.geometry
 import semantic.utils
 import pickle
 
+'''
+Module for testing 
+'''
+
+'''
+TODO:
+-what's up with the 2 colors mixed? -> many unlabeled points
+-show L&Q -> done, Q approves
+-render on SLURM-> not possible ✖
+-possible to remove unlabeled near artifacts? -> yes, at least partly by kd-tree ✓ 
+-load remaining training scenes -> Done on SLURM
+-attempt NetVLAD on 200 pics, w/ and w/o label -> loss drops at least ✓
+
+-compare quality full points at dense scene, w/ & w/o voxel-down
+-clear up this file, mostly to rendering&graphics.utils
+-Check Open3D outlier removal
+'''
+
 # convert_txt('data/xyz_rgb/bildstein_station3_xyz_intensity_rgb.txt',
 #             'data/labels/bildstein_station3_xyz_intensity_rgb.labels',
 #             'data/numpy/bildstein_station3_xyz_intensity_rgb.xyz.npy',
@@ -128,13 +146,13 @@ def view_pptk(base_path, remove_artifacts=False, remove_unlabeled=True,max_point
     else:
         return viewer
 
-#PyVista bad for viewing?
-def view_pyvista(base_path, camera_pose):
-    xyz, rgba, labels_rgba=load_files(base_path,halve_points=True, remove_artifacts=True, remove_unlabeled=True)
-    mesh=pyvista.PolyData(xyz)
-    plotter=pyvista.Plotter()
-    plotter.add_mesh(mesh)
-    plotter.show(cpos=camera_pose, screenshot='testpose_vista.png')
+# #PyVista bad for viewing?
+# def view_pyvista(base_path, camera_pose):
+#     xyz, rgba, labels_rgba=load_files(base_path,halve_points=True, remove_artifacts=True, remove_unlabeled=True)
+#     mesh=pyvista.PolyData(xyz)
+#     plotter=pyvista.Plotter()
+#     plotter.add_mesh(mesh)
+#     plotter.show(cpos=camera_pose, screenshot='testpose_vista.png')
 
 #Deprecated?
 def find_unlabeled_artifacts(xyz,lbl):
@@ -152,13 +170,31 @@ def find_unlabeled_artifacts(xyz,lbl):
 def resize_window():
     os.system('wmctrl -r viewer -e 0,100,100,1620,1080')
 
+#Diam größer -> weniger Punkte
 if __name__ == "__main__":
 
-    scene_name='domfountain_station1_xyz_intensity_rgb'
+    scene_name='domfountain_station2_xyz_intensity_rgb'
+    # xyz, rgba, labels_rgba=load_files('data/numpy/'+scene_name, remove_artifacts=True, remove_unlabeled=False, max_points=int(20e6))
 
-    # # xyz, rgb, lbl=load_files2('data/numpy/', scene_name)
-    # # print(xyz.shape, rgb.shape, lbl.shape)
-    # # quit()
+    xyz=np.random.rand(100,3)
+
+    pcd=open3d.geometry.PointCloud()
+    pcd.points=open3d.utility.Vector3dVector(xyz)
+
+    diam=0.001
+    _, pt_map=pcd.hidden_point_removal([0,0,diam], 100*diam)
+    print(len(pt_map))
+    quit()
+
+    vis = open3d.visualization.Visualizer()
+    vis.create_window(width=1620, height=1080)
+    vis.get_render_option().background_color = np.asarray([0, 0, 0])
+    vis.add_geometry(pcd)
+    vis.run()
+ 
+    quit()
+
+
     viewer=view_pptk('data/numpy/'+scene_name,remove_artifacts=True, remove_unlabeled=False, max_points=int(5e6))
     resize_window()
     quit()
@@ -292,20 +328,6 @@ if __name__ == "__main__":
 
 
     #capturing.capture_poses(viewer,'t','rgb','lbl',poses[0:3],0.025,0.05,4)
-
-    '''
-    TODO:
-    -what's up with the 2 colors mixed? -> many unlabeled points
-    -show L&Q -> done, Q approves
-    -render on SLURM-> not possible ✖
-    -possible to remove unlabeled near artifacts? -> yes, at least partly by kd-tree ✓ 
-    -load remaining training scenes -> Done on SLURM
-    -attempt NetVLAD on 200 pics, w/ and w/o label -> loss drops at least ✓
-
-    -compare quality full points at dense scene
-    -SG (via both): Show unknowns? Possible to remove in RGB via NN?
-    -clear up this file, mostly to rendering&graphics.utils
-    '''
 
     # base_name=sys.argv[1]
     # print('converting',base_name)
