@@ -20,28 +20,29 @@ Module to generate Scene Graphs and text descriptions from view-objects | Disreg
 
 '''
 TODO
--remove deprecated
--resolve angles infront/behind?
--add "bottom/top" or "foreground/background" as corners (meaning across)?
+-add "foreground/background" to corners (meaning across) ✓
+
 -refine obj/sub selection: use unused ones, just keep track in list
+-remove deprecated
+-resolve oblique infront/behind?
 '''
 
 #TODO: attributes here or in graph? Should be possible to convert to graph
 class SceneGraphObject:
     __slots__ = ['label', 'color', 'corner','maxdist']
 
-    @classmethod
-    def from_viewobject(cls, v):
-        sgo=SceneGraphObject()
-        sgo.label=v.label
+    # @classmethod
+    # def from_viewobject(cls, v : ViewObject):
+    #     sgo=SceneGraphObject()
+    #     sgo.label=v.label
 
-        color_distances= np.linalg.norm( COLORS-v.color, axis=1 )
-        sgo.color=COLOR_NAMES[ np.argmin(color_distances) ]
+    #     color_distances= np.linalg.norm( COLORS-v.color, axis=1 )
+    #     sgo.color=COLOR_NAMES[ np.argmin(color_distances) ]
 
-        corner_distances= np.linalg.norm( CORNERS-v.center, axis=1 )
-        sgo.corner= CORNER_NAMES[ np.argmin(corner_distances) ]
+    #     corner_distances= np.linalg.norm( CORNERS-v.center, axis=1 )
+    #     sgo.corner= CORNER_NAMES[ np.argmin(corner_distances) ]
 
-        return sgo
+    #     return sgo
 
     #CARE: Potentially some differences!
     @classmethod
@@ -52,8 +53,11 @@ class SceneGraphObject:
         color_distances= np.linalg.norm( COLORS-v.color, axis=1 )
         sgo.color=COLOR_NAMES[ np.argmin(color_distances) ]
 
-        corner_distances= np.linalg.norm( CORNERS- (v.center[0]/IMAGE_WIDHT,v.center[1]/IMAGE_HEIGHT), axis=1 )
-        sgo.corner= CORNER_NAMES[ np.argmin(corner_distances) ]
+        if np.max(v.rect[1])>=2/3*IMAGE_WIDHT:
+            sgo.corner='foreground' if v.center[1]>IMAGE_HEIGHT/2 else 'background'
+        else:
+            corner_distances= np.linalg.norm( CORNERS- (v.center/(IMAGE_WIDHT, IMAGE_HEIGHT)), axis=1 )
+            sgo.corner= CORNER_NAMES[ np.argmin(corner_distances) ]
 
         #sgo.maxdist=v.maxdist
 
@@ -200,6 +204,8 @@ def scenegraph_for_view_5corners(view_objects, keep_viewobjects=False, flip_rela
 def scenegraph_for_view_cluster3d_5corners(view_objects, keep_viewobjects=False, flip_relations=False):
     scene_graph=SceneGraph()
 
+    corners={ obj : get_corner(obj) for obj in view_objects }
+
     for corner_idx, corner in enumerate(CORNERS):
         #find subject closest to corner
         corner_dists=[ np.linalg.norm(np.array(sub.center)/(IMAGE_WIDHT,IMAGE_HEIGHT) - corner) for sub in view_objects ]   
@@ -228,7 +234,56 @@ def scenegraph_for_view_cluster3d_5corners(view_objects, keep_viewobjects=False,
         else:
             scene_graph.add_relationship( SceneGraphObject.from_viewobject_cluster3d(sub), rel_type,  SceneGraphObject.from_viewobject_cluster3d(obj) )
 
-    return scene_graph                    
+    return scene_graph  
+
+
+'''
+Strategy refined from 5 corners:
+-Use one subject closest to each corner (can be fg/bg)
+-Use unused object from same corner or fg/bg (fg/bg allowed multiple times)
+'''
+def scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=False, flip_relations=False):
+    assert len(CORNERS)==5 #FG/BG not explicitly in corners
+
+    scene_graph=SceneGraph()
+    used_objects=[]
+    for corner_idx, corner in enumerate(CORNERS):
+        corner_name=CORNER_NAMES[corner_idx]
+
+        #find subject closest to corner
+        corner_dists=[ np.linalg.norm(np.array(sub.center)/(IMAGE_WIDHT,IMAGE_HEIGHT) - corner) for sub in view_objects ]   
+        sub = view_objects[ np.argmin(corner_dists) ]
+
+        #Object selection
+        #Care not to add fg/bg to used_objects
+        obj_candidates=[ obj for obj in view_objects if obj!=sub and SceneGraphObject.from_viewobject_cluster3d(sub).corner in (corner_name, 'foreground', 'background') and obj not in used_objects ]
+        obj_distances=[ np.linalg.norm(np.array(sub.center)-np.array(obj.center)) for obj in obj_candidates]  
+
+        if len(obj_candidates)==0:
+            continue
+
+        obj=obj_candidates[ np.argmin(obj_distances) ]
+        rel_type=semantic.scene_graph_cluster3d_scoring.get_relationship_type(sub, obj)
+
+        if SceneGraphObject.from_viewobject_cluster3d(sub).corner not in ('foreground', 'background'):
+            used_objects.append(sub)
+        if SceneGraphObject.from_viewobject_cluster3d(obj).corner not in ('foreground', 'background'):
+            used_objects.append(obj)            
+        
+        if flip_relations:
+            if rel_type=='right':
+                sub,rel_type,obj= obj, 'left', sub
+            if rel_type=='above':
+                sub,rel_type,obj= obj, 'below', sub
+            if rel_type=='behind':
+                sub,rel_type,obj= obj, 'infront', sub
+
+        if keep_viewobjects: #Debugging
+            scene_graph.add_relationship( sub, rel_type,  obj )
+        else:
+            scene_graph.add_relationship( SceneGraphObject.from_viewobject_cluster3d(sub), rel_type,  SceneGraphObject.from_viewobject_cluster3d(obj) )
+
+    return scene_graph  
 
 
 
@@ -256,39 +311,6 @@ def scenegraph_for_view_from_patches(view_patches, max_rels=6, return_as_referen
 
     return relationships
 
-#Calculate the 'inverse' of get_patches_relationship2
-#CARE: hope this doesn't cause problems...
-def score_triplet(sub,rel_type,obj):
-    #CARE: Make sure these match!
-    dleft= obj.bbox[0]-(sub.bbox[0]+sub.bbox[2])
-    dright= sub.bbox[0]-(obj.bbox[0]+obj.bbox[2])
-    dbelow= sub.bbox[1]-(obj.bbox[1]+obj.bbox[3])
-    dabove= obj.bbox[1]-(sub.bbox[1]+sub.bbox[3])
-    dinfront= (obj.depth-sub.depth)*DEPTH_DIST_FACTOR
-    dbehind= (sub.depth-obj.depth)*DEPTH_DIST_FACTOR
-    distances = (dleft,dright,dbelow,dabove,dinfront,dbehind)
-    score= distances[RELATIONSHIP_TYPES.index(rel_type)] / np.max(distances)
-    return np.clip(score,0,1)
-
-#Returns the score and the relationships with object-references instead of label-texts
-def ground_scenegraph_to_patches(relations, patches):
-    MIN_SCORE=0.1 #OPTION: hardest penalty for relationship not found
-    best_groundings=[None for i in range(len(relations))]
-    best_scores=[MIN_SCORE for i in range(len(relations))] 
-
-    for i_relation,relation in enumerate(relations): #Walk through relations
-        subject_label, rel_type, object_label = relation.sub_label, relation.rel_type, relation.obj_label
-        #Walk through all possible groundings
-        for subj in [obj for obj in patches if obj.label==subject_label]: 
-            for obj in [obj for obj in patches if obj.label==object_label]:
-                if subj==obj: continue
-                score=score_triplet(subj,rel_type,obj)
-                if score>best_scores[i_relation]:
-                    best_groundings[i_relation]= Relationship2(subj, rel_type, obj) #(subj,rel_type,obj)
-                    best_scores[i_relation]=score
-
-    return np.prod(best_scores), best_groundings    
-
 #Can't assume completeness, does this even make sense?
 def score_scenegraph_pair(relations0, relations1):
     pass
@@ -297,36 +319,31 @@ def score_scenegraph_pair(relations0, relations1):
 Logic via 3D-Clustering
 '''
 
-def get_midpoint_distance(sub,obj):
-    smid=0.5*(sub.bbox_projected[0:3]+sub.bbox_projected[3:6])
-    omid=0.5*(obj.bbox_projected[0:3]+obj.bbox_projected[3:6])
-    return np.linalg.norm(smid-omid)
-
 def get_area(rotated_rect):
     return rotated_rect[1][0]*rotated_rect[1][1]    
 
-#TODO: via best score or via logic?
-def get_relationship_type(sub, obj):
-    #TODO: intersect on floor-plane first (in world-coords!) - Not necessary anymore?
-    #floor_intersection=None
+# #TODO: via best score or via logic?
+# def get_relationship_type(sub, obj):
+#     #TODO: intersect on floor-plane first (in world-coords!) - Not necessary anymore?
+#     #floor_intersection=None
 
-    #Intersect in image-plane, if intersection > 0.5 x smaller-area -> infront/behind
-    intersection_type, intersection_points=cv2.rotatedRectangleIntersection(sub.image_rect, obj.image_rect)
-    if intersection_type != cv2.INTERSECT_NONE:
-        intersection_area=get_area(cv2.minAreaRect(intersection_points))
-        if intersection_area >= 0.5*np.minimum( get_area(sub.image_rect), get_area(obj.image_rect)):
-            if sub.bbox_projected[2]<obj.bbox_projected[2]:
-                return 'infront' #Subject is in front of object
-            else:
-                return 'behind' #Subject is behind object
+#     #Intersect in image-plane, if intersection > 0.5 x smaller-area -> infront/behind
+#     intersection_type, intersection_points=cv2.rotatedRectangleIntersection(sub.image_rect, obj.image_rect)
+#     if intersection_type != cv2.INTERSECT_NONE:
+#         intersection_area=get_area(cv2.minAreaRect(intersection_points))
+#         if intersection_area >= 0.5*np.minimum( get_area(sub.image_rect), get_area(obj.image_rect)):
+#             if sub.bbox_projected[2]<obj.bbox_projected[2]:
+#                 return 'infront' #Subject is in front of object
+#             else:
+#                 return 'behind' #Subject is behind object
 
-    #OPTION: also allow infront/behind based on distances?
-    dleft = np.min(obj.i_boxpoints[:,0]) - np.max(sub.i_boxpoints[:,0])
-    dright= np.min(sub.i_boxpoints[:,0]) - np.max(obj.i_boxpoints[:,0])
-    dbelow= np.min(obj.i_boxpoints[:,1]) - np.max(sub.i_boxpoints[:,1])
-    dabove= np.min(sub.i_boxpoints[:,1]) - np.max(obj.i_boxpoints[:,1])
+#     #OPTION: also allow infront/behind based on distances?
+#     dleft = np.min(obj.i_boxpoints[:,0]) - np.max(sub.i_boxpoints[:,0])
+#     dright= np.min(sub.i_boxpoints[:,0]) - np.max(obj.i_boxpoints[:,0])
+#     dbelow= np.min(obj.i_boxpoints[:,1]) - np.max(sub.i_boxpoints[:,1])
+#     dabove= np.min(sub.i_boxpoints[:,1]) - np.max(obj.i_boxpoints[:,1])
     
-    return RELATIONSHIP_TYPES[ np.argmin(np.abs((dleft,dright,dbelow,dabove))) ] #Min or max?!
+#     return RELATIONSHIP_TYPES[ np.argmin(np.abs((dleft,dright,dbelow,dabove))) ] #Min or max?!
     
 
 #General assumption: No 3D-intersections of objects
@@ -377,21 +394,23 @@ if __name__ == "__main__":
 
     ### Scene graph debugging for Cluster3d
     base_path='data/pointcloud_images_o3d/'
-    scene_name='neugasse_station1_xyz_intensity_rgb'
+    #scene_name='neugasse_station1_xyz_intensity_rgb'
+    scene_name=np.random.choice(('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'))
     scene_view_objects=pickle.load( open(os.path.join(base_path,scene_name,'view_objects.pkl'), 'rb') )
 
-    #file_name='004.png'
+    #file_name='106.png'
     file_name=np.random.choice(list(scene_view_objects.keys()))
+    print(scene_name,file_name)
     view_objects=scene_view_objects[file_name]
 
     texts=[ str(SceneGraphObject.from_viewobject_cluster3d(v)) for v in view_objects ]
     print(texts)
     print()
 
-    sg=scenegraph_for_view_cluster3d_5corners(view_objects, keep_viewobjects=False)
+    sg=scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=False)
     print(sg.get_text())
 
-    sg=scenegraph_for_view_cluster3d_5corners(view_objects, keep_viewobjects=True)
+    sg=scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=True)
 
     img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
     draw_view_objects(img, view_objects, texts)    

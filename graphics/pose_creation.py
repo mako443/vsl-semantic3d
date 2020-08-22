@@ -10,6 +10,12 @@ from main import load_files, view_pptk, resize_window
 '''
 Module to find the poses and save them
 '''
+
+'''
+TODO
+-check z-level, elevate a little?
+-remaining scenes
+'''
 scene_config={}
 scene_config['domfountain_station1_xyz_intensity_rgb']={
     #Nx3 array

@@ -12,7 +12,7 @@ COLOR_NAMES=('black','red','green','blue','cyan','yellow', 'purple', 'white', 'g
 #COLORS=np.array(( (0,0,0), (1,0,0), (0,1,0), (0,0,1), (0,1,1), (1,1,0), (1,0,1), (1,1,1), (0.5,0.5,0.5) )).reshape((9,3))
 COLORS=np.array(( (0.0,0.0,0.0), (0.7,0.0,0.0), (0.0,0.7,0.0), (0.0,0.0,0.7), (0.0,0.7,0.7), (0.7,0.7,0.0), (0.7,0.0,0.7), (0.7,0.7,0.7), (0.3,0.3,0.3) )).reshape((9,3))
 
-CORNER_NAMES=('top-left','top-right','bottom-left','bottom-right','center')
+CORNER_NAMES=('top-left','top-right','bottom-left','bottom-right','center') #Additionally: 'foreground', 'background'
 CORNERS=np.array(( (0.2, 0.2), (0.8,0.2), (0.2,0.8), (0.8,0.8), (0.5,0.5) )).reshape((5,2)) #Corners as relative (x,y) positions
 
 # def project_point(I,E,point):
@@ -88,13 +88,14 @@ class ViewObject:
         assert clustered_object.rect_i is not None
         v.scene_name=clustered_object.scene_name
         v.label=clustered_object.label
-        v.points=clustered_object.points_i #Projected Convex-hull points #TODO: remove?
+        v.points=clustered_object.points_i #Projected image-coord points, clamped to FoV #TODO: remove?
         v.rect=clustered_object.rect_i
         v.mindist=clustered_object.mindist_i
         v.maxdist=clustered_object.maxdist_i
         v.min_z_w, v.max_z_w= np.min(clustered_object.points_w[:,2]), np.max(clustered_object.points_w[:,2])
-        v.center=np.array(v.rect[0]) #CARE: Not re-created yet!
+        v.center=np.array(v.rect[0])
         v.color=clustered_object.color #Color as [r,g,b] in [0,1]
+        v.corner=corner #TODO: Add here!
         return v
 
     def draw_on_image(self,img):
