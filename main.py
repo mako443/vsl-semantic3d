@@ -38,6 +38,7 @@ TODO:
 #             'data/numpy/bildstein_station3_xyz_intensity_rgb.rgb.npy',
 #             'data/numpy/bildstein_station3_xyz_intensity_rgb.labels.npy')
 
+#DEPRECATED
 def convert_txt(filepath_points, filepath_labels_in, filepath_xyz, filepath_rgb, filepath_labels_out):
     assert os.path.isfile(filepath_points)
     assert os.path.isfile(filepath_labels_in)
