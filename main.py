@@ -74,7 +74,7 @@ def convert_txt(filepath_points, filepath_labels_in, filepath_xyz, filepath_rgb,
 def load_files(base_path, max_points=int(20e6), remove_artifacts=True, remove_unlabeled=True, expand_artifacts=True):
     p_xyz=base_path+'.xyz.npy'
     p_rgb=base_path+'.rgb.npy'
-    p_labels=base_path+'.labels.npy'
+    p_labels=base_path+'.lbl.npy'
 
     assert os.path.isfile(p_xyz) and os.path.isfile(p_rgb) and os.path.isfile(p_labels)
 
@@ -172,6 +172,9 @@ def resize_window():
 
 #Diam größer -> weniger Punkte
 if __name__ == "__main__":
+    scene_name='bildstein_station1_xyz_intensity_rgb'
+    view_pptk('data/'+scene_name)
+    quit()
 
     scene_name='domfountain_station2_xyz_intensity_rgb'
     # xyz, rgba, labels_rgba=load_files('data/numpy/'+scene_name, remove_artifacts=True, remove_unlabeled=False, max_points=int(20e6))
@@ -220,7 +223,6 @@ if __name__ == "__main__":
     cv2.imwrite("im.png",img)
 
     quit()
-    #HIER WEITER: 3D-box händisch zeichnen -> project -> testen | oder: Für 1 obj ori-bb projection "händisch" durchgehen
     
 
     #Automatic rendering

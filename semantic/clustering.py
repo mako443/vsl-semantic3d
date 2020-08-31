@@ -13,22 +13,22 @@ import semantic.utils
 from .imports import ClusteredObject, project_point
 
 #TODO: remove scanning artifacts by clustering -> reject all in BBOX? OR Open3D outlier removal
-#TODO: add min_points for each class (~ evenly after voxel-down)
+#CARE: Hard-scape in Bildstein 1?!
 #Assume pre-process: Full Voxel-Downsampling -> reduce to 100k 
 CLUSTERING_OPTIONS={
-    'man-made terrain': {'max_points':60000, 'eps': 1.5, 'min_samples': 300},
-    'natural terrain': {'max_points':30000, 'eps': 1.5, 'min_samples': 75},
-    'high vegetation': {'max_points':60000, 'eps': 1.5, 'min_samples': 150},
-    'low vegetation': {'max_points':30000, 'eps': 1.0, 'min_samples': 150}, #60k crashed for domfountain_station1
-    'buildings': {'max_points':30000, 'eps': 3.0, 'min_samples': 300},
-    'hard scape': {'max_points':30000, 'eps': 1.75, 'min_samples': 300},
-    'cars': {'max_points':60000, 'eps': 0.75, 'min_samples': 300},
+    'man-made terrain': {'min_points':500, 'eps': 1.5, 'min_samples': 300},
+    'natural terrain': {'min_points':250, 'eps': 1.5, 'min_samples': 75},
+    'high vegetation': {'min_points':250, 'eps': 1.5, 'min_samples': 150},
+    'low vegetation': {'min_points':125, 'eps': 1.0, 'min_samples': 150},
+    'buildings': {'min_points':1000, 'eps': 3.0, 'min_samples': 300},
+    'hard scape': {'min_points':250, 'eps': 1.75, 'min_samples': 300},
+    'cars': {'min_points':500, 'eps': 0.75, 'min_samples': 300},
 }    
 
 def load_files_for_label(base_path,label, max_points=int(10e6)):
     p_xyz=base_path+'.xyz.npy'
     p_rgb=base_path+'.rgb.npy'
-    p_labels=base_path+'.labels.npy'
+    p_labels=base_path+'.lbl.npy'
 
     assert os.path.isfile(p_xyz) and os.path.isfile(p_rgb) and os.path.isfile(p_labels)
 
@@ -100,12 +100,13 @@ def cluster_scene(scene_name, return_visualization=False):
     vis_xyz=np.array([]).reshape((0,3))
     vis_rgb=np.array([]).reshape((0,3))
 
-    for label in ('man-made terrain','natural terrain','high vegetation','low vegetation','buildings','hard scape','cars'): #Disregard unknowns and artifacts
-    #for label in ('buildings',):
+    #for label in ('man-made terrain','natural terrain','high vegetation','low vegetation','buildings','hard scape','cars'): #Disregard unknowns and artifacts
+    for label in ('cars',):
         options=CLUSTERING_OPTIONS[label]
 
         #Load all points of that label w/o reduction
-        xyz, rgb=load_files_for_label('data/numpy/'+scene_name, label=CLASSES_DICT[label], max_points=None)
+        #xyz, rgb=load_files_for_label('data/numpy/'+scene_name, label=CLASSES_DICT[label], max_points=None)
+        xyz, rgb=load_files_for_label('data/'+scene_name, label=CLASSES_DICT[label], max_points=None)
         if xyz is None:
             print(f'No points for label {label} in {scene_name}, skipping')
             continue
@@ -128,6 +129,10 @@ def cluster_scene(scene_name, return_visualization=False):
         print(f'Clustering {scene_name}, label <{label}>: {np.max(cluster.labels_)+1} objects')
 
         for label_value in range(0, np.max(cluster.labels_)+1):
+            if np.sum( cluster.labels_==label_value ) < options['min_points']:
+                print('skipped obj for label',label)
+                continue
+
             object_xyz=xyz[cluster.labels_ == label_value]
             object_rgb=rgb[cluster.labels_ == label_value]
             object_color=np.mean(object_rgb, axis=0)
@@ -189,7 +194,7 @@ if __name__ == "__main__":
 
     # quit()      
 
-    scene_name='sg27_station2_intensity_rgb'
+    scene_name='bildstein_station1_xyz_intensity_rgb'
     #label='buildings'
     scene_objects, vis_xyz, vis_rgb=cluster_scene(scene_name, return_visualization=True)
     v=pptk.viewer(vis_xyz)
