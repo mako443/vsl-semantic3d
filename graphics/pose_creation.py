@@ -13,10 +13,38 @@ Module to find the poses and save them
 
 '''
 TODO
--check z-level, elevate a little?
--remaining scenes
+
+Overlaps: domfountain, bildstein, 
 '''
 scene_config={}
+scene_config['bildstein_station1_xyz_intensity_rgb']={
+    #Nx3 array
+    'points':np.array( [[  6.89986515, -23.8486042 ,   2.24763012],
+                        [ 14.23859787,  -6.84959984,   0.59534997],
+                        [-12.54539108,   8.38919926,  -1.56900454],
+                        [-12.71178436,  25.77069092,  -1.69532895],
+                        [ 12.06625557,  28.25757217,  -1.58685946],
+                        [ 10.43738079,   6.53896713,   0.22520876]]), 
+    'point_size_rgb':0.025, #labels always double
+}
+scene_config['bildstein_station3_xyz_intensity_rgb']={
+    #Nx3 array
+    'points':np.array( [[-13.66415501,  -1.87494004,   1.20972967],
+                        [-15.5337286 ,  18.76299858,   2.06882811],
+                        [  2.10001707,  25.09252548,   2.41423416],
+                        [  7.10345364,  -7.98233128,   0.36108246],
+                        [ 16.39338684, -35.32163239,  -2.28681469]]), 
+    'point_size_rgb':0.025, #labels always double
+}
+scene_config['bildstein_station5_xyz_intensity_rgb']={
+    #Nx3 array
+    'points':np.array( [[-19.88222122,  34.78226089,   1.30118823],
+                        [ 17.61147308,   6.93702793,  -2.1327517 ],
+                        [  7.25930929, -15.78915977,  -1.98583078],
+                        [-12.99044991, -32.33332443,  -1.03720355],
+                        [-31.48099136, -48.11365891,   1.69673967]]), 
+    'point_size_rgb':0.025, #labels always double
+}
 scene_config['domfountain_station1_xyz_intensity_rgb']={
     #Nx3 array
     'points':np.array( [[-10.74167538,   10.32442617,  -0.50595516],
@@ -25,6 +53,24 @@ scene_config['domfountain_station1_xyz_intensity_rgb']={
                         [-10.06188583,  -7.36892557,   0.50089562],
                         [-15.61357212,  -5.97002316,   0.73054999],
                         [-15.33024597,  16.69128513,  -0.38836336]]), 
+    'point_size_rgb':0.025, #labels always double
+}
+scene_config['domfountain_station2_xyz_intensity_rgb']={
+    #Nx3 array
+    'points':np.array( [[-29.57394791,   9.05232334,   0.47919855],
+                        [  4.34464264,  -3.3333323 ,   0.15014482],
+                        [ -0.56595898, -19.08597183,  -0.21233426],
+                        [ -1.47728717, -34.15919495,   0.49576887],
+                        [ 11.51516724, -12.17238903,  -0.28104484],
+                        [ 26.30233955, -10.83860207,  -0.11856288]]), 
+    'point_size_rgb':0.025, #labels always double
+}
+scene_config['domfountain_station3_xyz_intensity_rgb']={
+    #Nx3 array
+    'points':np.array( [[ -7.10327578,  33.63069534,  -0.16973461],
+                        [  0.32602367,   7.58825922,  -0.12918571],
+                        [  4.26744795, -14.16171265,   0.35794488],
+                        [ 23.29409027, -36.65826797,   0.81396568]]), 
     'point_size_rgb':0.025, #labels always double
 }
 scene_config['sg27_station2_intensity_rgb']={
@@ -98,11 +144,12 @@ if __name__ == "__main__":
     '''
     View pptk -> write config -> interpolate&save poses
     '''    
-    scene_name='neugasse_station1_xyz_intensity_rgb'
+    scene_name='bildstein_station5_xyz_intensity_rgb'
     output_path_poses=os.path.join('data','pointcloud_images_o3d',scene_name,'poses.pkl')
 
     viewer=view_pptk('data/numpy/'+scene_name, remove_artifacts=True, remove_unlabeled=True, max_points=int(10e6))
     resize_window()
+    quit()
 
     points=scene_config[scene_name]['points']
     points=interpolate_points(points,20)

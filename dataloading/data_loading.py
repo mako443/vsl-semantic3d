@@ -5,7 +5,9 @@ from PIL import Image
 import time
 import os
 import pickle
+from graphics.imports import Pose
 from semantic.patches import Patch
+from semantic.imports import SceneGraph, SceneGraphObject, ViewObject
 
 
 '''
@@ -36,9 +38,14 @@ class Semantic3dDataset(Dataset):
         print(f'Semantic3dData with {len(self.scene_names)} total scenes: {self.scene_names}')
 
         self.image_paths=[]
-        self.image_poses=np.array([],np.float32).reshape(0,6)
-        self.image_patches=[]
-        self.image_scenegraphs=[]
+        #self.image_poses=np.array([],np.float32).reshape(0,6)
+        self.image_poses=[] 
+        self.image_positions=[]
+        self.image_orientations=[]
+
+        #self.image_patches=[]
+        self.view_objects=[]
+        self.view_scenegraphs=[]
         #Go through all scenes and image-names
         for scene_name in self.scene_names:
             #Load image_paths
@@ -49,22 +56,32 @@ class Semantic3dDataset(Dataset):
 
             #Load poses
             #TODO: convert poses back to array
-            scene_poses_dict=pickle.load( open(os.path.join(scene_path,'poses.pkl'), 'rb') )
-            scene_image_poses=np.array([ scene_poses_dict[image_name] for image_name in scene_image_names ])
-            self.image_poses=np.vstack(( self.image_poses, scene_image_poses ))
+            scene_poses_dict=pickle.load( open(os.path.join(scene_path,'poses_rendered.pkl'), 'rb') ) #CARE: poses or poses rendered?
+            scene_poses=[scene_poses_dict[image_name] for image_name in scene_image_names]
+            self.image_poses.extend(scene_poses)
+            self.image_positions.extend( [pose.eye for pose in scene_poses] )
+            self.image_orientations.extend( [pose.phi for pose in scene_poses] )
 
-            #Load patches #TODO: make optional depending on data creation approach
-            scene_patches_dict=pickle.load( open(os.path.join(scene_path,'patches.pkl'), 'rb') )
-            scene_patches= [ scene_patches_dict[image_name] for image_name in scene_image_names ]
-            self.image_patches.extend(scene_patches)
+            # #Load patches #TODO: make optional depending on data creation approach
+            # scene_patches_dict=pickle.load( open(os.path.join(scene_path,'patches.pkl'), 'rb') )
+            # scene_patches= [ scene_patches_dict[image_name] for image_name in scene_image_names ]
+            # self.image_patches.extend(scene_patches)
+
+            #Load View-Objects
+            scene_viewobjects_dict=pickle.load( open(os.path.join(scene_path,'view_objects.pkl'), 'rb') )
+            scene_viewobjects= [scene_viewobjects_dict[image_name] for image_name in scene_image_names]
+            self.view_objects.extend(scene_viewobjects)
 
             #Load Scene-Graphs
-            scene_scenegraphs_dict=pickle.load( open(os.path.join(scene_path,'scenegraphs.pkl'), 'rb') )
+            scene_scenegraphs_dict=pickle.load( open(os.path.join(scene_path,'scene_graphs.pkl'), 'rb') )
             scene_scenegraphs= [ scene_scenegraphs_dict[image_name] for image_name in scene_image_names ]
-            self.image_scenegraphs.extend(scene_scenegraphs)
-            
+            self.view_scenegraphs.extend(scene_scenegraphs)
 
-        assert len(self.image_paths)==len(self.image_poses)==len(self.image_patches)==len(self.image_scenegraphs)
+        self.image_positions=np.array(self.image_positions)
+        self.image_orientations=np.array(self.image_orientations)
+        
+        assert self.image_positions.shape[1]==3
+        assert len(self.image_paths)==len(self.image_poses)==len(self.view_objects)==len(self.view_scenegraphs)
 
         if split_indices is None:
             print('No splitting...')
@@ -110,5 +127,5 @@ class Semantic3dDatasetTriplet(Semantic3dDataset):
         pass
 
 if __name__ == "__main__":
-    dataset=Semantic3dDatasetTriplet('data/pointcloud_images_3_2_depth')
+    dataset=Semantic3dDatasetTriplet('data/pointcloud_images_o3d')
 

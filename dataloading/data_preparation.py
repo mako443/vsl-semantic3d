@@ -6,6 +6,8 @@ import time
 import logging
 from graphics.imports import ALL_SCENE_NAMES
 
+VOXEL_SIZE=0.02 #OPTION: Voxel-size, the base voxel-size for the first down-sampling
+
 #TODO: voxel-down from start on ok? Smaller voxels? Visually: Looks even better, Clustering: Looks good too, possibly re-tweak params
 def convert_downsample(filepath_in_points, filepath_in_labels, filepath_xyz, filepath_rgb, filepath_labels, max_points=int(100e6)):
     assert os.path.isfile(filepath_in_points)
@@ -27,7 +29,7 @@ def convert_downsample(filepath_in_points, filepath_in_labels, filepath_xyz, fil
     #Perform voxel-downsampling to reduce all points
     point_cloud=open3d.geometry.PointCloud()
     point_cloud.points=open3d.utility.Vector3dVector(points[:,0:3].copy())
-    _,_,indices_list=point_cloud.voxel_down_sample_and_trace(0.02,point_cloud.get_min_bound(), point_cloud.get_max_bound()) #OPTION: Voxel-size
+    _,_,indices_list=point_cloud.voxel_down_sample_and_trace(VOXEL_SIZE,point_cloud.get_min_bound(), point_cloud.get_max_bound()) 
     logging.info(f'Reduced to {len(indices_list)} points after voxel-down')
     
     #Not vectorized but seems fast enough, CARE: first-index color sampling (not averaging)

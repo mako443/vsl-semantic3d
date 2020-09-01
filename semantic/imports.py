@@ -27,6 +27,11 @@ def project_point(I,E,point):
     return np.array(( IMAGE_WIDHT-p[0]/p[2], p[1]/p[2], p[2]))
     #return np.array(( p[0]/p[2], p[1]/p[2], p[2]))
 
+#Returns the point in camera-coordinates but world-units (not pixels)
+def project_point_extrinsic(E,point):
+    p= E@np.hstack((point,1))
+    return np.array(( -p[0],-p[1],p[2] )) #x/y image plane, z distance
+
 class ClusteredObject:
     def __init__(self, scene_name, label, points_w, total_points, color):
         self.scene_name=scene_name
@@ -45,12 +50,15 @@ class ClusteredObject:
 
     def project(self, I, E):
         points_i= np.array( [ project_point(I,E, point) for point in self.points_w ] ) #Causes projection instabilities when points are out of FoV
+        points_c= np.array( [ project_point_extrinsic(E, point) for point in self.points_w ] )
         mask=np.bitwise_and.reduce(( points_i[:,0]>=0, points_i[:,0]<=IMAGE_WIDHT, points_i[:,1]>=0, points_i[:,1]<=IMAGE_HEIGHT, points_i[:,2]>0  )) #Mask to clamp to visible region
         points_i=points_i[mask, :].copy()
+        points_c=points_c[mask, :].copy()
         if len(points_i)>0: #Projection sucessful, partly in fov
             self.rect_i=cv2.minAreaRect(points_i[:,0:2].astype(np.float32))
             self.mindist_i, self.maxdist_i = np.min(points_i[:,2]), np.max(points_i[:,2])
             self.points_i=points_i
+            self.points_c=points_c
         else: #Projection failed, none in FoV
             self.rect_i=None
             self.mindist_i, self.maxdist_i= None, None
@@ -70,7 +78,7 @@ class ClusteredObject:
 
 class ViewObject:
     #__slots__ = ['label', 'bbox', 'depth', 'center', 'color']
-    __slots__ = ['scene_name', 'label', 'points','rect', 'mindist', 'maxdist', 'center', 'color','min_z_w','max_z_w']
+    __slots__ = ['scene_name', 'label', 'points','points_c','rect', 'mindist', 'maxdist', 'center', 'color','min_z_w','max_z_w']
 
     # @classmethod
     # def from_patch(cls, patch):
@@ -92,10 +100,11 @@ class ViewObject:
         v.rect=clustered_object.rect_i
         v.mindist=clustered_object.mindist_i
         v.maxdist=clustered_object.maxdist_i
-        v.min_z_w, v.max_z_w= np.min(clustered_object.points_w[:,2]), np.max(clustered_object.points_w[:,2])
+        v.min_z_w, v.max_z_w= np.min(clustered_object.points_w[:,2]), np.max(clustered_object.points_w[:,2]) #DEPRECATED if points_c works
         v.center=np.array(v.rect[0])
         v.color=clustered_object.color #Color as [r,g,b] in [0,1]
         #v.corner=corner #TODO: Add here!
+        v.points_c=clustered_object.points_c
         return v
 
     def draw_on_image(self,img):
@@ -112,7 +121,7 @@ class ViewObject:
         return np.prod(lengths)        
 
     def __str__(self):
-        return f'ViewObject: {self.label} at {self.center}'
+        return f'ViewObject: {self.color} {self.label} at {self.center}'
 
     def get_bbox(self): #Axis-aligned bbox in image-coordinates
         box=np.int0(cv2.boxPoints(self.rect))
@@ -142,3 +151,65 @@ class ViewObject_old:
 
     def score_corner(taget_name):
         pass
+
+#Retain possibility for pure Graph-structure for potential Graph-networks later on
+class SceneGraph:
+    def __init__(self):
+        self.relationships=[]
+
+    #Store relationship as (SG-object, rel_type, SG-object) triplet
+    def add_relationship(self, sub, rel_type, obj):
+        self.relationships.append( (sub,rel_type,obj) ) 
+
+    def get_text(self):
+        text=''
+        for rel in self.relationships:
+            sub, rel_type, obj=rel
+            rel_text=f'In the {sub.corner} there is a {sub.color} {sub.label} that is {rel_type} of a {obj.color} {obj.label}. '
+            if rel_text not in text: #Prevent doublicate sentences
+                text+=rel_text
+
+        return text
+
+#TODO: attributes here or in graph? Should be possible to convert to graph
+class SceneGraphObject:
+    __slots__ = ['label', 'color', 'corner','maxdist']
+
+    # @classmethod
+    # def from_viewobject(cls, v : ViewObject):
+    #     sgo=SceneGraphObject()
+    #     sgo.label=v.label
+
+    #     color_distances= np.linalg.norm( COLORS-v.color, axis=1 )
+    #     sgo.color=COLOR_NAMES[ np.argmin(color_distances) ]
+
+    #     corner_distances= np.linalg.norm( CORNERS-v.center, axis=1 )
+    #     sgo.corner= CORNER_NAMES[ np.argmin(corner_distances) ]
+
+    #     return sgo
+
+    #CARE: Potentially some differences!
+    @classmethod
+    def from_viewobject_cluster3d(cls, v):
+        sgo=SceneGraphObject()
+        sgo.label=v.label
+
+        color_distances= np.linalg.norm( COLORS-v.color, axis=1 )
+        sgo.color=COLOR_NAMES[ np.argmin(color_distances) ]
+
+        if np.max(v.rect[1])>=2/3*IMAGE_WIDHT:
+            sgo.corner='foreground' if v.center[1]>IMAGE_HEIGHT/2 else 'background'
+        else:
+            corner_distances= np.linalg.norm( CORNERS- (v.center/(IMAGE_WIDHT, IMAGE_HEIGHT)), axis=1 )
+            sgo.corner= CORNER_NAMES[ np.argmin(corner_distances) ]
+
+        #sgo.maxdist=v.maxdist
+
+        return sgo
+    
+
+    def __str__(self):
+        return f'{self.color} {self.label} at {self.corner}'
+
+    def get_text(self):
+        return str(self)             

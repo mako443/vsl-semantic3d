@@ -55,7 +55,10 @@ def draw_relationships(img, relationships):
 #For new-style SceneGraph class
 def draw_scenegraph(img, scene_graph):
     h,w=img.shape[0:2]
-    for rel in scene_graph.relationships:
+
+    relationships = scene_graph if type(scene_graph) is list else scene_graph.relationships
+
+    for rel in relationships:
         for p in (rel[0], rel[2]):
             #cv2.rectangle(img, (p.bbox[0], p.bbox[1]), (p.bbox[0]+p.bbox[2], p.bbox[1]+p.bbox[3]), (0,0,255), thickness=2)
             bbox=p.get_bbox()
@@ -63,7 +66,7 @@ def draw_scenegraph(img, scene_graph):
 
         p0,p1= np.int0(np.array(rel[0].center)), np.int0(np.array(rel[2].center))
         cv2.arrowedLine(img, (p0[0],p0[1]), (p1[0],p1[1]), (0,0,255), thickness=3)
-        cv2.putText(img,rel[1]+" of",(p0[0],p0[1]),cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), thickness=2)
+        cv2.putText(img,rel[1]+" of",(p0[0],p0[1]),cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), thickness=2)        
 
 
 def draw_view_objects(img, view_objects, object_texts=None):

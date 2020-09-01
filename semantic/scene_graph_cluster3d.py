@@ -75,12 +75,18 @@ def create_view_objects(scene_objects, view_pose : Pose):
     view_objects=[ ViewObject.from_clustered_object(obj) for obj in visible_objects ]
     return view_objects
 
+def get_bbox(view_object):
+    points_c=view_object.points_c.copy()
+    points_c[:,0]/=points_c[:,2]
+    points_c[:,1]/=points_c[:,2]
+    return np.array(( np.min(points_c[:,0]),np.min(points_c[:,1]), np.max(points_c[:,0]), np.max(points_c[:,1]) ))
+
 if __name__ == "__main__":
     scene_name='untermaederbrunnen_station1_xyz_intensity_rgb'
     scene_objects=pickle.load( open('data/numpy/'+scene_name+'.objects.pkl', 'rb'))
     poses_rendered=pickle.load( open( os.path.join('data','pointcloud_images_o3d',scene_name,'poses_rendered.pkl'), 'rb'))
     
-    file_name='123.png'
+    file_name='007.png'
     pose=poses_rendered[file_name]
     img=cv2.imread( os.path.join('data','pointcloud_images_o3d',scene_name,'rgb', file_name) )
 
@@ -93,7 +99,6 @@ if __name__ == "__main__":
 
     cv2.imshow("",img)
     cv2.waitKey()
-
 
     quit()
     '''
