@@ -10,6 +10,8 @@ from main import load_files
 from semantic.imports import ClusteredObject, project_point
 from .imports import Pose, CLASSES_COLORS, CLASSES_DICT
 
+from scipy.spatial.transform import Rotation
+
 
 def reduce_points(points, max_points):
     step=int(np.ceil(len(points)/max_points))
@@ -26,7 +28,8 @@ def expand_labels(xyz, rgb, lbl, iterations):
 def load_files2(base_path, scene_name, max_points=int(28e6)):
     p_xyz   =os.path.join(base_path,scene_name+'.xyz.npy')
     p_rgb   =os.path.join(base_path,scene_name+'.rgb.npy')
-    p_labels=os.path.join(base_path,scene_name+'.labels.npy')
+    p_labels=os.path.join(base_path,scene_name+'.lbl.npy')
+    print(p_xyz)
 
     assert os.path.isfile(p_xyz) and os.path.isfile(p_rgb) and os.path.isfile(p_labels)
 
@@ -135,6 +138,19 @@ def set_pose(view_control, pose : Pose):
 
 
 if __name__ == "__main__":
+    #for scene_name in ('bildstein_station3_xyz_intensity_rgb','bildstein_station5_xyz_intensity_rgb'):
+    
+    xyz0, rgb0, lbl0=load_files2('data/numpy','bildstein_station3_xyz_intensity_rgb')
+    xyz0,rgb0=xyz0[lbl0==CLASSES_DICT['buildings']],rgb0[lbl0==CLASSES_DICT['buildings']]
+    rgb0[:,0]=255
+
+    xyz1, rgb1, lbl1=load_files2('data/numpy','bildstein_station5_xyz_intensity_rgb')
+    xyz1,rgb1=xyz1[lbl1==CLASSES_DICT['buildings']],rgb1[lbl1==CLASSES_DICT['buildings']]
+    rgb1[:,2]=255
+
+
+
+    quit()
     '''
     Data creation: Open3D rendering for clusters, read poses -> render images
     '''

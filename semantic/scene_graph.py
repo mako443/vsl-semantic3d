@@ -11,99 +11,34 @@ from graphics.imports import CLASSES_DICT, CLASSES_COLORS, Pose, IMAGE_WIDHT, IM
 from .patches import Patch
 from .utils import draw_relationships, draw_view_objects, draw_scenegraph, draw_patches
 import semantic.scene_graph_cluster3d_scoring
-from .imports import ViewObject, COLORS, COLOR_NAMES, CORNERS, CORNER_NAMES
+from .imports import ViewObject, SceneGraph, SceneGraphObject, COLORS, COLOR_NAMES, CORNERS, CORNER_NAMES
+
+from dataloading.data_loading import Semantic3dDataset
 
 
 '''
-Module to generate Scene Graphs and text descriptions from view-objects | Disregard patches-logic for now
+Module to generate Scene Graphs and text descriptions from view-objects | Disregard patches-logic for now | No identities for now
 '''
 
 '''
 TODO
 -add "foreground/background" to corners (meaning across) ✓
+-refine obj/sub selection: use unused ones, just keep track in list ✓
 
--refine obj/sub selection: use unused ones, just keep track in list
 -remove deprecated
 -resolve oblique infront/behind?
-'''
-
-#TODO: attributes here or in graph? Should be possible to convert to graph
-class SceneGraphObject:
-    __slots__ = ['label', 'color', 'corner','maxdist']
-
-    # @classmethod
-    # def from_viewobject(cls, v : ViewObject):
-    #     sgo=SceneGraphObject()
-    #     sgo.label=v.label
-
-    #     color_distances= np.linalg.norm( COLORS-v.color, axis=1 )
-    #     sgo.color=COLOR_NAMES[ np.argmin(color_distances) ]
-
-    #     corner_distances= np.linalg.norm( CORNERS-v.center, axis=1 )
-    #     sgo.corner= CORNER_NAMES[ np.argmin(corner_distances) ]
-
-    #     return sgo
-
-    #CARE: Potentially some differences!
-    @classmethod
-    def from_viewobject_cluster3d(cls, v):
-        sgo=SceneGraphObject()
-        sgo.label=v.label
-
-        color_distances= np.linalg.norm( COLORS-v.color, axis=1 )
-        sgo.color=COLOR_NAMES[ np.argmin(color_distances) ]
-
-        if np.max(v.rect[1])>=2/3*IMAGE_WIDHT:
-            sgo.corner='foreground' if v.center[1]>IMAGE_HEIGHT/2 else 'background'
-        else:
-            corner_distances= np.linalg.norm( CORNERS- (v.center/(IMAGE_WIDHT, IMAGE_HEIGHT)), axis=1 )
-            sgo.corner= CORNER_NAMES[ np.argmin(corner_distances) ]
-
-        #sgo.maxdist=v.maxdist
-
-        return sgo
-    
-
-    def __str__(self):
-        return f'{self.color} {self.label} at {self.corner}'
-
-    def get_text(self):
-        return str(self)        
+'''       
 
 #Storing objects as references
-class SceneGraphRelationship:
-    __slots__ = ['sub', 'rel_type', 'obj']
-    def __init__(self, sub, rel_type, obj):
-        self.sub=sub
-        self.rel_type=rel_type
-        self.obj=obj
+#DEPRECATED?
+# class SceneGraphRelationship:
+#     __slots__ = ['sub', 'rel_type', 'obj']
+#     def __init__(self, sub, rel_type, obj):
+#         self.sub=sub
+#         self.rel_type=rel_type
+#         self.obj=obj
 
-#Retain possibility for pure Graph-structure for potential Graph-networks later on
-class SceneGraph:
-    def __init__(self):
-        self.relationships=[]
 
-    #Store relationship as (SG-object, rel_type, SG-object) triplet
-    def add_relationship(self, sub, rel_type, obj):
-        self.relationships.append( (sub,rel_type,obj) ) 
-
-    #Going through all identity-assignment combinations: unfeasible
-    #All walks: here not possible because Graphs can be (very) incomplete
-    #Worst-case: evaluate just as before w/o identities?
-    #-> 2nd one! #Either evaluate w/o identities as before OR eval. relationships separately as before but also check sub.&obj. attribs (disregards identities *between* relationships same/different)
-    def score(self, view_objects):
-        #As before: for each relationship: for each possible subject: for each possible object | fingers crossed this is fast enough        
-        pass
-
-    def get_text(self):
-        text=''
-        for rel in self.relationships:
-            sub, rel_type, obj=rel
-            rel_text=f'In the {sub.corner} there is a {sub.color} {sub.label} that is {rel_type} of a {obj.color} {obj.label}. '
-            if rel_text not in text: #Prevent doublicate sentences
-                text+=rel_text
-
-        return text
 
 
 class Relationship:
@@ -242,7 +177,7 @@ Strategy refined from 5 corners:
 -Use one subject closest to each corner (can be fg/bg)
 -Use unused object from same corner or fg/bg (fg/bg allowed multiple times)
 '''
-def scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=False, flip_relations=False):
+def scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=False, flip_relations=True):
     assert len(CORNERS)==5 #FG/BG not explicitly in corners
 
     scene_graph=SceneGraph()
@@ -368,13 +303,13 @@ Data creation: Scene-Graphs
 #scene_relationships as { file_name: [rels] }
 def create_scenegraphs(base_path, scene_name):
     print('Scenegraphs for scene',scene_name)
-    scene_patches=pickle.load(open(os.path.join(base_path, scene_name,'patches.pkl'), 'rb'))
-    scene_relationships={}
+    scene_patches=pickle.load(open(os.path.join(base_path, scene_name,'view_objects.pkl'), 'rb'))
+    scene_graphs={}
 
     for file_name in scene_patches.keys():
-        print(file_name)
-        view_relationships=scenegraph_for_view_from_patches(scene_patches[file_name], return_as_references=False)
-        scene_relationships[file_name]=view_relationships
+        print(f'\r {file_name}', end='')
+        view_relationships=scenegraph_for_view_cluster3d_7corners(scene_patches[file_name], keep_viewobjects=False)
+        scene_graphs[file_name]=view_relationships
         
         # #Debugging
         # view_relationships_reference=scenegraph_for_view_from_patches(scene_patches[file_name], return_as_references=True)
@@ -386,50 +321,81 @@ def create_scenegraphs(base_path, scene_name):
         # cv2.waitKey()
 
         #break
-    return scene_relationships     
+    print()
+    return scene_graphs     
 
 
 if __name__ == "__main__":
-    #Milestone: 5-corner creation, store, load, text for 1 scene (no eval)
-
     ### Scene graph debugging for Cluster3d
-    base_path='data/pointcloud_images_o3d/'
-    #scene_name='neugasse_station1_xyz_intensity_rgb'
-    scene_name=np.random.choice(('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'))
-    scene_view_objects=pickle.load( open(os.path.join(base_path,scene_name,'view_objects.pkl'), 'rb') )
+    # base_path='data/pointcloud_images_o3d/'
+    # scene_name='domfountain_station1_xyz_intensity_rgb'
+    # #scene_name=np.random.choice(('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'))
+    # scene_view_objects=pickle.load( open(os.path.join(base_path,scene_name,'view_objects.pkl'), 'rb') )
 
-    #file_name='106.png'
-    file_name=np.random.choice(list(scene_view_objects.keys()))
-    print(scene_name,file_name)
-    view_objects=scene_view_objects[file_name]
+    # file_name='090.png'
+    # #file_name=np.random.choice(list(scene_view_objects.keys()))
+    # print(scene_name,file_name)
+    # view_objects=scene_view_objects[file_name]
 
-    texts=[ str(SceneGraphObject.from_viewobject_cluster3d(v)) for v in view_objects ]
-    print(texts)
-    print()
+    # texts=[ str(SceneGraphObject.from_viewobject_cluster3d(v)) for v in view_objects ]
+    # print(texts)
+    # print()
 
-    sg=scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=False)
-    print(sg.get_text())
+    # sg=scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=False)
+    # print(sg.get_text())
+    # score, groundings= sg.score(view_objects)
+    # print('SG-Score:',score)
 
-    sg=scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=True)
+    # sg=scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=True)
 
-    img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
-    draw_view_objects(img, view_objects, texts)    
-    cv2.imshow("",img); cv2.waitKey()
+    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
+    # draw_view_objects(img, view_objects, texts)    
+    # cv2.imshow("",img); cv2.waitKey()
 
-    img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
-    draw_scenegraph(img,sg)
-    cv2.imshow("",img); cv2.waitKey()
+    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
+    # draw_scenegraph(img,sg)
+    # cv2.imshow("",img); cv2.waitKey()
     
-    cv2.imwrite("sg_demo.jpg",img)
-    quit()
+    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
+    # draw_scenegraph(img,groundings)
+    # cv2.imshow("",img); cv2.waitKey()
+    
+    # cv2.imwrite("sg_demo.jpg",img)
+    # quit()
     ### Scene graph debugging for Cluster3d
 
+    ### Scene Graph Eval debugging
+    dataset=Semantic3dDataset('data/pointcloud_images_o3d')
+    idx0=10
+    idx1=100
+    sg=dataset.view_scenegraphs[idx0]
+    img_sg=cv2.imread(dataset.image_paths[idx0])
+    img_test=cv2.imread(dataset.image_paths[idx1])
+    print(sg.get_text())
+    print()
+    cv2.imshow("",img_sg); cv2.waitKey()
+
+    score, groundings= semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects(sg, dataset.view_objects[idx1])
+    groundings=[g for g in groundings if g is not None]
+    sub,rel_type,obj=groundings[-1]
+    print(sub.label, rel_type, obj.label)
+    print(sub.mindist,sub.maxdist,sub.get_bbox())
+    print(obj.mindist,obj.maxdist,obj.get_bbox())
+    s=semantic.scene_graph_cluster3d_scoring.score_relationship(sub, rel_type, obj, output_print=True)
+    print(s)
+
+    print('SG-Score:',score)
+    draw_scenegraph(img_test,[g for g in groundings if g is not None] )
+    cv2.imshow("",img_test); cv2.waitKey()
+
+
+    quit()
+    ### Scene Graph Eval debugging
 
     '''
     Data creation: Scene-Graphs from view-objects
     '''
-    base_path='data/pointcloud_images_3_2_depth'
-    scene_name='sg27_station2_intensity_rgb'
-
-    scene_relationships=create_scenegraphs(base_path, scene_name)   
-    pickle.dump( scene_relationships, open(os.path.join(base_path, scene_name,'scenegraphs.pkl'), 'wb'))
+    base_path='data/pointcloud_images_o3d'
+    for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
+        scene_graphs=create_scenegraphs(base_path, scene_name)   
+        pickle.dump( scene_graphs, open(os.path.join(base_path, scene_name,'scene_graphs.pkl'), 'wb'))
