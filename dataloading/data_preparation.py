@@ -3,7 +3,6 @@ import os
 import pickle
 import open3d
 import time
-import logging
 from graphics.imports import ALL_SCENE_NAMES
 
 #TODO: voxel-down from start on ok? Smaller voxels? Visually: Looks even better, Clustering: Looks good too, possibly re-tweak params
@@ -15,10 +14,10 @@ def convert_downsample(filepath_in_points, filepath_in_labels, filepath_xyz, fil
     assert not os.path.isfile(filepath_labels)    
 
     #Load points from .txt
-    logging.info('\n\n')
-    logging.info('loading points for',filepath_in_points )
+    print('\n\n')
+    print('loading points for',filepath_in_points )
     points=np.loadtxt(filepath_in_points, delimiter=' ', dtype=np.float32)
-    logging.info(f'loaded {len(points)} points')
+    print(f'loaded {len(points)} points')
 
     #Load labels from .txt
     labels=np.loadtxt(filepath_in_labels, dtype=np.uint8).flatten()
@@ -28,7 +27,7 @@ def convert_downsample(filepath_in_points, filepath_in_labels, filepath_xyz, fil
     point_cloud=open3d.geometry.PointCloud()
     point_cloud.points=open3d.utility.Vector3dVector(points[:,0:3].copy())
     _,_,indices_list=point_cloud.voxel_down_sample_and_trace(0.02,point_cloud.get_min_bound(), point_cloud.get_max_bound()) #OPTION: Voxel-size
-    logging.info(f'Reduced to {len(indices_list)} points after voxel-down')
+    print(f'Reduced to {len(indices_list)} points after voxel-down')
     
     #Not vectorized but seems fast enough, CARE: first-index color sampling (not averaging)
     indices=np.array([ vec[0] for vec in indices_list ])
@@ -47,11 +46,13 @@ def convert_downsample(filepath_in_points, filepath_in_labels, filepath_xyz, fil
     np.save(open(filepath_rgb,'wb'), np.uint8(  points[indices,4:7]))
     np.save(open(filepath_labels,'wb'), np.uint8(  labels[indices]))
 
+#TODO: handle big scene differently, try read->numpy only or read->reduce->numpy or separate reads
 if __name__ == "__main__":
-    logging.basicConfig(filename='log'+os.path.basename(__file__)+'.log', level=logging.DEBUG)
-
+    '''
+    Data creation: Converting .txt to numpy files
+    '''
     #for scene_name in ALL_SCENE_NAMES:
-    for scene_name in ['sg27_station2_intensity_rgb','sg27_station4_intensity_rgb','sg27_station5_intensity_rgb','sg27_station9_intensity_rgb','sg28_station4_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','untermaederbrunnen_station3_xyz_intensity_rgb']:
+    for scene_name in ['sg28_station4_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','untermaederbrunnen_station3_xyz_intensity_rgb']:
         convert_downsample(os.path.join('data','raw',scene_name+'.txt'),
                            os.path.join('data','labels',scene_name+'.labels'),
                            os.path.join('data','numpy',scene_name+'.xyz.npy'),
