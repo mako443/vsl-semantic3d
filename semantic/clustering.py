@@ -7,7 +7,7 @@ import pptk
 from sklearn.cluster import DBSCAN
 import pickle
 #from .geometry import project_point, IMAGE_WIDHT, IMAGE_HEIGHT
-from graphics.imports import IMAGE_WIDHT, IMAGE_HEIGHT, CLASSES_DICT, CLASSES_COLORS
+from graphics.imports import IMAGE_WIDHT, IMAGE_HEIGHT, CLASSES_DICT, CLASSES_COLORS, COMBINED_SCENE_NAMES
 #from graphics.rendering import Pose, CLASSES_DICT, CLASSES_COLORS
 import semantic.utils
 from .imports import ClusteredObject, project_point
@@ -20,7 +20,7 @@ CLUSTERING_OPTIONS={
     'natural terrain': {'min_points':250, 'eps': 1.5, 'min_samples': 75},
     'high vegetation': {'min_points':250, 'eps': 1.5, 'min_samples': 150},
     'low vegetation': {'min_points':125, 'eps': 1.0, 'min_samples': 150},
-    'buildings': {'min_points':1000, 'eps': 3.0, 'min_samples': 300},
+    'buildings': {'min_points':1000, 'eps': 3.2, 'min_samples': 300},
     'hard scape': {'min_points':250, 'eps': 1.75, 'min_samples': 300},
     'cars': {'min_points':500, 'eps': 0.75, 'min_samples': 300},
 }    
@@ -100,13 +100,13 @@ def cluster_scene(scene_name, return_visualization=False):
     vis_xyz=np.array([]).reshape((0,3))
     vis_rgb=np.array([]).reshape((0,3))
 
-    #for label in ('man-made terrain','natural terrain','high vegetation','low vegetation','buildings','hard scape','cars'): #Disregard unknowns and artifacts
-    for label in ('cars',):
+    for label in ('man-made terrain','natural terrain','high vegetation','low vegetation','buildings','hard scape','cars'): #Disregard unknowns and artifacts
+    #for label in ('buildings',):
         options=CLUSTERING_OPTIONS[label]
 
         #Load all points of that label w/o reduction
         #xyz, rgb=load_files_for_label('data/numpy/'+scene_name, label=CLASSES_DICT[label], max_points=None)
-        xyz, rgb=load_files_for_label('data/'+scene_name, label=CLASSES_DICT[label], max_points=None)
+        xyz, rgb=load_files_for_label('data/numpy_merged/'+scene_name, label=CLASSES_DICT[label], max_points=None)
         if xyz is None:
             print(f'No points for label {label} in {scene_name}, skipping')
             continue
@@ -130,7 +130,7 @@ def cluster_scene(scene_name, return_visualization=False):
 
         for label_value in range(0, np.max(cluster.labels_)+1):
             if np.sum( cluster.labels_==label_value ) < options['min_points']:
-                print('skipped obj for label',label)
+                print('skipped obj for label (not enough points)',label)
                 continue
 
             object_xyz=xyz[cluster.labels_ == label_value]
@@ -183,16 +183,16 @@ if __name__ == "__main__":
     '''
     Data creation: Clustered objects
     '''
-    #for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
-    # for scene_name in ('neugasse_station1_xyz_intensity_rgb',):
-    #     print()
-    #     print("Scene: ",scene_name)
-    #     scene_objects=cluster_scene(scene_name)
+    for scene_name in COMBINED_SCENE_NAMES:
+    #for scene_name in ('neugasse_station1_xyz_intensity_rgb',):
+        print()
+        print("Scene: ",scene_name)
+        scene_objects=cluster_scene(scene_name)
 
-    #     print('Saving scene objects...', len(scene_objects),'objects in total')
-    #     pickle.dump( scene_objects, open('data/numpy/'+scene_name+'.objects.pkl', 'wb'))
+        print('Saving scene objects...', len(scene_objects),'objects in total')
+        pickle.dump( scene_objects, open('data/numpy_merged/'+scene_name+'.objects.pkl', 'wb'))
 
-    # quit()      
+    quit()      
 
     scene_name='bildstein_station1_xyz_intensity_rgb'
     #label='buildings'

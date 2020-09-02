@@ -10,9 +10,6 @@ from main import load_files
 from semantic.imports import ClusteredObject, project_point
 from .imports import Pose, CLASSES_COLORS, CLASSES_DICT
 
-from scipy.spatial.transform import Rotation
-
-
 def reduce_points(points, max_points):
     step=int(np.ceil(len(points)/max_points))
     points=points[::step].copy()
@@ -80,7 +77,7 @@ def capture_scene(dirpath, scene_name):
     poses_rendered={} #Dictionary for the rendered poses, indexed by file name, I,E added
 
     print(f'Capturing {len(scene_poses)} poses for <{scene_name}>')
-    xyz, rgba, labels_rgba=load_files2('data/numpy/',scene_name, max_points=int(30e6)) #TODO: use load_files from here / new artifact removal, more points? (Seems to help!!)
+    xyz, rgba, labels_rgba=load_files2('data/numpy_merged/',scene_name, max_points=int(30e6)) #TODO: use load_files from here / new artifact removal, more points? (Seems to help!!)
     labels_rgba=None
     rgb=rgba[:,0:3].copy()
     rgba=None
@@ -141,24 +138,12 @@ def set_pose(view_control, pose : Pose):
 
 
 if __name__ == "__main__":
-    #for scene_name in ('bildstein_station3_xyz_intensity_rgb','bildstein_station5_xyz_intensity_rgb'):
-    
-    xyz0, rgb0, lbl0=load_files2('data/numpy','bildstein_station3_xyz_intensity_rgb')
-    xyz0,rgb0=xyz0[lbl0==CLASSES_DICT['buildings']],rgb0[lbl0==CLASSES_DICT['buildings']]
-    rgb0[:,0]=255
-
-    xyz1, rgb1, lbl1=load_files2('data/numpy','bildstein_station5_xyz_intensity_rgb')
-    xyz1,rgb1=xyz1[lbl1==CLASSES_DICT['buildings']],rgb1[lbl1==CLASSES_DICT['buildings']]
-    rgb1[:,2]=255
-
-
-
-    quit()
     '''
     Data creation: Open3D rendering for clusters, read poses -> render images
     '''
-    for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
-        capture_scene('data/pointcloud_images_o3d/',scene_name)
+    #for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
+    for scene_name in ('bildstein_station1_xyz_intensity_rgb',):
+        capture_scene('data/pointcloud_images_o3d_merged/',scene_name)
     quit()
 
     ### Project & bbox verify 
