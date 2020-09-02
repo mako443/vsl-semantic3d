@@ -264,6 +264,7 @@ if __name__ == "__main__":
                 copyfile( os.path.join(base_in,save_name+'.rgb.npy'), os.path.join(base_out,save_name+'.rgb.npy') )
                 copyfile( os.path.join(base_in,save_name+'.lbl.npy'), os.path.join(base_out,save_name+'.lbl.npy') )
             else: #Merge scene
+                continue
                 print('Merging',save_name)
                 pose_graph=find_pose_graph(combine_dict)
                 xyz,rgb,lbl=combine_scene(combine_dict, pose_graph)
