@@ -45,6 +45,9 @@ def load_files2(base_path, scene_name, max_points=int(28e6)):
         # print('query tree...')
         neighbors=pptk.kdtree._query(kd_tree, lbl==CLASSES_DICT['scanning artefacts'], k=5) #Neighbors for every artifact point, kd-query returns absolute indices apparently
         neighbors=np.array(neighbors).flatten() #All neighbors of artifact points
+        if len(neighbors)==0:
+            break
+
         neighbors=neighbors[lbl[neighbors]==CLASSES_DICT['unlabeled']] #Neighbors of artefacts that are unknown
         lbl[neighbors]=CLASSES_DICT['scanning artefacts']
         neighbors=None

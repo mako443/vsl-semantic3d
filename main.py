@@ -103,6 +103,9 @@ def load_files(base_path, max_points=int(20e6), remove_artifacts=True, remove_un
             print('query tree...')
             neighbors=pptk.kdtree._query(kd_tree, lbl==CLASSES_DICT['scanning artefacts'], k=5) #Neighbors for every artifact point, kd-query returns absolute indices apparently
             neighbors=np.array(neighbors).flatten() #All neighbors of artifact points
+            if len(neighbors)==0:
+                break
+
             neighbors=neighbors[lbl[neighbors]==CLASSES_DICT['unlabeled']] #Neighbors of artefacts that are unknown
             lbl[neighbors]=CLASSES_DICT['scanning artefacts']
             neighbors=None
@@ -174,7 +177,7 @@ def resize_window():
 #Diam größer -> weniger Punkte
 if __name__ == "__main__":
     scene_name='bildstein_station1_xyz_intensity_rgb'
-    viewer=view_pptk('data/'+scene_name)
+    viewer=view_pptk('data/numpy_merged/'+scene_name)
     quit()
 
     scene_name='domfountain_station2_xyz_intensity_rgb'
