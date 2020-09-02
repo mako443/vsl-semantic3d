@@ -133,13 +133,13 @@ def find_pose_graph(combine_dict):
     for i,point_cloud in enumerate(point_clouds):
         point_cloud.transform(pose_graph.nodes[i].pose)
 
-    for i,point_cloud in enumerate(point_clouds_full):
-        print(point_cloud)
-        point_cloud.transform(pose_graph.nodes[i].pose)
-        xyz=np.asarray(point_cloud.points)
-        np.save(open(scene_names[i]+'.shifted.npy', 'wb'), xyz)
+    # for i,point_cloud in enumerate(point_clouds_full):
+    #     print(point_cloud)
+    #     point_cloud.transform(pose_graph.nodes[i].pose)
+    #     xyz=np.asarray(point_cloud.points)
+    #     np.save(open(scene_names[i]+'.shifted.npy', 'wb'), xyz)
 
-    open3d.visualization.draw_geometries(point_clouds)  
+    #open3d.visualization.draw_geometries(point_clouds)  
 
     return pose_graph  
     
@@ -226,7 +226,7 @@ if __name__ == "__main__":
     '''
     if sys.argv[1]=='combine':
         base_in ='data/numpy/'
-        base_out='data/numpy_combined/'
+        base_out='data/numpy_merged/'
 
         for combine_dict in COMBINED_SCENES:
             pose_graph=find_pose_graph(combine_dict)
