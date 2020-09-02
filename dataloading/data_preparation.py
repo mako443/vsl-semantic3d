@@ -8,6 +8,7 @@ from graphics.imports import ALL_SCENE_NAMES
 
 VOXEL_SIZE=0.02 #OPTION: Voxel-size, the base voxel-size for the first down-sampling
 
+#TODO: pull SG station 2
 #TODO: voxel-down from start on ok? Smaller voxels? Visually: Looks even better, Clustering: Looks good too, possibly re-tweak params
 def convert_downsample(filepath_in_points, filepath_in_labels, filepath_xyz, filepath_rgb, filepath_labels, max_points=int(100e6)):
     assert os.path.isfile(filepath_in_points)
