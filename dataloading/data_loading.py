@@ -20,15 +20,11 @@ TODO
 
 #Dataset is used for all loading during all training and evaluation, but never during data creation!
 class Semantic3dDataset(Dataset):
-    def __init__(self, dirpath_main, transform=None, image_limit=None, split_indices=None):
+    def __init__(self, dirpath_main, transform=None, image_limit=None, split_indices=None, load_viewObjects=True, load_sceneGraphs=True):
         assert os.path.isdir(dirpath_main)
 
         self.dirpath_main=dirpath_main
         self.transform=transform
-
-        #Move to inherited
-        #self.positive_thresh=np.array((7.5,2*np.pi/12*1.01))
-        #self.negative_thresh=np.array((10,np.pi / 2))
 
         '''
         Data is structured in directories and unordered dictionaries
@@ -37,15 +33,8 @@ class Semantic3dDataset(Dataset):
         self.scene_names=sorted([folder_name for folder_name in os.listdir(dirpath_main) if os.path.isdir(os.path.join(dirpath_main,folder_name))]) #Sorting scene-names
         print(f'Semantic3dData with {len(self.scene_names)} total scenes: {self.scene_names}')
 
-        self.image_paths=[]
-        #self.image_poses=np.array([],np.float32).reshape(0,6)
-        self.image_poses=[] 
-        self.image_positions=[]
-        self.image_orientations=[]
+        self.image_paths,self.image_poses,self.image_positions,self.image_orientations,self.view_objects,self.view_scenegraphs=[],[],[],[],[],[]
 
-        #self.image_patches=[]
-        self.view_objects=[]
-        self.view_scenegraphs=[]
         #Go through all scenes and image-names
         for scene_name in self.scene_names:
             #Load image_paths
@@ -68,20 +57,21 @@ class Semantic3dDataset(Dataset):
             # self.image_patches.extend(scene_patches)
 
             #Load View-Objects
-            scene_viewobjects_dict=pickle.load( open(os.path.join(scene_path,'view_objects.pkl'), 'rb') )
-            scene_viewobjects= [scene_viewobjects_dict[image_name] for image_name in scene_image_names]
-            self.view_objects.extend(scene_viewobjects)
+            if load_viewObjects:
+                scene_viewobjects_dict=pickle.load( open(os.path.join(scene_path,'view_objects.pkl'), 'rb') )
+                scene_viewobjects= [scene_viewobjects_dict[image_name] for image_name in scene_image_names]
+                self.view_objects.extend(scene_viewobjects)
 
             #Load Scene-Graphs
-            scene_scenegraphs_dict=pickle.load( open(os.path.join(scene_path,'scene_graphs.pkl'), 'rb') )
-            scene_scenegraphs= [ scene_scenegraphs_dict[image_name] for image_name in scene_image_names ]
-            self.view_scenegraphs.extend(scene_scenegraphs)
+            if load_sceneGraphs:
+                scene_scenegraphs_dict=pickle.load( open(os.path.join(scene_path,'scene_graphs.pkl'), 'rb') )
+                scene_scenegraphs= [ scene_scenegraphs_dict[image_name] for image_name in scene_image_names ]
+                self.view_scenegraphs.extend(scene_scenegraphs)
 
-        self.image_positions=np.array(self.image_positions)
-        self.image_orientations=np.array(self.image_orientations)
+        self.image_paths,self.image_poses,self.image_positions,self.image_orientations,self.view_objects,self.view_scenegraphs=np.array(self.image_paths),np.array(self.image_poses),np.array(self.image_positions),np.array(self.image_orientations),np.array(self.view_objects),np.array(self.view_scenegraphs)
         
         assert self.image_positions.shape[1]==3
-        assert len(self.image_paths)==len(self.image_poses)==len(self.view_objects)==len(self.view_scenegraphs)
+        assert len(self.image_paths)==len(self.image_poses) #==len(self.view_objects)==len(self.view_scenegraphs)
 
         if split_indices is None:
             print('No splitting...')
@@ -90,7 +80,10 @@ class Semantic3dDataset(Dataset):
             assert len(split_indices)==len(self.image_paths)
             self.image_paths=self.image_paths[split_indices]
             self.image_poses=self.image_poses[split_indices]
-            self.image_patches=self.image_patches[split_indices]
+            self.image_positions=self.image_positions[split_indices]
+            self.image_orientations=self.image_orientations[split_indices]
+            if load_viewObjects: self.view_objects=self.view_objects[split_indices]
+            if load_sceneGraphs: self.view_scenegraphs=self.view_scenegraphs[split_indices]
             assert len(self.image_paths)==len(self.image_poses)
 
         if image_limit and image_limit>0:
@@ -119,13 +112,48 @@ class Semantic3dDataset(Dataset):
 #Subclass to load the images as trainig triplets
 #Also load SG/text triplets?
 class Semantic3dDatasetTriplet(Semantic3dDataset):
-    def __init__(self, dirpath_main, transform=None, image_limit=None, split_indices=None):
-        super().__init__(dirpath_main, transform, image_limit, split_indices)
+    def __init__(self, dirpath_main, transform=None, image_limit=None, split_indices=None, load_viewObjects=True, load_sceneGraphs=True):
+        super().__init__(dirpath_main, transform, image_limit, split_indices, load_viewObjects, load_sceneGraphs)
+        self.positive_thresh=(7.5, 2*np.pi/10*1.01) #The 2 images left&right
+        self.negative_thresh=(10,  np.pi / 2)
 
     #TODO
     def __getitem__(self, anchor_index):
-        pass
+        scene_name=self.get_scene_name(anchor_index)
+
+        pos_dists=np.linalg.norm(self.image_positions[:]-self.image_positions[anchor_index], axis=1)
+        ori_dists=np.abs(self.image_orientations[:]-self.image_orientations[anchor_index])
+        ori_dists=np.minimum(ori_dists, 2*np.pi-ori_dists)        
+
+        #Find positive index
+        pos_dists[anchor_index]=np.inf
+        ori_dists[anchor_index]=np.inf
+        indices= (pos_dists<self.positive_thresh[0]) & (ori_dists<self.positive_thresh[1]) & (np.core.defchararray.find(self.image_paths, scene_name)!=-1) #location&ori. dists small enough, same scene
+        assert np.sum(indices)>0
+        indices=np.argwhere(indices==True).flatten()
+        if len(indices)<2: print('Warning: only 1 pos. index choice')
+        positive_index=np.random.choice(indices) #OPTION: positive index criterion | care: "always to same side" otherwise
+
+        if np.random.choice([True,True]): #Pick an index of the same scene
+            pos_dists[anchor_index]=0.0
+            ori_dists[anchor_index]=0.0
+            indices= (pos_dists>=self.negative_thresh[0]) & (ori_dists>=self.negative_thresh[1]) & (np.core.defchararray.find(self.image_paths, scene_name)!=-1)# loc.&ori. dists big enough, same scene
+            assert np.sum(indices)>0
+            indices=np.argwhere(indices==True).flatten()
+            negative_index=np.random.choice(indices)            
+        else: #Pick from other scene
+            indices=np.flatnonzero(np.core.defchararray.find(self.image_paths, scene_name)==-1)
+            negative_index=np.random.choice(indices)
+
+        anchor  =  Image.open(self.image_paths[anchor_index]).convert('RGB')
+        positive = Image.open(self.image_paths[positive_index]).convert('RGB')
+        negative = Image.open(self.image_paths[negative_index]).convert('RGB')    
+
+        if self.transform:
+            anchor, positive, negative = self.transform(anchor),self.transform(positive),self.transform(negative)
+
+        return anchor, positive, negative
 
 if __name__ == "__main__":
-    dataset=Semantic3dDatasetTriplet('data/pointcloud_images_o3d')
+    dataset=Semantic3dDatasetTriplet('data/pointcloud_images_o3d_merged_1scene', load_viewObjects=False, load_sceneGraphs=False)
 

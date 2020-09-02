@@ -5,7 +5,8 @@ from PIL import Image
 import time
 import os
 
-#TODO: how to handle "distance" between scenes?
+#TODO: remove for unified data loader
+
 class Semantic3dData(Dataset):
     def __init__(self, dirpath_main, transform=None, image_limit=None, split_indices=None):
         assert os.path.isdir(dirpath_main)

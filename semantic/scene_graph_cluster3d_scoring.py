@@ -73,6 +73,9 @@ def score_sceneGraph_to_viewObjects(scene_graph, view_objects):
     best_groundings=[None for i in range(len(scene_graph.relationships))]
     best_scores=[MIN_SCORE for i in range(len(scene_graph.relationships))] 
 
+    if scene_graph.is_empty():
+        return 0.0, None
+
     for i_relation, relation in enumerate(scene_graph.relationships):
         assert type(relation[0] is SceneGraphObject)
 

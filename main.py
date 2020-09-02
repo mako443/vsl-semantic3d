@@ -30,6 +30,8 @@ TODO:
 -compare quality full points at dense scene, w/ & w/o voxel-down
 -clear up this file, mostly to rendering&graphics.utils
 -Check Open3D outlier removal
+
+-Check images in "Pictures" / take more
 '''
 
 # convert_txt('data/xyz_rgb/bildstein_station3_xyz_intensity_rgb.txt',
@@ -176,8 +178,10 @@ def resize_window():
 
 #Diam größer -> weniger Punkte
 if __name__ == "__main__":
-    scene_name='untermaederbrunnen_station3_xyz_intensity_rgb'
-    viewer=view_pptk('data/numpy/'+scene_name)
+    scene_name='bildstein_station1_xyz_intensity_rgb'
+    viewer=view_pptk('data/numpy_merged/'+scene_name, remove_unlabeled=False)
+    poses_rendered=pickle.load( open('data/pointcloud_images_o3d_merged/bildstein_station1_xyz_intensity_rgb/poses_rendered.pkl','rb'))
+
     quit()
 
     scene_name='domfountain_station2_xyz_intensity_rgb'

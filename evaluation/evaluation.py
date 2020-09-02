@@ -74,6 +74,7 @@ Matching SGs analytically to the View-Objects from 3D-Clustering
 
 -simple check close-by / far away
 -check top-hits
+-Handle empty Scene Graphs (0.0 score ✓)
 '''
 def scenegraph_to_viewObjects(base_path, top_k=(1,5,10)):
     CHECK_COUNT=50
