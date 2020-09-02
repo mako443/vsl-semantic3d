@@ -3,7 +3,6 @@ import os
 import pptk
 import time
 import sys
-import pyvista
 import open3d
 import capturing
 import cv2
