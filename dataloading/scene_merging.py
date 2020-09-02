@@ -255,7 +255,7 @@ if __name__ == "__main__":
         base_in ='data/numpy/'
         base_out='data/numpy_merged/'
 
-        for combine_dict in COMBINED_SCENES:
+        for combine_dict in (COMBINED_SCENES[1],):
             save_name=sorted(list(combine_dict.keys()))[0]
             
             if len(combine_dict.keys())==1: #Only Copy
