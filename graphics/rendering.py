@@ -10,9 +10,6 @@ from main import load_files
 from semantic.imports import ClusteredObject, project_point
 from .imports import Pose, CLASSES_COLORS, CLASSES_DICT, COMBINED_SCENE_NAMES
 
-from scipy.spatial.transform import Rotation
-
-
 def reduce_points(points, max_points):
     step=int(np.ceil(len(points)/max_points))
     points=points[::step].copy()
@@ -146,8 +143,6 @@ if __name__ == "__main__":
     '''
     #for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
     for i, scene_name in enumerate(COMBINED_SCENE_NAMES):
-        if i<7:
-                continue
         capture_scene('data/pointcloud_images_o3d_merged/',scene_name)
     quit()
 

@@ -30,7 +30,7 @@ def project_point(I,E,point):
 #Returns the point in camera-coordinates but world-units (not pixels)
 def project_point_extrinsic(E,point):
     p= E@np.hstack((point,1))
-    return np.array(( -p[0],-p[1],p[2] )) #x/y image plane, z distance
+    return np.array(( -p[0]/p[2],-p[1]/p[2],p[2] )) #x/y image plane, z distance
 
 class ClusteredObject:
     def __init__(self, scene_name, label, points_w, total_points, color):
@@ -127,6 +127,9 @@ class ViewObject:
         box=np.int0(cv2.boxPoints(self.rect))
         return (np.min(box[:,0]), np.min(box[:,1]), np.max(box[:,0]), np.max(box[:,1]) )
 
+    def get_bbox_c(self):
+        return np.array(( np.min(self.points_c[:,0]),np.min(self.points_c[:,1]), np.max(self.points_c[:,0]), np.max(self.points_c[:,1]) ))
+
 
     #score_color and score_corner in scene_graph_scoring!
 
@@ -170,6 +173,9 @@ class SceneGraph:
                 text+=rel_text
 
         return text
+
+    def is_empty(self):
+        return len(self.relationships)==0
 
 #TODO: attributes here or in graph? Should be possible to convert to graph
 class SceneGraphObject:

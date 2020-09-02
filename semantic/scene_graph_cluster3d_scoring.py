@@ -7,7 +7,7 @@ from .imports import SceneGraph,SceneGraphObject, ViewObject, COLORS, COLOR_NAME
 #CARE: Comparing in different Units, pixels vs. world-coordinates!!
 def get_relationship_type(sub : ViewObject, obj : ViewObject):
     sub_bbox, obj_bbox=sub.get_bbox(), obj.get_bbox()
-    #Compare left/right in image-coords
+    #Compare left/right in image-coords #is this really the same world-coords in points_c?
     dleft= obj_bbox[0] - sub_bbox[2]
     dright= sub_bbox[0] - obj_bbox[2]
     #Compare below/above in world-coords
@@ -16,7 +16,7 @@ def get_relationship_type(sub : ViewObject, obj : ViewObject):
     dinfront= obj.mindist - sub.maxdist
     dbehind= sub.mindist - obj.maxdist
 
-    #With too much overlap, it can only be in front or behind #CARE: this is not reversible
+    #With too much overlap, it can only be in front or behind #CARE: this is not reversible #TODO: not necessary w/ world-units?
     if np.sum(( dleft<0, dright<0, dbelow<0, dabove<0 ))>=3:
         dleft, dright=-1e6,-1e6
         dbelow, dabove=-1e6,-1e6
@@ -72,6 +72,9 @@ def score_sceneGraph_to_viewObjects(scene_graph, view_objects):
     MIN_SCORE=0.1 #OPTION: hardest penalty for relationship not found
     best_groundings=[None for i in range(len(scene_graph.relationships))]
     best_scores=[MIN_SCORE for i in range(len(scene_graph.relationships))] 
+
+    if scene_graph.is_empty():
+        return 0.0, None
 
     for i_relation, relation in enumerate(scene_graph.relationships):
         assert type(relation[0] is SceneGraphObject)
