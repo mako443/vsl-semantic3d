@@ -31,6 +31,7 @@ def project_point(I,E,point):
 def project_point_extrinsic(E,point):
     p= E@np.hstack((point,1))
     return np.array(( -p[0]/p[2],-p[1]/p[2],p[2] )) #x/y image plane, z distance
+    #return np.array(( -p[0],-p[1],p[2] )) #x/y image plane, z distance
 
 class ClusteredObject:
     def __init__(self, scene_name, label, points_w, total_points, color):
@@ -50,7 +51,7 @@ class ClusteredObject:
 
     def project(self, I, E):
         points_i= np.array( [ project_point(I,E, point) for point in self.points_w ] ) #Causes projection instabilities when points are out of FoV
-        points_c= np.array( [ project_point_extrinsic(E, point) for point in self.points_w ] )
+        points_c= np.array( [ project_point_extrinsic(E, point) for point in self.points_w ] ) #TODO: are points_c unstable, too?
         mask=np.bitwise_and.reduce(( points_i[:,0]>=0, points_i[:,0]<=IMAGE_WIDHT, points_i[:,1]>=0, points_i[:,1]<=IMAGE_HEIGHT, points_i[:,2]>0  )) #Mask to clamp to visible region
         points_i=points_i[mask, :].copy()
         points_c=points_c[mask, :].copy()
@@ -78,7 +79,7 @@ class ClusteredObject:
 
 class ViewObject:
     #__slots__ = ['label', 'bbox', 'depth', 'center', 'color']
-    __slots__ = ['scene_name', 'label', 'points','points_c','rect', 'mindist', 'maxdist', 'center', 'color','min_z_w','max_z_w']
+    __slots__ = ['scene_name', 'label', 'points','rect', 'mindist', 'maxdist', 'center', 'color','min_z_w','max_z_w','bbox_c','center_c','lengths_c']
 
     # @classmethod
     # def from_patch(cls, patch):
@@ -104,7 +105,12 @@ class ViewObject:
         v.center=np.array(v.rect[0])
         v.color=clustered_object.color #Color as [r,g,b] in [0,1]
         #v.corner=corner #TODO: Add here!
-        v.points_c=clustered_object.points_c
+        #v.points_c=clustered_object.points_c
+        # x/y image plane, z distance, (xmin, ymin, zmin, xmax, ymax, zmax)
+        v.bbox_c=np.array(( np.min(clustered_object.points_c[:,0]), np.min(clustered_object.points_c[:,1]), np.min(clustered_object.points_c[:,2]), 
+                   np.max(clustered_object.points_c[:,0]), np.max(clustered_object.points_c[:,1]), np.max(clustered_object.points_c[:,2]) ))
+        v.lengths_c=np.array(( v.bbox_c[3]-v.bbox_c[0], v.bbox_c[4]-v.bbox_c[1], v.bbox_c[5]-v.bbox_c[2] ))
+        v.center_c=np.array(( v.bbox_c[0]+ 0.5*v.lengths_c[0], v.bbox_c[1]+ 0.5*v.lengths_c[1], v.bbox_c[2]+ 0.5*v.lengths_c[2]))
         return v
 
     def draw_on_image(self,img):
@@ -127,8 +133,8 @@ class ViewObject:
         box=np.int0(cv2.boxPoints(self.rect))
         return (np.min(box[:,0]), np.min(box[:,1]), np.max(box[:,0]), np.max(box[:,1]) )
 
-    def get_bbox_c(self):
-        return np.array(( np.min(self.points_c[:,0]),np.min(self.points_c[:,1]), np.max(self.points_c[:,0]), np.max(self.points_c[:,1]) ))
+    # def get_bbox_c(self):
+    #     return np.array(( np.min(self.points_c[:,0]),np.min(self.points_c[:,1]), np.max(self.points_c[:,0]), np.max(self.points_c[:,1]) ))
 
 
     #score_color and score_corner in scene_graph_scoring!
@@ -203,6 +209,7 @@ class SceneGraphObject:
         color_distances= np.linalg.norm( COLORS-v.color, axis=1 )
         sgo.color=COLOR_NAMES[ np.argmin(color_distances) ]
 
+        #TODO: score corner (always possible to score as fg/bg or one of the corners?)
         if np.max(v.rect[1])>=2/3*IMAGE_WIDHT:
             sgo.corner='foreground' if v.center[1]>IMAGE_HEIGHT/2 else 'background'
         else:

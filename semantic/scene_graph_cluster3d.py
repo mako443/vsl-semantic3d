@@ -5,6 +5,7 @@ import random
 import pickle
 from graphics.imports import CLASSES_DICT, CLASSES_COLORS, Pose, IMAGE_WIDHT, IMAGE_HEIGHT
 from .imports import ClusteredObject, ViewObject
+from .scene_graph_cluster3d_scoring import get_relationship_type, score_relationship_type
 
 '''
 Module to generate the view-objects from the clustered objects | Scene-Graph & text generation logic merges after view-objects are generated
@@ -31,7 +32,7 @@ def is_object_in_fov(obj : ClusteredObject):
 #A 'stateless' check of object occlusion
 #TODO: Rectangle-based occlusion checks do not work!
 #New strategy: checking for a single occluder that covers most of objects area and is completely closer
-#TODO: Occlusion check by re-projection of points_i back to lbl/dist image?
+#TODO: Occlusion check by re-projection of points_i back to lbl/dist image? | Occlusions one of the biggest problems?
 def is_object_occluded(obj : ClusteredObject, visible_objects):
     #return False #Does not work / unreliable!
     #For each occluder in fov and closer:
@@ -75,33 +76,33 @@ def create_view_objects(scene_objects, view_pose : Pose):
     return view_objects
 
 if __name__ == "__main__":
-    scene_name='bildstein_station1_xyz_intensity_rgb'
-    scene_objects=pickle.load( open('data/numpy_merged/'+scene_name+'.objects.pkl', 'rb'))
-    poses_rendered=pickle.load( open( os.path.join('data','pointcloud_images_o3d_merged',scene_name,'poses_rendered.pkl'), 'rb'))
+    # scene_name='sg27_station5_intensity_rgb'
+    # scene_objects=pickle.load( open('data/numpy_merged/'+scene_name+'.objects.pkl', 'rb'))
+    # poses_rendered=pickle.load( open( os.path.join('data','pointcloud_images_o3d_merged',scene_name,'poses_rendered.pkl'), 'rb'))
     
-    file_name='006.png'
-    #file_name=np.random.choice(list(poses_rendered.keys()))
-    pose=poses_rendered[file_name]
-    img=cv2.imread( os.path.join('data','pointcloud_images_o3d_merged',scene_name,'rgb', file_name) )
+    # #file_name='171.png'
+    # file_name=np.random.choice(list(poses_rendered.keys()))
+    # pose=poses_rendered[file_name]
+    # img=cv2.imread( os.path.join('data','pointcloud_images_o3d_merged',scene_name,'rgb', file_name) )
 
-    view_objects=create_view_objects(scene_objects,pose)
-    print('view objects',len(view_objects), 'for ',file_name)
+    # view_objects=create_view_objects(scene_objects,pose)
+    # print('view objects',len(view_objects), 'for ',file_name)
 
-    for v in view_objects:
-        if "terrain" in v.label or True:
-            v.draw_on_image(img)
+    # for v in view_objects:
+    #     if "terrain" in v.label or True:
+    #         v.draw_on_image(img)
 
-    cv2.imshow("",img)
-    cv2.waitKey()
+    # cv2.imshow("",img)
+    # cv2.waitKey()
 
-    quit()
+    # quit()
 
     '''
     Data creation: View objects from clustered objects
     '''
     base_dir='data/pointcloud_images_o3d_merged/'
     #for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
-    for scene_name in ('bildstein_station1_xyz_intensity_rgb',):
+    for scene_name in ('sg27_station5_intensity_rgb',):
         print()
         print("Scene: ",scene_name)
         scene_objects=pickle.load( open('data/numpy_merged/'+scene_name+'.objects.pkl', 'rb'))
@@ -115,8 +116,6 @@ if __name__ == "__main__":
             total_view_objects+=len(view_objects)
             scene_view_objects[file_name]=view_objects
             print(f'\r file {i_file} of {len(poses_rendered)}',end='')
-            if i_file>15:
-                break
 
         print()
         print('Saving view objects...', total_view_objects/len(scene_view_objects),'view objects on average')
