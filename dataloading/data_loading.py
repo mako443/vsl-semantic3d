@@ -129,9 +129,13 @@ class Semantic3dDatasetTriplet(Semantic3dDataset):
         pos_dists[anchor_index]=np.inf
         ori_dists[anchor_index]=np.inf
         indices= (pos_dists<self.positive_thresh[0]) & (ori_dists<self.positive_thresh[1]) & (np.core.defchararray.find(self.image_paths, scene_name)!=-1) #location&ori. dists small enough, same scene
-        assert np.sum(indices)>0
+        #assert np.sum(indices)>0
+        if not np.sum(indices)>0:
+            #print(f'No positive indices for anchor {anchor_index}, using image itself') #TODO: investigate
+            indices[anchor_index]=True
+
         indices=np.argwhere(indices==True).flatten()
-        if len(indices)<2: print('Warning: only 1 pos. index choice')
+        #if len(indices)<2: print('Warning: only 1 pos. index choice')
         positive_index=np.random.choice(indices) #OPTION: positive index criterion | care: "always to same side" otherwise
 
         if np.random.choice([True,True]): #Pick an index of the same scene

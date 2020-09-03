@@ -51,13 +51,15 @@ resnet18, 1scene, 3:2, 3-1 split:
 
 '''
 
-IMAGE_LIMIT=50
+IMAGE_LIMIT=2800
 BATCH_SIZE=6
 LR_GAMMA=0.75
-NUM_CLUSTERS=8
+NUM_CLUSTERS=16
 TEST_SPLIT=4
+ALPHA=10.0 #Higher Alpha leads to bigger loss (also worse retrieval?)
+MARGIN=5.0
 
-print(f'image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} clusters: {NUM_CLUSTERS} test-split: {TEST_SPLIT}')
+print(f'image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} clusters: {NUM_CLUSTERS} alpha: {ALPHA} margin: {MARGIN} test-split: {TEST_SPLIT}')
 
 transform=transforms.Compose([
     #transforms.Resize((950,1000)),
@@ -65,9 +67,9 @@ transform=transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
-train_indices, test_indices=get_split_indices(TEST_SPLIT, 600+0)
+train_indices, test_indices=get_split_indices(TEST_SPLIT, 2800)
 
-data_set=Semantic3dDatasetTriplet('data/pointcloud_images_o3d_merged_1scene', transform=transform, image_limit=IMAGE_LIMIT, split_indices=train_indices, load_viewObjects=False, load_sceneGraphs=False)
+data_set=Semantic3dDatasetTriplet('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=train_indices, load_viewObjects=False, load_sceneGraphs=False)
 data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)
 
 loss_dict={}
@@ -75,11 +77,11 @@ best_loss=np.inf
 best_model=None
 
 #for lr in (5e-2,1e-2, 5e-3):
-for lr in (1e-1,5e-2,1e-2):
+for lr in (2e-2,1e-2,5e-3):
     print('\n\nlr: ',lr)
     encoder=networks.get_encoder_resnet18()
     encoder.requires_grad_(False) #Don't train encoder
-    netvlad_layer=NetVLAD(num_clusters=NUM_CLUSTERS, dim=512, alpha=10.0)
+    netvlad_layer=NetVLAD(num_clusters=NUM_CLUSTERS, dim=512, alpha=ALPHA)
 
     model=EmbedNet(encoder, netvlad_layer).cuda()
 
@@ -97,12 +99,12 @@ for lr in (1e-1,5e-2,1e-2):
 
     # quit()
 
-    criterion=nn.TripletMarginLoss(margin=1.0)
+    criterion=nn.TripletMarginLoss(margin=MARGIN)
     optimizer=optim.Adam(model.parameters(), lr=lr)    
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)    
 
     loss_dict[lr]=[]
-    for epoch in range(5):
+    for epoch in range(8):
         epoch_loss_sum=0.0
         for i_batch, batch in enumerate(data_loader):
             a,p,n=batch        
@@ -118,12 +120,12 @@ for lr in (1e-1,5e-2,1e-2):
 
             l=loss.cpu().detach().numpy()
             epoch_loss_sum+=l
-            print(f'\r epoch {epoch} loss {l}',end='')
+            #print(f'\r epoch {epoch} loss {l}',end='')
         
         scheduler.step()
 
         epoch_avg_loss = epoch_loss_sum/(i_batch+1)
-        print(f'\n epoch {epoch} avg-loss {epoch_avg_loss}')
+        print(f'epoch {epoch} final avg-loss {epoch_avg_loss}')
         loss_dict[lr].append(epoch_avg_loss)
 
     #Now using loss-avg of last epoch!
@@ -141,4 +143,4 @@ for k in loss_dict.keys():
     line.set_label(k)
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_split{TEST_SPLIT}.png')    
+plt.savefig(f'loss_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_c{NUM_CLUSTERS}_a{ALPHA}_m{MARGIN}_split{TEST_SPLIT}.png')    
