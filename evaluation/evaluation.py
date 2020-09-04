@@ -13,7 +13,7 @@ from retrieval.netvlad import NetVLAD, EmbedNet
 
 from semantic.imports import SceneGraph, SceneGraphObject, ViewObject
 from semantic.scene_graph_cluster3d_scoring import score_sceneGraph_to_viewObjects
-from evaluation.utils import evaluate_topK
+from evaluation.utils import evaluate_topK, generate_sanity_check_dataset
 
 
 '''
@@ -134,7 +134,11 @@ def scenegraph_to_viewObjects(base_path, top_k=(1,3,5,10)):
     return distance_avg, orientation_avg, scene_avg   
 
 def netvlad_retrieval(data_loader_train, data_loader_test, model, top_k=(1,3,5,10), random_features=False):
+<<<<<<< HEAD
     CHECK_COUNT=100
+=======
+    CHECK_COUNT=50
+>>>>>>> 8bc410e377cd1fcda044828fe699e4ac0c66d673
     print(f'# training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
 
     if random_features:
@@ -160,6 +164,11 @@ def netvlad_retrieval(data_loader_train, data_loader_test, model, top_k=(1,3,5,1
 
     image_positions_train, image_orientations_train = data_loader_train.dataset.image_positions, data_loader_train.dataset.image_orientations
     image_positions_test, image_orientations_test = data_loader_test.dataset.image_positions, data_loader_test.dataset.image_orientations
+    scene_names_train = data_loader_train.dataset.image_scene_names
+    scene_names_test  = data_loader_test.dataset.image_scene_names
+
+    #Sanity check
+    #netvlad_vectors_train, netvlad_vectors_test, image_positions_train, image_positions_test, image_orientations_train, image_orientations_test, scene_names_train, scene_names_test=generate_sanity_check_dataset()
 
     pos_results  ={k:[] for k in top_k}
     ori_results  ={k:[] for k in top_k}
@@ -168,18 +177,20 @@ def netvlad_retrieval(data_loader_train, data_loader_test, model, top_k=(1,3,5,1
     print('evaluating random indices...')
     for i in range(CHECK_COUNT):
         idx=np.random.choice(range(len(netvlad_vectors_test)))
-        scene_name_gt=data_loader_test.dataset.get_scene_name(idx)
+        #scene_name_gt=data_loader_test.dataset.get_scene_name(idx)
+        scene_name_gt=scene_names_test[idx]
 
         netvlad_diffs=netvlad_vectors_train-netvlad_vectors_test[idx]
         netvlad_diffs=np.linalg.norm(netvlad_diffs,axis=1)   
 
         sorted_indices=np.argsort(netvlad_diffs) 
-        pos_dists=np.linalg.norm(image_positions_train[:]-image_positions_test[idx], axis=1)
+        pos_dists=np.linalg.norm(image_positions_train[:]-image_positions_test[idx], axis=1) #CARE: also adds z-distance
         ori_dists=np.abs(image_orientations_train[:]-image_orientations_test[idx])
         ori_dists=np.minimum(ori_dists, 2*np.pi-ori_dists)
 
         for k in top_k:
-            scene_correct=np.array([scene_name_gt == data_loader_train.dataset.get_scene_name(retrieved_index) for retrieved_index in sorted_indices[0:k]])
+            #scene_correct=np.array([scene_name_gt == data_loader_train.dataset.get_scene_name(retrieved_index) for retrieved_index in sorted_indices[0:k]])
+            scene_correct=np.array([scene_name_gt == scene_names_train[retrieved_index] for retrieved_index in sorted_indices[0:k]])
             topk_pos_dists=pos_dists[sorted_indices[0:k]]
             topk_ori_dists=ori_dists[sorted_indices[0:k]]    
 
@@ -192,13 +203,16 @@ def netvlad_retrieval(data_loader_train, data_loader_test, model, top_k=(1,3,5,1
 
     return evaluate_topK(pos_results, ori_results, scene_results)
 
-
+#TODO: save retrieval indices for failure evaluation
 if __name__ == "__main__":
     '''
     Evaluation: NetVLAD retrieval
     '''
     #CARE: make sure options match model!
+<<<<<<< HEAD
     print('## Evaluation: NetVLAD retrieval')
+=======
+>>>>>>> 8bc410e377cd1fcda044828fe699e4ac0c66d673
     IMAGE_LIMIT=2800
     BATCH_SIZE=6
     NUM_CLUSTERS=8
@@ -213,7 +227,11 @@ if __name__ == "__main__":
     data_set_train=Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=train_indices, load_viewObjects=False, load_sceneGraphs=False)
     data_set_test =Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=test_indices, load_viewObjects=False, load_sceneGraphs=False)
 
+<<<<<<< HEAD
     data_loader_train=DataLoader(data_set_train, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)
+=======
+    data_loader_train=DataLoader(data_set_train, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #CARE: put shuffle off
+>>>>>>> 8bc410e377cd1fcda044828fe699e4ac0c66d673
     data_loader_test =DataLoader(data_set_test , batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)
 
     encoder=networks.get_encoder_resnet18()
@@ -224,9 +242,19 @@ if __name__ == "__main__":
     model_name='model_l2800_b6_g0.75_c8_a10.0_split4.pth'
     model.load_state_dict(torch.load('models/'+model_name))
     model.eval()
+<<<<<<< HEAD
     model.cuda()
 
     pos_results, ori_results, scene_results=netvlad_retrieval(data_loader_train, data_loader_test, modely)
     print(pos_results, ori_results, scene_results)
 
 
+=======
+    quit()
+
+    #model.cuda()
+
+
+    pos_results, ori_results, scene_results=netvlad_retrieval(data_loader_train, data_loader_test, model)
+    print(pos_results, ori_results, scene_results)
+>>>>>>> 8bc410e377cd1fcda044828fe699e4ac0c66d673

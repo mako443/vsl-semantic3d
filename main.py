@@ -177,9 +177,9 @@ def resize_window():
 
 #Diam größer -> weniger Punkte
 if __name__ == "__main__":
-    scene_name='bildstein_station1_xyz_intensity_rgb'
-    viewer=view_pptk('data/numpy_merged/'+scene_name, remove_unlabeled=False)
-    poses_rendered=pickle.load( open('data/pointcloud_images_o3d_merged/bildstein_station1_xyz_intensity_rgb/poses_rendered.pkl','rb'))
+    scene_name='sg27_station9_intensity_rgb'
+    viewer=view_pptk('data/numpy/'+scene_name, remove_unlabeled=False)
+    #poses_rendered=pickle.load( open('data/pointcloud_images_o3d_merged/bildstein_station1_xyz_intensity_rgb/poses_rendered.pkl','rb'))
 
     quit()
 

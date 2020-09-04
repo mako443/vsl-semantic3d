@@ -79,7 +79,7 @@ class ClusteredObject:
 
 class ViewObject:
     #__slots__ = ['label', 'bbox', 'depth', 'center', 'color']
-    __slots__ = ['scene_name', 'label', 'points','rect', 'mindist', 'maxdist', 'center', 'color','min_z_w','max_z_w','bbox_c','center_c','lengths_c']
+    __slots__ = ['scene_name', 'label', 'points','rect', 'mindist', 'maxdist', 'center', 'color','min_z_w','max_z_w','bbox_c','center_c','lengths_c','points_c']
 
     # @classmethod
     # def from_patch(cls, patch):

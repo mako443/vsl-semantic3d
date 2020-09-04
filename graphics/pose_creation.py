@@ -111,6 +111,14 @@ scene_config['sg27_station1_intensity_rgb']={
     ), 
     'num_points': 20
 }
+scene_config['sg27_station2_intensity_rgb']={
+    'points':np.array([[ -1.19515443e+00, -9.11307907e+00,  9.51060187e-03],
+                        [ 1.82419910e+01, -3.71339912e+01, -5.37586331e-01],
+                        [ 2.15250740e+01,  1.31393557e+01, -4.16823030e-01],
+                        [-1.10820770e+01,  1.10676794e+01,  7.62200296e-01]]
+    ), 
+    'num_points': 20
+}
 scene_config['sg27_station4_intensity_rgb']={
     'points':np.array([ [ 43.57066345,  11.67580128,   2.73182034],
                         [  1.99903047,   1.5136199 ,  -0.36759657],
@@ -192,7 +200,7 @@ if __name__ == "__main__":
     '''
     View pptk -> write config -> interpolate&save poses
     '''    
-    scene_name='untermaederbrunnen_station1_xyz_intensity_rgb'
+    scene_name='sg27_station2_intensity_rgb'
     output_path_poses=os.path.join('data','pointcloud_images_o3d_merged',scene_name,'poses.pkl')
 
     viewer=view_pptk('data/numpy_merged/'+scene_name, remove_artifacts=True, remove_unlabeled=True, max_points=int(15e6))

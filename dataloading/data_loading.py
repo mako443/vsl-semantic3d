@@ -31,9 +31,12 @@ class Semantic3dDataset(Dataset):
         From here on, all folders and image-names will be sorted
         '''
         self.scene_names=sorted([folder_name for folder_name in os.listdir(dirpath_main) if os.path.isdir(os.path.join(dirpath_main,folder_name))]) #Sorting scene-names
+        #self.scene_names=('sg27_station5_intensity_rgb',)
+        #print('CARE / DEBUG ONE SCENE')
         print(f'Semantic3dData with {len(self.scene_names)} total scenes: {self.scene_names}')
 
-        self.image_paths,self.image_poses,self.image_positions,self.image_orientations,self.view_objects,self.view_scenegraphs=[],[],[],[],[],[]
+        self.image_paths,self.image_poses,self.image_positions,self.image_orientations,self.image_scene_names,self.view_objects,self.view_scenegraphs=[],[],[],[],[],[],[]
+        #TODO: image_captions
 
         #Go through all scenes and image-names
         for scene_name in self.scene_names:
@@ -50,6 +53,7 @@ class Semantic3dDataset(Dataset):
             self.image_poses.extend(scene_poses)
             self.image_positions.extend( [pose.eye for pose in scene_poses] )
             self.image_orientations.extend( [pose.phi for pose in scene_poses] )
+            self.image_scene_names.extend( [scene_name for i in range(len(scene_image_names))] )
 
             # #Load patches #TODO: make optional depending on data creation approach
             # scene_patches_dict=pickle.load( open(os.path.join(scene_path,'patches.pkl'), 'rb') )
@@ -90,6 +94,7 @@ class Semantic3dDataset(Dataset):
             self.image_limit=image_limit
         else:
             self.image_limit=None
+        print()
 
     def __len__(self):
         if self.image_limit:
@@ -97,8 +102,8 @@ class Semantic3dDataset(Dataset):
         else:
             return len(self.image_paths)
 
-    def get_scene_name(self,idx):
-        return self.image_paths[idx].split('/')[2]     
+    # def get_scene_name(self,idx):
+    #     return self.image_paths[idx].split('/')[2]     
 
     #Returns the image at the current index
     def __getitem__(self,index):       
@@ -138,7 +143,8 @@ class Semantic3dDatasetTriplet(Semantic3dDataset):
         #if len(indices)<2: print('Warning: only 1 pos. index choice')
         positive_index=np.random.choice(indices) #OPTION: positive index criterion | care: "always to same side" otherwise
 
-        if np.random.choice([True,True]): #Pick an index of the same scene
+        #OPTION: Negative selection
+        if np.random.choice([True,False]): #Pick an index of the same scene
             pos_dists[anchor_index]=0.0
             ori_dists[anchor_index]=0.0
             indices= (pos_dists>=self.negative_thresh[0]) & (ori_dists>=self.negative_thresh[1]) & (np.core.defchararray.find(self.image_paths, scene_name)!=-1)# loc.&ori. dists big enough, same scene

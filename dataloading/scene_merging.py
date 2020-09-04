@@ -28,6 +28,7 @@ COMBINED_SCENES.append({
 })
 COMBINED_SCENES.append({ 'neugasse_station1_xyz_intensity_rgb': (0, [0,0,0]), })
 COMBINED_SCENES.append({ 'sg27_station1_intensity_rgb': (0, [0,0,0]), })
+COMBINED_SCENES.append({ 'sg27_station2_intensity_rgb': (0, [0,0,0]), })
 COMBINED_SCENES.append({ 'sg27_station4_intensity_rgb': (0, [0,0,0]), })
 COMBINED_SCENES.append({ 'sg27_station5_intensity_rgb': (0, [0,0,0]), })
 COMBINED_SCENES.append({ 'sg27_station9_intensity_rgb': (0, [0,0,0]), })
@@ -255,7 +256,7 @@ if __name__ == "__main__":
         base_in ='data/numpy/'
         base_out='data/numpy_merged/'
 
-        for combine_dict in COMBINED_SCENES:
+        for combine_dict in (COMBINED_SCENES[4],):
             save_name=sorted(list(combine_dict.keys()))[0]
             
             if len(combine_dict.keys())==1: #Only Copy
