@@ -14,6 +14,7 @@ import semantic.scene_graph_cluster3d_scoring
 from .imports import ViewObject, SceneGraph, SceneGraphObject, COLORS, COLOR_NAMES, CORNERS, CORNER_NAMES
 
 from dataloading.data_loading import Semantic3dDataset
+from .scene_graph_cluster3d_scoring import get_relationship_type, score_relationship_type
 
 
 '''
@@ -331,9 +332,10 @@ def create_scenegraphs(base_path, scene_name):
 
 
 if __name__ == "__main__":
+    #TODO: why does it not score perfectly to itself? (w/ color)
     ### Scene graph debugging for Cluster3d
     base_path='data/pointcloud_images_o3d_merged/'
-    scene_name='bildstein_station1_xyz_intensity_rgb'
+    scene_name='sg27_station5_intensity_rgb'
     #scene_name=np.random.choice(('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'))
     scene_view_objects=pickle.load( open(os.path.join(base_path,scene_name,'view_objects.pkl'), 'rb') )
 

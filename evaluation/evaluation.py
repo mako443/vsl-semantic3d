@@ -2,9 +2,15 @@ import pickle
 import numpy as np
 import cv2
 import os
-from dataloading.data_loading import Semantic3dDataset
-#from semantic.scene_graph import ground_scenegraph_to_patches, Relationship2
-#from semantic.patches import Patch
+import torch
+from torch.utils.data import DataLoader
+from torchvision import transforms
+
+from dataloading.data_loading import Semantic3dDataset, Semantic3dDatasetTriplet
+from retrieval.utils import get_split_indices
+from retrieval import networks
+from retrieval.netvlad import NetVLAD, EmbedNet
+
 from semantic.imports import SceneGraph, SceneGraphObject, ViewObject
 from semantic.scene_graph_cluster3d_scoring import score_sceneGraph_to_viewObjects
 from evaluation.utils import evaluate_topK
@@ -76,7 +82,7 @@ Matching SGs analytically to the View-Objects from 3D-Clustering
 -check top-hits
 -Handle empty Scene Graphs (0.0 score ✓)
 '''
-def scenegraph_to_viewObjects(base_path, top_k=(1,5,10)):
+def scenegraph_to_viewObjects(base_path, top_k=(1,3,5,10)):
     CHECK_COUNT=50
 
     dataset=Semantic3dDataset(base_path)
@@ -101,6 +107,7 @@ def scenegraph_to_viewObjects(base_path, top_k=(1,5,10)):
         location_dists=dataset.image_positions[:,:]-dataset.image_positions[check_idx,:]
         location_dists=np.linalg.norm(location_dists,axis=1)    
 
+        #TODO: add train/test split
         orientation_dists=np.abs(dataset.image_orientations[:]-dataset.image_orientations[check_idx]) 
         orientation_dists=np.minimum(orientation_dists,2*np.pi-orientation_dists)  
 
@@ -126,8 +133,8 @@ def scenegraph_to_viewObjects(base_path, top_k=(1,5,10)):
 
     return distance_avg, orientation_avg, scene_avg   
 
-def netvlad_retrieval(data_loader_train, data_loader_test, model, top_k=(1,5,10), random_features=False):
-    CHECK_COUNT=50
+def netvlad_retrieval(data_loader_train, data_loader_test, model, top_k=(1,3,5,10), random_features=False):
+    CHECK_COUNT=100
     print(f'# training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
 
     if random_features:
@@ -139,20 +146,20 @@ def netvlad_retrieval(data_loader_train, data_loader_test, model, top_k=(1,5,10)
         netvlad_vectors_train, netvlad_vectors_test=torch.tensor([]).cuda(), torch.tensor([]).cuda()
 
         with torch.no_grad():
-            for i_batch, batch in enumerate(data_loader_test): #loading p,n somewhat redundant
-                a,p,n=batch
+            for i_batch, batch in enumerate(data_loader_test):
+                a=batch
                 a_out=model(a.cuda())
                 netvlad_vectors_test=torch.cat((netvlad_vectors_test,a_out))
             for i_batch, batch in enumerate(data_loader_train):
-                a,p,n=batch
+                a=batch
                 a_out=model(a.cuda())
                 netvlad_vectors_train=torch.cat((netvlad_vectors_train,a_out))        
 
         netvlad_vectors_train=netvlad_vectors_train.cpu().detach().numpy()
         netvlad_vectors_test=netvlad_vectors_test.cpu().detach().numpy()
 
-    # image_positions_train, image_orientations_train = data_loader_train.dataset.image_positions, data_loader_train.dataset.image_orientations
-    # image_positions_test, image_orientations_test = data_loader_test.dataset.image_positions, data_loader_test.dataset.image_orientations
+    image_positions_train, image_orientations_train = data_loader_train.dataset.image_positions, data_loader_train.dataset.image_orientations
+    image_positions_test, image_orientations_test = data_loader_test.dataset.image_positions, data_loader_test.dataset.image_orientations
 
     pos_results  ={k:[] for k in top_k}
     ori_results  ={k:[] for k in top_k}
@@ -187,6 +194,39 @@ def netvlad_retrieval(data_loader_train, data_loader_test, model, top_k=(1,5,10)
 
 
 if __name__ == "__main__":
-    quit()
-    distance_avg, orientation_avg, scene_avg=scenegraph_to_viewObjects('data/pointcloud_images_o3d')
-    print(distance_avg, orientation_avg, scene_avg)
+    '''
+    Evaluation: NetVLAD retrieval
+    '''
+    #CARE: make sure options match model!
+    print('## Evaluation: NetVLAD retrieval')
+    IMAGE_LIMIT=2800
+    BATCH_SIZE=6
+    NUM_CLUSTERS=8
+    TEST_SPLIT=4
+    ALPHA=10.0
+    transform=transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])  
+
+    train_indices, test_indices=get_split_indices(TEST_SPLIT, 2800)
+    data_set_train=Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=train_indices, load_viewObjects=False, load_sceneGraphs=False)
+    data_set_test =Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=test_indices, load_viewObjects=False, load_sceneGraphs=False)
+
+    data_loader_train=DataLoader(data_set_train, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)
+    data_loader_test =DataLoader(data_set_test , batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)
+
+    encoder=networks.get_encoder_resnet18()
+    encoder.requires_grad_(False) #Don't train encoder
+    netvlad_layer=NetVLAD(num_clusters=NUM_CLUSTERS, dim=512, alpha=ALPHA)
+    model=EmbedNet(encoder, netvlad_layer)
+
+    model_name='model_l2800_b6_g0.75_c8_a10.0_split4.pth'
+    model.load_state_dict(torch.load('models/'+model_name))
+    model.eval()
+    model.cuda()
+
+    pos_results, ori_results, scene_results=netvlad_retrieval(data_loader_train, data_loader_test, modely)
+    print(pos_results, ori_results, scene_results)
+
+

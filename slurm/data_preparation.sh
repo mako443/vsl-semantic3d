@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH --job-name="Point-Cloud Conversion"
+#SBATCH --job-name="PC Conversion"
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:1,VRAM:12G
-#SBATCH --mem=32G
+#SBATCH --mem=64G
 #SBATCH --time=5:00:00
 #SBATCH --mail-type=NONE
 #SBATCH --output=slurm-%j.out
