@@ -133,6 +133,10 @@ class ViewObject:
         box=np.int0(cv2.boxPoints(self.rect))
         return (np.min(box[:,0]), np.min(box[:,1]), np.max(box[:,0]), np.max(box[:,1]) )
 
+    #center_c but without z-division
+    def get_center_c_world(self):
+        return np.array(( self.center_c[0]*self.center_c[2], self.center_c[1]*self.center_c[2], self.center_c[2] ))
+
     # def get_bbox_c(self):
     #     return np.array(( np.min(self.points_c[:,0]),np.min(self.points_c[:,1]), np.max(self.points_c[:,0]), np.max(self.points_c[:,1]) ))
 
