@@ -330,41 +330,41 @@ def create_scenegraphs(base_path, scene_name):
 
 if __name__ == "__main__":
     ### Scene graph debugging for Cluster3d
-    # base_path='data/pointcloud_images_o3d_merged/'
-    # scene_name='sg27_station5_intensity_rgb'
-    # #scene_name=np.random.choice(('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'))
-    # scene_view_objects=pickle.load( open(os.path.join(base_path,scene_name,'view_objects.pkl'), 'rb') )
+    base_path='data/pointcloud_images_o3d_merged/'
+    scene_name='sg27_station2_intensity_rgb'
+    #scene_name=np.random.choice(('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'))
+    scene_view_objects=pickle.load( open(os.path.join(base_path,scene_name,'view_objects.pkl'), 'rb') )
 
-    # file_name='010.png'
-    # #file_name=np.random.choice(list(scene_view_objects.keys()))
-    # view_objects=scene_view_objects[file_name]
-    # print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
+    file_name='010.png'
+    #file_name=np.random.choice(list(scene_view_objects.keys()))
+    view_objects=scene_view_objects[file_name]
+    print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
 
-    # texts=[ str(SceneGraphObject.from_viewobject_cluster3d(v)) for v in view_objects ]
-    # print(texts)
-    # print()
+    texts=[ str(SceneGraphObject.from_viewobject_cluster3d(v)) for v in view_objects ]
+    print(texts)
+    print()
 
-    # sg=scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=False)
-    # print(sg.get_text())
-    # score, groundings= semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects(sg, view_objects)
-    # print('SG-Score:',score)
+    sg=scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=False)
+    print(sg.get_text())
+    score, groundings= semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects(sg, view_objects)
+    print('SG-Score:',score)
 
-    # sg=scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=True)
+    sg=scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=True)
 
-    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
-    # draw_view_objects(img, view_objects, texts)    
-    # cv2.imshow("",img); cv2.waitKey()
+    img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
+    draw_view_objects(img, view_objects, texts)    
+    cv2.imshow("",img); cv2.waitKey()
 
-    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
-    # draw_scenegraph(img,sg)
-    # cv2.imshow("",img); cv2.waitKey()
+    img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
+    draw_scenegraph(img,sg)
+    cv2.imshow("",img); cv2.waitKey()
     
-    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
-    # draw_scenegraph(img,groundings)
-    # cv2.imshow("",img); cv2.waitKey()
+    img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
+    draw_scenegraph(img,groundings)
+    cv2.imshow("",img); cv2.waitKey()
     
-    # cv2.imwrite("sg_demo.jpg",img)
-    # quit()
+    cv2.imwrite("sg_demo.jpg",img)
+    quit()
     ### Scene graph debugging for Cluster3d
 
     ### Scene Graph Scoring debugging

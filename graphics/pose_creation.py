@@ -208,7 +208,7 @@ if __name__ == "__main__":
     
     num_points=scene_config[scene_name]['num_points']
     points=scene_config[scene_name]['points']
-    quit()
+    #quit()
     
 
     points=interpolate_points(points,num_points)

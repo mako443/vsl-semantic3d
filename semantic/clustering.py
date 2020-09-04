@@ -100,8 +100,8 @@ def cluster_scene(scene_name, return_visualization=False):
     vis_xyz=np.array([]).reshape((0,3))
     vis_rgb=np.array([]).reshape((0,3))
 
-    #for label in ('man-made terrain','natural terrain','high vegetation','low vegetation','buildings','hard scape','cars'): #Disregard unknowns and artifacts
-    for label in ('buildings',):
+    for label in ('man-made terrain','natural terrain','high vegetation','low vegetation','buildings','hard scape','cars'): #Disregard unknowns and artifacts
+    #for label in ('buildings',):
         options=CLUSTERING_OPTIONS[label]
 
         #Load all points of that label w/o reduction
@@ -179,20 +179,20 @@ TODO
 -Unstable projection error: Chance (not always) when some points are out of FoV, cv2.projectPoints same&no z -> use mine, norm-restriction didn't work, FoV restriction works
 '''
 if __name__ == "__main__":
-    scene_name='bildstein_station1_xyz_intensity_rgb'
-    #label='buildings'
-    scene_objects, vis_xyz, vis_rgb=cluster_scene(scene_name, return_visualization=True)
-    v=pptk.viewer(vis_xyz)
-    v.attributes(vis_rgb)
-    v.set(point_size=0.025)
-    quit()
+    # scene_name='sg27_station2_intensity_rgb'
+    # #label='buildings'
+    # scene_objects, vis_xyz, vis_rgb=cluster_scene(scene_name, return_visualization=True)
+    # v=pptk.viewer(vis_xyz)
+    # v.attributes(vis_rgb)
+    # v.set(point_size=0.025)
+    # quit()
 
     #CARE WHAT HAS BEEN RE-CREATED AND WHAT HASN'T!
     '''
     Data creation: Clustered objects
     '''
-    for scene_name in COMBINED_SCENE_NAMES:
-    #for scene_name in ('neugasse_station1_xyz_intensity_rgb',):
+    #for scene_name in COMBINED_SCENE_NAMES:
+    for scene_name in ('sg27_station2_intensity_rgb',):
         print()
         print("Scene: ",scene_name)
         scene_objects=cluster_scene(scene_name)
