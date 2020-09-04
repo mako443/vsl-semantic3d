@@ -40,7 +40,7 @@ def convert_downsample(filepath_in_points, filepath_in_labels, filepath_xyz, fil
     print(f'loaded {len(points)} points')
 
     #Load labels from .txt
-    labels=np.loadtxt(filepath_in_labels, dtype=np.uint8).flatten()y
+    labels=np.loadtxt(filepath_in_labels, dtype=np.uint8).flatten()
     assert len(labels)==len(points) 
 
     #Perform voxel-downsampling to reduce all points

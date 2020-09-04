@@ -83,20 +83,6 @@ for lr in (1e-1,5e-2,1e-2):
 
     model=EmbedNet(encoder, netvlad_layer).cuda()
 
-    # encoder=encoder.cuda()
-    # a,p,n=next(iter(data_loader))
-    # a_out=encoder(a.cuda())
-    # p_out=encoder(p.cuda())
-    # n_out=encoder(n.cuda())
-    # norm=torch.norm(a_out)
-    # p_diff=torch.norm(a_out-p_out)
-    # n_diff=torch.norm(a_out-n_out)
-    # print(p_diff)
-    # print(n_diff)
-    # print(p_diff/n_diff)
-
-    # quit()
-
     criterion=nn.TripletMarginLoss(margin=1.0)
     optimizer=optim.Adam(model.parameters(), lr=lr)    
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)    
