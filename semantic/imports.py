@@ -6,11 +6,10 @@ from graphics.imports import IMAGE_WIDHT, IMAGE_HEIGHT, CLASSES_COLORS
 RELATIONSHIP_TYPES=('left','right','below','above','infront','behind')
 DEPTH_DIST_FACTOR=IMAGE_WIDHT/255.0*2
 
-#COLOR_NAMES=('red','green','blue','black','white')
-#COLORS=np.array(( (1,0,0), (0,1,0), (0,0,1), (0,0,0), (1,1,1) )).reshape((5,3))
 COLOR_NAMES=('black','red','green','blue','cyan','yellow', 'purple', 'white', 'gray') #Colors as 8 corners of unit-cube plus gray
+COLORS=np.array(( (0.1,0.1,0.1), (0.6,0.1,0.1), (0.1,0.6,0.1), (0.1,0.1,0.6), (0.1,0.6,0.6), (0.6,0.6,0.1), (0.6,0.1,0.6), (0.6,0.6,0.6), (0.3,0.3,0.3) )).reshape((9,3))
 #COLORS=np.array(( (0,0,0), (1,0,0), (0,1,0), (0,0,1), (0,1,1), (1,1,0), (1,0,1), (1,1,1), (0.5,0.5,0.5) )).reshape((9,3))
-COLORS=np.array(( (0.0,0.0,0.0), (0.7,0.0,0.0), (0.0,0.7,0.0), (0.0,0.0,0.7), (0.0,0.7,0.7), (0.7,0.7,0.0), (0.7,0.0,0.7), (0.7,0.7,0.7), (0.3,0.3,0.3) )).reshape((9,3))
+#TODO: K-Means cluster the colors, count all occurences roughly even
 
 CORNER_NAMES=('top-left','top-right','bottom-left','bottom-right','center') #Additionally: 'foreground', 'background'
 CORNERS=np.array(( (0.2, 0.2), (0.8,0.2), (0.2,0.8), (0.8,0.8), (0.5,0.5) )).reshape((5,2)) #Corners as relative (x,y) positions
@@ -20,11 +19,11 @@ CORNERS=np.array(( (0.2, 0.2), (0.8,0.2), (0.2,0.8), (0.8,0.8), (0.5,0.5) )).res
 #     return np.array(( IMAGE_WIDHT-point[0]/point[2], point[1]/point[2], -point[2] )) 
 
 # #CARE: Open3D flips axes in the E matrix when setting the Pose! -> x-flip necessary here
-def project_point(I,E,point):
-    p= E@np.hstack((point,1))
-    p= I@p[0:3]
-    return np.array(( IMAGE_WIDHT-p[0]/p[2], p[1]/p[2], p[2]))
-    #return np.array(( p[0]/p[2], p[1]/p[2], p[2]))
+# def project_point(I,E,point):
+#     p= E@np.hstack((point,1))
+#     p= I@p[0:3]
+#     return np.array(( IMAGE_WIDHT-p[0]/p[2], p[1]/p[2], p[2]))
+#     #return np.array(( p[0]/p[2], p[1]/p[2], p[2]))
 
 #CARE: Open3D flips axes in the E matrix when setting the Pose! -> x-flip necessary here
 def project_points(I,E,points):

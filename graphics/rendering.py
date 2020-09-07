@@ -7,7 +7,7 @@ import time
 import pptk
 
 from main import load_files
-from semantic.imports import ClusteredObject, project_point
+from semantic.imports import ClusteredObject
 from .imports import Pose, CLASSES_COLORS, CLASSES_DICT, COMBINED_SCENE_NAMES
 
 def reduce_points(points, max_points):

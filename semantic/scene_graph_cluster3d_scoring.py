@@ -148,7 +148,7 @@ def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects):
     best_groundings=[None for i in range(len(scene_graph.relationships))]
     best_scores=[MIN_SCORE for i in range(len(scene_graph.relationships))] 
 
-    if scene_graph.is_empty():
+    if scene_graph.is_empty() or len(view_objects)<2:
         return 0.0, None
 
     for i_relation, relation in enumerate(scene_graph.relationships):
@@ -174,7 +174,7 @@ def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects):
                     best_groundings[i_relation]=(sub,rel_type,obj)
                     best_scores[i_relation]=score
 
-    print("best scores",best_scores)
+    #print("best scores",best_scores)
     return np.prod(best_scores), best_groundings      
 
 

@@ -7,7 +7,7 @@ from graphics.rendering import CLASSES_DICT, CLASSES_COLORS
 from .clustering import ClusteredObject
 #from .geometry import get_camera_matrices
 #from semantic.geometry import IMAGE_WIDHT,IMAGE_HEIGHT
-from graphics.imports import CLASSES_DICT, CLASSES_COLORS, Pose, IMAGE_WIDHT, IMAGE_HEIGHT
+from graphics.imports import CLASSES_DICT, CLASSES_COLORS, Pose, IMAGE_WIDHT, IMAGE_HEIGHT, COMBINED_SCENE_NAMES
 from .patches import Patch
 from .utils import draw_relationships, draw_view_objects, draw_scenegraph, draw_patches
 import semantic.scene_graph_cluster3d_scoring
@@ -75,7 +75,7 @@ def scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=False,
     used_objects=[]
 
     if len(view_objects)<2:
-        print('scenegraph_for_view_cluster3d_7corners(): returning Empty Scene Graph, not enough view objects')
+        #print('scenegraph_for_view_cluster3d_7corners(): returning Empty Scene Graph, not enough view objects')
         return scene_graph
 
     for corner_idx, corner in enumerate(CORNERS):
@@ -127,7 +127,7 @@ def scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, f
     blocked_subjects=[]
 
     if len(view_objects)<2:
-        print('scenegraph_for_view_cluster3d_7corners(): returning Empty Scene Graph, not enough view objects')
+        #print('scenegraph_for_view_cluster3d_nnRels(): returning Empty Scene Graph, not enough view objects')
         return scene_graph
 
     for sub in view_objects:
@@ -191,17 +191,17 @@ def annotate_view(pose, scene_objects):
 
 
 '''
-Data creation: Scene-Graphs
+Data creation: Scene-Graphs and Captions
 '''
 #scene_relationships as { file_name: [rels] }
-def create_scenegraphs(base_path, scene_name):
-    print('Scenegraphs for scene',scene_name)
+def create_scenegraphs_nnRels(base_path, scene_name):
+    print('Scenegraphs (for matching) for scene',scene_name)
     scene_view_objects=pickle.load(open(os.path.join(base_path, scene_name,'view_objects.pkl'), 'rb'))
     scene_graphs={}
 
     for file_name in scene_view_objects.keys():
         print(f'\r {file_name}', end='')
-        view_scenegraph=scenegraph_for_view_cluster3d_7corners(scene_view_objects[file_name], keep_viewobjects=False)
+        view_scenegraph=scenegraph_for_view_cluster3d_nnRels(scene_view_objects[file_name], keep_viewobjects=False)
         scene_graphs[file_name]=view_scenegraph
         
         # #Debugging
@@ -215,7 +215,20 @@ def create_scenegraphs(base_path, scene_name):
 
         #break
     print()
-    return scene_graphs     
+    return scene_graphs    
+
+def create_captions_7corners(base_path, scene):
+    print('Scenegraphs (for captions) for scene',scene_name)
+    scene_view_objects=pickle.load(open(os.path.join(base_path, scene_name,'view_objects.pkl'), 'rb'))
+    captions={}
+
+    for file_name in scene_view_objects.keys():
+        print(f'\r {file_name}', end='')
+        view_scenegraph=scenegraph_for_view_cluster3d_7corners(scene_view_objects[file_name], keep_viewobjects=False)
+        captions[file_name]=view_scenegraph.get_text()
+        
+    print()
+    return captions     
 
 
 if __name__ == "__main__":
@@ -258,29 +271,29 @@ if __name__ == "__main__":
     ### Scene graph debugging for Cluster3d
 
     ### Scene graph nnRels debugging
-    base_path='data/pointcloud_images_o3d_merged/'
-    scene_name='sg27_station5_intensity_rgb'
-    scene_view_objects=pickle.load( open(os.path.join(base_path,scene_name,'view_objects.pkl'), 'rb') )
-    #file_name=np.random.choice(list(scene_view_objects.keys()))
-    file_name='006.png'
-    view_objects=scene_view_objects[file_name]
-    print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
+    # base_path='data/pointcloud_images_o3d_merged/'
+    # scene_name='sg27_station5_intensity_rgb'
+    # scene_view_objects=pickle.load( open(os.path.join(base_path,scene_name,'view_objects.pkl'), 'rb') )
+    # #file_name=np.random.choice(list(scene_view_objects.keys()))
+    # file_name='006.png'
+    # view_objects=scene_view_objects[file_name]
+    # print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
 
-    sg=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, flip_relations=False)
+    # sg=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, flip_relations=False)
 
-    sg_debug=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=True, flip_relations=False)
-    img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
-    draw_scenegraph(img,sg_debug)
-    cv2.imshow("",img); cv2.waitKey()
+    # sg_debug=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=True, flip_relations=False)
+    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
+    # draw_scenegraph(img,sg_debug)
+    # cv2.imshow("",img); cv2.waitKey()
 
-    score, grounding=semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects_nnRels(sg, view_objects)
-    print('Score',score)
+    # score, grounding=semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects_nnRels(sg, view_objects)
+    # print('Score',score)
 
-    img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
-    draw_scenegraph(img,grounding)
-    cv2.imshow("",img); cv2.waitKey()    
+    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
+    # draw_scenegraph(img,grounding)
+    # cv2.imshow("",img); cv2.waitKey()    
 
-    quit()
+    # quit()
     ### Scene graph nnRels debugging
 
     ### Scene Graph Scoring debugging
@@ -311,9 +324,13 @@ if __name__ == "__main__":
     ### Scene Graph Eval debugging
 
     '''
-    Data creation: Scene-Graphs from view-objects
+    Data creation: Scene-Graphs and Captions from view-objects (separate SG strategies)
     '''
-    base_path='data/pointcloud_images_o3d_merged'
-    for scene_name in ('sg27_station5_intensity_rgb',):
-        scene_graphs=create_scenegraphs(base_path, scene_name)   
+    base_path='data/pointcloud_images_o3d_merged'    
+    for scene_name in COMBINED_SCENE_NAMES:
+        scene_graphs=create_scenegraphs_nnRels(base_path, scene_name)   
         pickle.dump( scene_graphs, open(os.path.join(base_path, scene_name,'scene_graphs.pkl'), 'wb'))
+
+        scene_captions=create_captions_7corners(base_path, scene_name)
+        pickle.dump( scene_captions, open(os.path.join(base_path, scene_name,'captions.pkl'), 'wb'))
+    
