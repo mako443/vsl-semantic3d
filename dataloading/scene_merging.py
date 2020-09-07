@@ -14,7 +14,7 @@ from .data_preparation import VOXEL_SIZE
 Module to merge point clouds using Open3D, source: http://www.open3d.org/docs/release/tutorial/Advanced/multiway_registration.html
 '''
 
-#List of dictionaries {scene_name: (angle, shift)}, angle as degrees around z-axis, shift as [x,y,z] #TODO: don't need x/y rotation?
+#List of dictionaries {scene_name: (angle, shift)}, angle as degrees around z-axis, shift as [x,y,z]
 COMBINED_SCENES=[]
 COMBINED_SCENES.append({
     'bildstein_station1_xyz_intensity_rgb': (0, [0,0,0]), 
@@ -222,9 +222,9 @@ TODO
 -just pairwise: not working ✖
 -same scene w/ shift: small shift works ✓ big shift doesn't work ✓ 90° rot doesn't work ✓ 5° rot works ✓
 -pre rot&shift, all np math: seems to work, hope this is reliable ¯\_(ツ)_/¯
+-merge complete scene -> full pipeline -> check renderings & sgs ✓
 
--merge complete scene -> full pipeline -> check renderings & sgs
--Problem slight mis-align or different times?! Possibly only merge if not close
+-Merging-Artefacts: Problem slight mis-align or different times?! Possibly only merge if not close
 '''
 
 if __name__ == "__main__":

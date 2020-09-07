@@ -16,6 +16,8 @@ OPTIONS
 -SemSeg
 '''
 
+#TODO: evaluate a bigger network and/or pre-trained for segmentation (first: better pairs?)
+
 #[1, 512, 23, 40]
 def get_encoder_resnet18():
     model=torchvision.models.resnet18(pretrained=True)

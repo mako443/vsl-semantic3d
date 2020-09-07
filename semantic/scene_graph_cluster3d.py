@@ -10,6 +10,7 @@ from .scene_graph_cluster3d_scoring import get_relationship_type, score_relation
 '''
 Module to generate the view-objects from the clustered objects | Scene-Graph & text generation logic merges after view-objects are generated
 '''
+
 #Check if object is ahead of camera and enough of it's area is visible
 def is_object_in_fov(obj : ClusteredObject):
     assert obj.rect_i is not None
@@ -68,25 +69,26 @@ def create_view_objects(scene_objects, view_pose : Pose):
         o.project(I,E)
 
     fov_objects=[ obj for obj in scene_objects if obj.rect_i is not None and is_object_in_fov(obj) ]
+
     #print(f'Scene but not fov objects: {len(scene_objects) - len(fov_objects)}')
     visible_objects=[ obj for obj in fov_objects if not is_object_occluded(obj, fov_objects) ]
     #print(f'FoV but occluded objects: {len(fov_objects) - len(visible_objects)}')
-
     view_objects=[ ViewObject.from_clustered_object(obj) for obj in visible_objects ]
+
     return view_objects
 
 if __name__ == "__main__":
-    # scene_name='bildstein_station1_xyz_intensity_rgb'
+    # scene_name='neugasse_station1_xyz_intensity_rgb'
     # scene_objects=pickle.load( open('data/numpy_merged/'+scene_name+'.objects.pkl', 'rb'))
     # poses_rendered=pickle.load( open( os.path.join('data','pointcloud_images_o3d_merged',scene_name,'poses_rendered.pkl'), 'rb'))
     
-    # file_name='429.png'
-    # #file_name=np.random.choice(list(poses_rendered.keys()))
+    # #file_name='029.png'
+    # file_name=np.random.choice(list(poses_rendered.keys()))
     # pose=poses_rendered[file_name]
     # img=cv2.imread( os.path.join('data','pointcloud_images_o3d_merged',scene_name,'rgb', file_name) )
 
     # view_objects=create_view_objects(scene_objects,pose)
-    # view_objects=[v for v in view_objects if v.label in ('cars','buildings', 'low vegetation')]
+    # #view_objects=[v for v in view_objects if v.label in ('cars','buildings', 'low vegetation')]
     # print('view objects',len(view_objects), 'for ',file_name)
 
     # for v in view_objects:

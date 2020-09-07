@@ -22,7 +22,9 @@ All results as {k: avg-distance-err, }, {k: avg-orientation-err }, {k: avg-scene
 '''
 
 '''
--TODO: general & cleaner function to prepare results
+TODO:
+-general & cleaner function to prepare results ✓
+
 '''
 
 #DEPRECATED

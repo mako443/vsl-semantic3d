@@ -66,7 +66,6 @@ Create & Score Strategies
 '''
 Strategy: Weighted center difference, needs z-adjusting for points_c afterall
 '''
-
 def get_distances(sub: ViewObject, obj: ViewObject):
     center_difference=obj.center_c - sub.center_c
     center_difference_weighted=center_difference / np.maximum(sub.lengths_c, obj.lengths_c)
@@ -100,9 +99,9 @@ def score_color(v: ViewObject, color_name):
 #Worst-case: evaluate just as before w/o identities?
 #-> 2nd one! #Either evaluate w/o identities as before OR eval. relationships separately as before but also check sub.&obj. attribs (disregards identities *between* relationships same/different)
 
-#TODO: score corners? (also see SceneGraph)
+#TODO: score corners? (also see SceneGraphObject)
 #CARE: SG should score perfectly to itself, but grounding relations might have different sub/obj
-def score_sceneGraph_to_viewObjects(scene_graph, view_objects):
+def score_sceneGraph_to_viewObjects_7corners(scene_graph, view_objects):
     #As before: for each relationship: for each possible subject: for each possible object | fingers crossed this is fast enough | no identities | scoring rel-type and color (not corner)    
     MIN_SCORE=0.1 #OPTION: hardest penalty for relationship not found
     best_groundings=[None for i in range(len(scene_graph.relationships))]
@@ -136,6 +135,46 @@ def score_sceneGraph_to_viewObjects(scene_graph, view_objects):
                     best_scores[i_relation]=score
 
     print("best scores",best_scores)
-    return np.prod(best_scores), best_groundings    
+    return np.prod(best_scores), best_groundings  
+
+'''
+As above, but also scores how much the grounded object is the closest one to the subject
+-works ✓, scores perfectly to self, now also groundings equal
+=> For SG matching
+'''
+#TODO: score all objects used? (Just evaluate)
+def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects):
+    MIN_SCORE=0.1 #OPTION: hardest penalty for relationship not found
+    best_groundings=[None for i in range(len(scene_graph.relationships))]
+    best_scores=[MIN_SCORE for i in range(len(scene_graph.relationships))] 
+
+    if scene_graph.is_empty():
+        return 0.0, None
+
+    for i_relation, relation in enumerate(scene_graph.relationships):
+        assert type(relation[0] is SceneGraphObject)
+
+        subject_label, rel_type, object_label = relation[0].label, relation[1], relation[2].label
+        subject_color, object_color = relation[0].color,relation[2].color
+
+        for sub in [obj for obj in view_objects if obj.label==subject_label]: 
+            sub_min_dist=np.min( [np.linalg.norm(sub.get_center_c_world() - obj.get_center_c_world()) for obj in view_objects if obj is not sub] )
+
+            for obj in [obj for obj in view_objects if obj.label==object_label]:
+                if sub==obj: continue
+
+                relationship_score= score_relationship_type(sub, rel_type, obj)
+                color_score_sub= score_color(sub, subject_color)
+                color_score_obj= score_color(obj, object_color)
+                nn_score= sub_min_dist / np.linalg.norm(sub.get_center_c_world() - obj.get_center_c_world()) #Score whether Obj is Sub's nearest neighbor
+
+                score=relationship_score*color_score_sub*color_score_obj
+
+                if score>best_scores[i_relation]:
+                    best_groundings[i_relation]=(sub,rel_type,obj)
+                    best_scores[i_relation]=score
+
+    print("best scores",best_scores)
+    return np.prod(best_scores), best_groundings      
 
 

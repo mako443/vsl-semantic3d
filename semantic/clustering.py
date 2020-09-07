@@ -175,7 +175,7 @@ TODO
 -Do all scenes, visualize all objects reduced points (mixed labels)
 -Use rotated bboxes after projection!
 
--Pull big scenes with 100M
+-Pull big scenes with 100M ✓
 -Unstable projection error: Chance (not always) when some points are out of FoV, cv2.projectPoints same&no z -> use mine, norm-restriction didn't work, FoV restriction works
 '''
 if __name__ == "__main__":

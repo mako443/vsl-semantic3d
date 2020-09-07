@@ -54,7 +54,8 @@ class ClusteredObject:
         self.label=label
         self.points_w=points_w #3D world-coordinate points, possibly reduced | convex-hull not possible because of projection errors
 
-        # self.points_i=None #3D image-coordinate points, available after self.project() #TODO: remove?
+        self.points_i=None #3D image-coordinate points, available after self.project()
+        self.points_c=None
         self.rect_i=None #Rotated bounding-box in image-coords, available after self.project(), cv2.RotatedRect object
         self.mindist_i, self.maxdist_i= None, None #Distance in image-coords, available after self.project()
         
@@ -150,6 +151,10 @@ class ViewObject:
     def get_bbox(self): #Axis-aligned bbox in image-coordinates
         box=np.int0(cv2.boxPoints(self.rect))
         return (np.min(box[:,0]), np.min(box[:,1]), np.max(box[:,0]), np.max(box[:,1]) )
+
+    #center_c but without z-division
+    def get_center_c_world(self):
+        return np.array(( self.center_c[0]*self.center_c[2], self.center_c[1]*self.center_c[2], self.center_c[2] ))
 
     # def get_bbox_c(self):
     #     return np.array(( np.min(self.points_c[:,0]),np.min(self.points_c[:,1]), np.max(self.points_c[:,0]), np.max(self.points_c[:,1]) ))
