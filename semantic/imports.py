@@ -19,19 +19,34 @@ CORNERS=np.array(( (0.2, 0.2), (0.8,0.2), (0.2,0.8), (0.8,0.8), (0.5,0.5) )).res
 #     point=I@E@np.hstack((point,1))
 #     return np.array(( IMAGE_WIDHT-point[0]/point[2], point[1]/point[2], -point[2] )) 
 
-#TODO: vectorize
+# #CARE: Open3D flips axes in the E matrix when setting the Pose! -> x-flip necessary here
+# def project_point(I,E,point):
+#     p= E@np.hstack((point,1))
+#     p= I@p[0:3]
+#     return np.array(( IMAGE_WIDHT-p[0]/p[2], p[1]/p[2], p[2]))
+#     #return np.array(( p[0]/p[2], p[1]/p[2], p[2]))
+
 #CARE: Open3D flips axes in the E matrix when setting the Pose! -> x-flip necessary here
-def project_point(I,E,point):
-    p= E@np.hstack((point,1))
-    p= I@p[0:3]
-    return np.array(( IMAGE_WIDHT-p[0]/p[2], p[1]/p[2], p[2]))
-    #return np.array(( p[0]/p[2], p[1]/p[2], p[2]))
+def project_points(I,E,points):
+    p= np.hstack(( points, np.ones((len(points),1)) ))
+    p= np.dot(p, E.T) #E@p for each point p
+    p= np.dot(p[:,0:3], I.T) #I@p for each point in p
+    p[:,0]= IMAGE_WIDHT-p[:,0]/p[:,2]
+    p[:,1]= p[:,1]/p[:,2]
+    return p
+
+# def project_point_extrinsic(E,point):
+#     p= E@np.hstack((point,1))
+#     return np.array(( -p[0]/p[2],-p[1]/p[2],p[2] )) #x/y image plane, z distance
+#     #return np.array(( -p[0],-p[1],p[2] )) #x/y image plane, z distance
 
 #Returns the point in camera-coordinates but world-units (not pixels)
-def project_point_extrinsic(E,point):
-    p= E@np.hstack((point,1))
-    return np.array(( -p[0]/p[2],-p[1]/p[2],p[2] )) #x/y image plane, z distance
-    #return np.array(( -p[0],-p[1],p[2] )) #x/y image plane, z distance
+def project_points_extrinsic(E,points):
+    p= np.hstack(( points, np.ones((len(points),1)) ))
+    p= np.dot(p, E.T) #E@p for each point p
+    p[:,0]= -p[:,0]/p[:,2]
+    p[:,1]= -p[:,1]/p[:,2]
+    return p[:,0:3]
 
 class ClusteredObject:
     def __init__(self, scene_name, label, points_w, total_points, color):
@@ -50,8 +65,11 @@ class ClusteredObject:
         return f'ClusteredObject: {self.label} at {np.mean(self.points_w, axis=0)}, {self.total_points} points'
 
     def project(self, I, E):
-        points_i= np.array( [ project_point(I,E, point) for point in self.points_w ] ) #Causes projection instabilities when points are out of FoV
-        points_c= np.array( [ project_point_extrinsic(E, point) for point in self.points_w ] ) #TODO: are points_c unstable, too?
+        #points_i= np.array( [ project_point(I,E, point) for point in self.points_w ] ) #Causes projection instabilities when points are out of FoV
+        points_i=project_points(I,E,self.points_w)
+        #points_c= np.array( [ project_point_extrinsic(E, point) for point in self.points_w ] ) #TODO: are points_c unstable, too?
+        points_c=project_points_extrinsic(E, self.points_w)
+        
         mask=np.bitwise_and.reduce(( points_i[:,0]>=0, points_i[:,0]<=IMAGE_WIDHT, points_i[:,1]>=0, points_i[:,1]<=IMAGE_HEIGHT, points_i[:,2]>0  )) #Mask to clamp to visible region
         points_i=points_i[mask, :].copy()
         points_c=points_c[mask, :].copy()

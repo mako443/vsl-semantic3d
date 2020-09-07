@@ -10,7 +10,7 @@ import pickle
 from graphics.imports import IMAGE_WIDHT, IMAGE_HEIGHT, CLASSES_DICT, CLASSES_COLORS, COMBINED_SCENE_NAMES
 #from graphics.rendering import Pose, CLASSES_DICT, CLASSES_COLORS
 import semantic.utils
-from .imports import ClusteredObject, project_point
+from .imports import ClusteredObject
 
 #TODO: remove scanning artifacts by clustering -> reject all in BBOX? OR Open3D outlier removal
 #CARE: Hard-scape in Bildstein 1?!
@@ -191,8 +191,8 @@ if __name__ == "__main__":
     '''
     Data creation: Clustered objects
     '''
-    #for scene_name in COMBINED_SCENE_NAMES:
-    for scene_name in ('sg27_station2_intensity_rgb',):
+    for scene_name in COMBINED_SCENE_NAMES:
+    #for scene_name in ('sg27_station2_intensity_rgb',):
         print()
         print("Scene: ",scene_name)
         scene_objects=cluster_scene(scene_name)
