@@ -125,7 +125,7 @@ class Semantic3dDatasetTriplet(Semantic3dDataset):
         self.negative_thresh=(10,  np.pi / 2)
 
     def __getitem__(self, anchor_index):
-        scene_name=self.get_scene_name(anchor_index)
+        scene_name=self.image_scene_names[anchor_index]
 
         pos_dists=np.linalg.norm(self.image_positions[:]-self.image_positions[anchor_index], axis=1)
         ori_dists=np.abs(self.image_orientations[:]-self.image_orientations[anchor_index])

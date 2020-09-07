@@ -142,7 +142,8 @@ if __name__ == "__main__":
     Data creation: Open3D rendering for clusters, read poses -> render images
     '''
     #for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
-    for i, scene_name in enumerate(COMBINED_SCENE_NAMES):
+    #for scene_name in enumerate(COMBINED_SCENE_NAMES):
+    for scene_name in ('sg27_station2_intensity_rgb',):
         capture_scene('data/pointcloud_images_o3d_merged/',scene_name)
     quit()
 

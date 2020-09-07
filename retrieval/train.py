@@ -34,7 +34,7 @@ TODO:
 -bigger encoder (FCN-Resnet101), too big for my GPU
 -ggf. train segmentation model (check avg p/n feature alikeness before/after)
 
--More training optimization: more epochs, shuffle, ??
+-More training optimization: more epochs, shuffle, test-loss, acc. checks, ??
 
 MODELS:
 resnet18, 200 images            : ({1: 1.598, 5: 3.49, 10: 5.17}, {1: 0.0,   5: 0.361, 10: 0.416})
@@ -47,11 +47,14 @@ same, random                    : ({1: 5.887, 5: 10.17, 10: 12.414}, {1: 0.4817,
 
 ----New scenes----
 
-resnet18, 9scenes, 3:2, 3-1 split: {1: 6.707, 3: 13.47, 5: 15.86, 10: 17.86} {1: 0.4788, 3: 0.792, 5: 0.894, 10: 1.064} {1: 0.84, 3: 0.8467, 5: 0.81, 10: 0.733}
+resnet18, 9scenes, 3:2, 3-1 split:  {1: 6.707, 3: 13.47, 5: 15.86, 10: 17.86} {1: 0.4788, 3: 0.792, 5: 0.894, 10: 1.064} {1: 0.84, 3: 0.8467, 5: 0.81, 10: 0.733}
+resnet18, 10scenes, 3:2, 3-1 split: {1: 14.76, 3: 25.06, 5: 30.27, 10: 35.1} {1: 0.58, 3: 1.001, 5: 1.113, 10: 1.312} {1: 0.26, 3: 0.2617, 5: 0.261, 10: 0.259} #CARE: other sets during training!
+resnet18, 10scenes, 3:2, 3-1 split: 
 
 '''
 
-IMAGE_LIMIT=2800
+IMAGE_LIMIT=3000
+#IMAGE_LIMIT=200
 BATCH_SIZE=6
 LR_GAMMA=0.75
 NUM_CLUSTERS=8 #16 clusters has similar loss #TODO: compare retrieval score
@@ -66,7 +69,7 @@ transform=transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
-train_indices, test_indices=get_split_indices(TEST_SPLIT, 2800)
+train_indices, test_indices=get_split_indices(TEST_SPLIT, 3000)
 
 data_set=Semantic3dDatasetTriplet('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=train_indices, load_viewObjects=False, load_sceneGraphs=False)
 data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #Option: shuffle

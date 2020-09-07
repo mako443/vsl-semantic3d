@@ -95,6 +95,7 @@ def scenegraph_to_viewObjects(data_loader_train, data_loader_test, top_k=(1,3,5,
     
     assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==CHECK_COUNT
 
+    print('Saving retrieval results...')
     pickle.dump(retrieval_dict, open('retrievals_PureSG.pkl','wb'))
 
     return evaluate_topK(pos_results, ori_results, scene_results)
@@ -103,7 +104,7 @@ def scenegraph_to_viewObjects(data_loader_train, data_loader_test, top_k=(1,3,5,
 Evaluating pure NetVLAD retrieval
 '''
 def netvlad_retrieval(data_loader_train, data_loader_test, model, top_k=(1,3,5,10), random_features=False):
-    CHECK_COUNT=100
+    CHECK_COUNT=len(data_loader_test.dataset)
     print(f'# training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
 
     retrieval_dict={}
@@ -174,6 +175,7 @@ def netvlad_retrieval(data_loader_train, data_loader_test, model, top_k=(1,3,5,1
     
     assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==CHECK_COUNT
 
+    print('Saving retrieval results...')
     pickle.dump(retrieval_dict, open('retrievals_NetVLAD.pkl','wb'))
 
     return evaluate_topK(pos_results, ori_results, scene_results)
@@ -223,8 +225,6 @@ if __name__ == "__main__":
         print('## Evaluation: pure Scene Graph scoring')  
         pos_results, ori_results, scene_results=scenegraph_to_viewObjects(data_loader_train, data_loader_test)
         print(pos_results, ori_results, scene_results)        
-
-
 
 
 #DEPRECATED

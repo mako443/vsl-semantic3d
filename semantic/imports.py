@@ -69,7 +69,7 @@ class ClusteredObject:
         points_i=project_points(I,E,self.points_w)
         #points_c= np.array( [ project_point_extrinsic(E, point) for point in self.points_w ] ) #TODO: are points_c unstable, too?
         points_c=project_points_extrinsic(E, self.points_w)
-
+        
         mask=np.bitwise_and.reduce(( points_i[:,0]>=0, points_i[:,0]<=IMAGE_WIDHT, points_i[:,1]>=0, points_i[:,1]<=IMAGE_HEIGHT, points_i[:,2]>0  )) #Mask to clamp to visible region
         points_i=points_i[mask, :].copy()
         points_c=points_c[mask, :].copy()

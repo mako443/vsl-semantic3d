@@ -3,7 +3,10 @@ import cv2
 import os
 import random
 import pickle
+<<<<<<< HEAD
 import time
+=======
+>>>>>>> 16b4d214d5b9c165179bdb9467ed26ee28fd733c
 from graphics.imports import CLASSES_DICT, CLASSES_COLORS, Pose, IMAGE_WIDHT, IMAGE_HEIGHT, COMBINED_SCENE_NAMES
 from .imports import ClusteredObject, ViewObject
 from .scene_graph_cluster3d_scoring import get_relationship_type, score_relationship_type
@@ -106,7 +109,11 @@ if __name__ == "__main__":
     '''
     base_dir='data/pointcloud_images_o3d_merged/'
     for i_scene_name,scene_name in enumerate(COMBINED_SCENE_NAMES):
+<<<<<<< HEAD
     #for scene_name in ('sg27_station5_intensity_rgb',)
+=======
+    #for scene_name in ('sg27_station5_intensity_rgb',):
+>>>>>>> 16b4d214d5b9c165179bdb9467ed26ee28fd733c
         print()
         print("Scene: ",scene_name)
         scene_objects=pickle.load( open('data/numpy_merged/'+scene_name+'.objects.pkl', 'rb'))
@@ -119,7 +126,7 @@ if __name__ == "__main__":
             view_objects=create_view_objects(scene_objects,pose)
             total_view_objects+=len(view_objects)
             scene_view_objects[file_name]=view_objects
-            print(f'\r file {i_file} of {len(poses_rendered)}',end='')
+            #print(f'\r file {i_file} of {len(poses_rendered)}',end='')
 
         print()
         print('Saving view objects...', total_view_objects/len(scene_view_objects),'view objects on average')

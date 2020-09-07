@@ -191,8 +191,8 @@ if __name__ == "__main__":
     '''
     Data creation: Clustered objects
     '''
-    #for scene_name in COMBINED_SCENE_NAMES:
-    for scene_name in ('sg27_station2_intensity_rgb',):
+    for scene_name in COMBINED_SCENE_NAMES:
+    #for scene_name in ('sg27_station2_intensity_rgb',):
         print()
         print("Scene: ",scene_name)
         scene_objects=cluster_scene(scene_name)
