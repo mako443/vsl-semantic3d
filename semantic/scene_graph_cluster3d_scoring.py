@@ -66,7 +66,6 @@ Create & Score Strategies
 '''
 Strategy: Weighted center difference, needs z-adjusting for points_c afterall
 '''
-
 def get_distances(sub: ViewObject, obj: ViewObject):
     center_difference=obj.center_c - sub.center_c
     center_difference_weighted=center_difference / np.maximum(sub.lengths_c, obj.lengths_c)
@@ -100,7 +99,7 @@ def score_color(v: ViewObject, color_name):
 #Worst-case: evaluate just as before w/o identities?
 #-> 2nd one! #Either evaluate w/o identities as before OR eval. relationships separately as before but also check sub.&obj. attribs (disregards identities *between* relationships same/different)
 
-#TODO: score corners? (also see SceneGraph)
+#TODO: score corners? (also see SceneGraphObject)
 #CARE: SG should score perfectly to itself, but grounding relations might have different sub/obj
 def score_sceneGraph_to_viewObjects_7corners(scene_graph, view_objects):
     #As before: for each relationship: for each possible subject: for each possible object | fingers crossed this is fast enough | no identities | scoring rel-type and color (not corner)    
@@ -143,6 +142,7 @@ As above, but also scores how much the grounded object is the closest one to the
 -works ✓, scores perfectly to self, now also groundings equal
 => For SG matching
 '''
+#TODO: score all objects used? (Just evaluate)
 def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects):
     MIN_SCORE=0.1 #OPTION: hardest penalty for relationship not found
     best_groundings=[None for i in range(len(scene_graph.relationships))]
@@ -166,7 +166,7 @@ def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects):
                 relationship_score= score_relationship_type(sub, rel_type, obj)
                 color_score_sub= score_color(sub, subject_color)
                 color_score_obj= score_color(obj, object_color)
-                nn_score= sub_min_dist / np.linalg.norm(sub.get_center_c_world() - obj.get_center_c_world())
+                nn_score= sub_min_dist / np.linalg.norm(sub.get_center_c_world() - obj.get_center_c_world()) #Score whether Obj is Sub's nearest neighbor
 
                 score=relationship_score*color_score_sub*color_score_obj
 

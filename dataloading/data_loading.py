@@ -12,10 +12,12 @@ from semantic.imports import SceneGraph, SceneGraphObject, ViewObject
 
 '''
 TODO
--Loader is used for all training&eval, never for data creation!
--Unify all loading to one unified, PyTorch-based Data-Loader
--Anchor-pairs via inheritance
--Load SGs and Texts! (Don't create here!)
+-Loader is used for all training&eval, never for data creation! ✓
+-Unify all loading to one unified, PyTorch-based Data-Loader ✓
+-Anchor-pairs via inheritance ✓
+-Load SGs and Texts! (Don't create here!) ✓
+
+
 '''
 
 #Dataset is used for all loading during all training and evaluation, but never during data creation!
@@ -122,7 +124,6 @@ class Semantic3dDatasetTriplet(Semantic3dDataset):
         self.positive_thresh=(7.5, 2*np.pi/10*1.01) #The 2 images left&right
         self.negative_thresh=(10,  np.pi / 2)
 
-    #TODO
     def __getitem__(self, anchor_index):
         scene_name=self.get_scene_name(anchor_index)
 

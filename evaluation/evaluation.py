@@ -22,7 +22,9 @@ All results as {k: avg-distance-err, }, {k: avg-orientation-err }, {k: avg-scene
 '''
 
 '''
--TODO: general & cleaner function to prepare results
+TODO:
+-general & cleaner function to prepare results ✓
+
 '''
 
 #DEPRECATED
@@ -134,11 +136,7 @@ def scenegraph_to_viewObjects(base_path, top_k=(1,3,5,10)):
     return distance_avg, orientation_avg, scene_avg   
 
 def netvlad_retrieval(data_loader_train, data_loader_test, model, top_k=(1,3,5,10), random_features=False):
-<<<<<<< HEAD
     CHECK_COUNT=100
-=======
-    CHECK_COUNT=50
->>>>>>> 8bc410e377cd1fcda044828fe699e4ac0c66d673
     print(f'# training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
 
     if random_features:
@@ -209,10 +207,7 @@ if __name__ == "__main__":
     Evaluation: NetVLAD retrieval
     '''
     #CARE: make sure options match model!
-<<<<<<< HEAD
     print('## Evaluation: NetVLAD retrieval')
-=======
->>>>>>> 8bc410e377cd1fcda044828fe699e4ac0c66d673
     IMAGE_LIMIT=2800
     BATCH_SIZE=6
     NUM_CLUSTERS=8
@@ -227,11 +222,7 @@ if __name__ == "__main__":
     data_set_train=Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=train_indices, load_viewObjects=False, load_sceneGraphs=False)
     data_set_test =Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=test_indices, load_viewObjects=False, load_sceneGraphs=False)
 
-<<<<<<< HEAD
-    data_loader_train=DataLoader(data_set_train, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)
-=======
     data_loader_train=DataLoader(data_set_train, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #CARE: put shuffle off
->>>>>>> 8bc410e377cd1fcda044828fe699e4ac0c66d673
     data_loader_test =DataLoader(data_set_test , batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)
 
     encoder=networks.get_encoder_resnet18()
@@ -242,19 +233,9 @@ if __name__ == "__main__":
     model_name='model_l2800_b6_g0.75_c8_a10.0_split4.pth'
     model.load_state_dict(torch.load('models/'+model_name))
     model.eval()
-<<<<<<< HEAD
     model.cuda()
 
     pos_results, ori_results, scene_results=netvlad_retrieval(data_loader_train, data_loader_test, modely)
     print(pos_results, ori_results, scene_results)
 
 
-=======
-    quit()
-
-    #model.cuda()
-
-
-    pos_results, ori_results, scene_results=netvlad_retrieval(data_loader_train, data_loader_test, model)
-    print(pos_results, ori_results, scene_results)
->>>>>>> 8bc410e377cd1fcda044828fe699e4ac0c66d673

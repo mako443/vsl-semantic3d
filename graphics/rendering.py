@@ -238,12 +238,6 @@ if __name__ == "__main__":
 #PyVista SLURM: Perspective anders (korrekt?), camera also seems accessible: https://github.com/pyvista/pyvista-support/issues/85, not blacked
 #-> Beide waren schlecht zum "Umschauen", Perspektiven leicht verschieden...
 
-'''
-TODO
--Possibly try SLURM again? -> No ✖, maybe if voxel-downsample fails
--build from main&capturing, remove capturing
--voxel-downsample before rendering? 
-'''
 
 
 

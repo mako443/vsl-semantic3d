@@ -5,6 +5,14 @@ import open3d
 import time
 from graphics.imports import ALL_SCENE_NAMES
 
+'''
+Module to extract the data from raw .txt files, voxel-downsample and save as efficient .npy files
+
+TODO:
+-Decrese Voxel-Size, care to adjust in merging and clustering!
+-Make general function for SG-2
+'''
+
 VOXEL_SIZE=0.02 #OPTION: Voxel-size, the base voxel-size for the first down-sampling
 
 def load_safely(path):
@@ -22,8 +30,6 @@ def load_safely(path):
 
     return points
 
-#TODO: pull SG station 2
-#TODO: voxel-down from start on ok? Smaller voxels? Visually: Looks even better, Clustering: Looks good too, possibly re-tweak params
 def convert_downsample(filepath_in_points, filepath_in_labels, filepath_xyz, filepath_rgb, filepath_labels, max_points=int(100e6)):
     assert os.path.isfile(filepath_in_points)
     assert os.path.isfile(filepath_in_labels)
@@ -67,7 +73,6 @@ def convert_downsample(filepath_in_points, filepath_in_labels, filepath_xyz, fil
     np.save(open(filepath_rgb,'wb'), np.uint8(  points[indices,4:7]))
     np.save(open(filepath_labels,'wb'), np.uint8(  labels[indices]))
 
-#TODO: handle big scene differently, try read->numpy only or read->reduce->numpy or separate reads
 if __name__ == "__main__":
     # scene_name='sg27_station2_intensity_rgb'
 

@@ -25,38 +25,38 @@ Module to generate Scene Graphs and text descriptions from view-objects | Disreg
 TODO
 -add "foreground/background" to corners (meaning across) ✓
 -refine obj/sub selection: use unused ones, just keep track in list ✓
+-add & score strategy with closest relations ✓
 
 -remove deprecated
 -resolve oblique infront/behind?
--add closest/furthest
--add & score strategy with closest relations
+-add closest/furthest attributes
 '''       
 
 '''
 Logic via patches
 '''
-def get_patches_relationship(sub, obj):
-    center_diff=obj.center-sub.center #sub -> obj vector
-    depth_diff=obj.depth-sub.depth
-    if np.abs(depth_diff)*DEPTH_DIST_FACTOR>np.linalg.norm(center_diff):
-        return 'infront' if depth_diff>0 else 'behind'
-    else:
-        dleft= obj.bbox[0]-(sub.bbox[0]+sub.bbox[2])
-        dright= sub.bbox[0]-(obj.bbox[0]+obj.bbox[2])
-        dbelow= sub.bbox[1]-(obj.bbox[1]+obj.bbox[3])
-        dabove= obj.bbox[1]-(sub.bbox[1]+sub.bbox[3])
-        return RELATIONSHIP_TYPES[np.argmax((dleft,dright,dbelow,dabove))]
+# def get_patches_relationship(sub, obj):
+#     center_diff=obj.center-sub.center #sub -> obj vector
+#     depth_diff=obj.depth-sub.depth
+#     if np.abs(depth_diff)*DEPTH_DIST_FACTOR>np.linalg.norm(center_diff):
+#         return 'infront' if depth_diff>0 else 'behind'
+#     else:
+#         dleft= obj.bbox[0]-(sub.bbox[0]+sub.bbox[2])
+#         dright= sub.bbox[0]-(obj.bbox[0]+obj.bbox[2])
+#         dbelow= sub.bbox[1]-(obj.bbox[1]+obj.bbox[3])
+#         dabove= obj.bbox[1]-(sub.bbox[1]+sub.bbox[3])
+#         return RELATIONSHIP_TYPES[np.argmax((dleft,dright,dbelow,dabove))]
 
-#Calculate in a way that can be 'reversed' for scoring
-def get_patches_relationship2(sub, obj):
-    dleft= obj.bbox[0]-(sub.bbox[0]+sub.bbox[2])
-    dright= sub.bbox[0]-(obj.bbox[0]+obj.bbox[2])
-    dbelow= sub.bbox[1]-(obj.bbox[1]+obj.bbox[3])
-    dabove= obj.bbox[1]-(sub.bbox[1]+sub.bbox[3])
-    dinfront= (obj.depth-sub.depth)*DEPTH_DIST_FACTOR
-    dbehind= (sub.depth-obj.depth)*DEPTH_DIST_FACTOR
-    distances = (dleft,dright,dbelow,dabove,dinfront,dbehind)
-    return RELATIONSHIP_TYPES[np.argmax(distances)]
+# #Calculate in a way that can be 'reversed' for scoring
+# def get_patches_relationship2(sub, obj):
+#     dleft= obj.bbox[0]-(sub.bbox[0]+sub.bbox[2])
+#     dright= sub.bbox[0]-(obj.bbox[0]+obj.bbox[2])
+#     dbelow= sub.bbox[1]-(obj.bbox[1]+obj.bbox[3])
+#     dabove= obj.bbox[1]-(sub.bbox[1]+sub.bbox[3])
+#     dinfront= (obj.depth-sub.depth)*DEPTH_DIST_FACTOR
+#     dbehind= (sub.depth-obj.depth)*DEPTH_DIST_FACTOR
+#     distances = (dleft,dright,dbelow,dabove,dinfront,dbehind)
+#     return RELATIONSHIP_TYPES[np.argmax(distances)]
 
 '''
 Logic via Cluster3D
@@ -117,7 +117,7 @@ def scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=False,
     return scene_graph  
 
 '''
-Strategy: Create relationship
+Strategy: Create a relationship for each object w/ its nearest neighbor (no doublicates)
 => Used for SG matching
 '''
 def scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, flip_relations=True):
