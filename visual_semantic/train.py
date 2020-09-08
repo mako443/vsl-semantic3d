@@ -28,8 +28,13 @@ TODO:
 -Use other backbone?
 '''
 
+<<<<<<< HEAD
 IMAGE_LIMIT=1200
 BATCH_SIZE=6 #12 gives memory error
+=======
+IMAGE_LIMIT=200
+BATCH_SIZE=3
+>>>>>>> 49240c46f8d8b64ad1377b289db13936bc9bc6bc
 LR_GAMMA=0.75
 TEST_SPLIT=4
 EMBED_DIM=300
@@ -46,13 +51,21 @@ transform=transforms.Compose([
 train_indices, test_indices=get_split_indices(TEST_SPLIT, 3000)
 
 data_set=Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=True)
+<<<<<<< HEAD
 data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #Option: shuffle, Care: pin_memory!
+=======
+data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=False, shuffle=False) #Option: shuffle, Care: pin_memory!
+>>>>>>> 49240c46f8d8b64ad1377b289db13936bc9bc6bc
 
 loss_dict={}
 best_loss=np.inf
 best_model=None
 
+<<<<<<< HEAD
 for lr in (5e-1, 1e-1, 5e-2):
+=======
+for lr in (2e-2,1e-2,5e-3):
+>>>>>>> 49240c46f8d8b64ad1377b289db13936bc9bc6bc
     print('\n\nlr: ',lr)
 
     vgg=torchvision.models.vgg11(pretrained=True)
@@ -66,7 +79,11 @@ for lr in (5e-1, 1e-1, 5e-2):
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)    
 
     loss_dict[lr]=[]
+<<<<<<< HEAD
     for epoch in range(5):
+=======
+    for epoch in range(3):
+>>>>>>> 49240c46f8d8b64ad1377b289db13936bc9bc6bc
         epoch_loss_sum=0.0
         for i_batch, batch in enumerate(data_loader):
             optimizer.zero_grad()

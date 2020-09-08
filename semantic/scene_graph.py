@@ -239,8 +239,8 @@ if __name__ == "__main__":
     # #scene_name=np.random.choice(('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'))
     # scene_view_objects=pickle.load( open(os.path.join(base_path,scene_name,'view_objects.pkl'), 'rb') )
 
-    # file_name='000.png'
-    # #file_name=np.random.choice(list(scene_view_objects.keys()))
+    # #file_name='000.png'
+    # file_name=np.random.choice(list(scene_view_objects.keys()))
     # view_objects=scene_view_objects[file_name]
     # print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
 
