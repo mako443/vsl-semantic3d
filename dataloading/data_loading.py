@@ -23,7 +23,7 @@ TODO
 class Semantic3dDataset(Dataset):
     def __init__(self, dirpath_main, transform=None, image_limit=None, split_indices=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=False):
         assert os.path.isdir(dirpath_main)
-
+        
         self.dirpath_main=dirpath_main
         self.transform=transform
         self.load_viewObjects=load_viewObjects
@@ -128,8 +128,8 @@ class Semantic3dDataset(Dataset):
         else:
             return len(self.image_paths)
 
-    # def get_scene_name(self,idx):
-    #     return self.image_paths[idx].split('/')[2]     
+    def get_scene_name(self,idx):
+        return self.image_paths[idx].split('/')[2]     
 
     #Returns the image at the current index
     def __getitem__(self,index):       
@@ -137,14 +137,28 @@ class Semantic3dDataset(Dataset):
 
         if self.transform:
             image = self.transform(image)
-            
-        return image
+
+        if not self.return_captions: #TODO/CLEAN: always return as dict, add entries dep. on config
+            return image
+        else:
+            return {'images':image, 'captions':self.view_captions[index]}
+        
+
+    def get_known_words(self):
+        assert len(self.view_captions)>0
+        known_words=np.array(['In', ])
+        for caption in self.view_captions:
+            known_words=np.hstack(( known_words, np.unique(caption.split()) ))
+            known_words=np.unique(known_words)
+        print('known words:',known_words)
+        return known_words
+                
 
 #Subclass to load the images as trainig triplets
 #Also load SG/text triplets?
 class Semantic3dDatasetTriplet(Semantic3dDataset):
     def __init__(self, dirpath_main, transform=None, image_limit=None, split_indices=None, load_viewObjects=True, load_sceneGraphs=True):
-        super().__init__(dirpath_main, transform, image_limit, split_indices, load_viewObjects, load_sceneGraphs)
+        super().__init__(dirpath_main, transform=transform, image_limit=image_limit, split_indices=split_indices, load_viewObjects=load_viewObjects, load_sceneGraphs=load_sceneGraphs)
         self.positive_thresh=(7.5, 2*np.pi/10*1.01) #The 2 images left&right
         self.negative_thresh=(10,  np.pi / 2)
 
@@ -191,6 +205,7 @@ class Semantic3dDatasetTriplet(Semantic3dDataset):
             anchor, positive, negative = self.transform(anchor),self.transform(positive),self.transform(negative)
 
         return anchor, positive, negative
+
 
 if __name__ == "__main__":
     dataset=Semantic3dDatasetTriplet('data/pointcloud_images_o3d_merged_1scene', load_viewObjects=False, load_sceneGraphs=False)

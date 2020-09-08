@@ -6,10 +6,21 @@ from graphics.imports import IMAGE_WIDHT, IMAGE_HEIGHT, CLASSES_COLORS
 RELATIONSHIP_TYPES=('left','right','below','above','infront','behind')
 DEPTH_DIST_FACTOR=IMAGE_WIDHT/255.0*2
 
-COLOR_NAMES=('black','red','green','blue','cyan','yellow', 'purple', 'white', 'gray') #Colors as 8 corners of unit-cube plus gray
-COLORS=np.array(( (0.1,0.1,0.1), (0.6,0.1,0.1), (0.1,0.6,0.1), (0.1,0.1,0.6), (0.1,0.6,0.6), (0.6,0.6,0.1), (0.6,0.1,0.6), (0.6,0.6,0.6), (0.3,0.3,0.3) )).reshape((9,3))
+#COLOR_NAMES=('black','red','green','blue','cyan','yellow', 'purple', 'white', 'gray') #Colors as 8 corners of unit-cube plus gray
+#COLORS=np.array(( (0.1,0.1,0.1), (0.6,0.1,0.1), (0.1,0.6,0.1), (0.1,0.1,0.6), (0.1,0.6,0.6), (0.6,0.6,0.1), (0.6,0.1,0.6), (0.6,0.6,0.6), (0.3,0.3,0.3) )).reshape((9,3))
 #COLORS=np.array(( (0,0,0), (1,0,0), (0,1,0), (0,0,1), (0,1,1), (1,1,0), (1,0,1), (1,1,1), (0.5,0.5,0.5) )).reshape((9,3))
-#TODO: K-Means cluster the colors, count all occurences roughly even
+
+#From KMeans clustering, unfortunately, the colors are all gray...
+COLOR_NAMES=('brightness-0','brightness-1','brightness-2','brightness-3','brightness-4','brightness-5','brightness-6','brightness-7')
+COLORS=np.array([[0.15136254, 0.12655825, 0.12769653],
+                [0.22413703, 0.19569607, 0.20007613],
+                [0.29251393, 0.2693559 , 0.27813852],
+                [0.35667216, 0.3498905 , 0.36508256],
+                [0.45776146, 0.39058182, 0.38574897],
+                [0.45337288, 0.46395565, 0.47795434],
+                [0.52570801, 0.53530194, 0.56404256],
+                [0.66988167, 0.6804131 , 0.71069241]])
+
 
 CORNER_NAMES=('top-left','top-right','bottom-left','bottom-right','center') #Additionally: 'foreground', 'background'
 CORNERS=np.array(( (0.2, 0.2), (0.8,0.2), (0.2,0.8), (0.8,0.8), (0.5,0.5) )).reshape((5,2)) #Corners as relative (x,y) positions
@@ -193,6 +204,9 @@ class SceneGraph:
         self.relationships.append( (sub,rel_type,obj) ) 
 
     def get_text(self):
+        if len(self.relationships)==0: #TODO/CARE: this ok?
+            return 'There is nothing to describe.'
+
         text=''
         for rel in self.relationships:
             sub, rel_type, obj=rel

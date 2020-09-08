@@ -121,7 +121,7 @@ for lr in (1e-2,):
         best_model=model
 
 print('\n----')           
-model_name=f'model_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_c{NUM_CLUSTERS}_a{ALPHA}_split{TEST_SPLIT}.pth'
+model_name=f'model_netvlad_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_c{NUM_CLUSTERS}_a{ALPHA}_split{TEST_SPLIT}.pth'
 print('Saving best model',model_name)
 torch.save(best_model.state_dict(),model_name)
 
@@ -131,4 +131,4 @@ for k in loss_dict.keys():
     line.set_label(k)
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_c{NUM_CLUSTERS}_a{ALPHA}_split{TEST_SPLIT}.png')    
+plt.savefig(f'loss_netvlad_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_c{NUM_CLUSTERS}_a{ALPHA}_split{TEST_SPLIT}.png')    
