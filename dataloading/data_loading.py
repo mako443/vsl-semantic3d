@@ -33,6 +33,7 @@ class Semantic3dDataset(Dataset):
         From here on, all folders and image-names will be sorted
         '''
         self.scene_names=sorted([folder_name for folder_name in os.listdir(dirpath_main) if os.path.isdir(os.path.join(dirpath_main,folder_name))]) #Sorting scene-names
+
         #self.scene_names=('sg27_station5_intensity_rgb',)
         #print('CARE / DEBUG ONE SCENE')
         print(f'Semantic3dData with {len(self.scene_names)} total scenes: {self.scene_names}')
@@ -138,7 +139,10 @@ class Semantic3dDatasetTriplet(Semantic3dDataset):
         #assert np.sum(indices)>0
         if not np.sum(indices)>0:
             #print(f'No positive indices for anchor {anchor_index}, using image itself') #TODO: investigate
-            indices[anchor_index]=True
+            #indices[anchor_index]=True
+            print(f'No positive indices for anchor {anchor_index}, using left or right') #TODO: investigate
+            if anchor_index>0: indices[ anchor_index-1 ]=True
+            if anchor_index<len(self)-1: indices[anchor_index+1]=True
 
         indices=np.argwhere(indices==True).flatten()
         #if len(indices)<2: print('Warning: only 1 pos. index choice')

@@ -104,7 +104,7 @@ def scenegraph_to_viewObjects(data_loader_train, data_loader_test, top_k=(1,3,5,
 Evaluating pure NetVLAD retrieval
 '''
 def netvlad_retrieval(data_loader_train, data_loader_test, model, top_k=(1,3,5,10), random_features=False):
-    CHECK_COUNT=len(data_loader_test.dataset)
+    CHECK_COUNT= len(data_loader_test.dataset)
     print(f'# training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
 
     retrieval_dict={}
@@ -193,8 +193,8 @@ if __name__ == "__main__":
     ])  
 
     train_indices, test_indices=get_split_indices(TEST_SPLIT, 3000)
-    data_set_train=Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=train_indices, load_viewObjects=True, load_sceneGraphs=True)
-    data_set_test =Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=test_indices, load_viewObjects=True, load_sceneGraphs=True)
+    data_set_train=Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=train_indices, load_viewObjects=False, load_sceneGraphs=False)
+    data_set_test =Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=test_indices, load_viewObjects=False, load_sceneGraphs=False)
 
     data_loader_train=DataLoader(data_set_train, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #CARE: put shuffle off
     data_loader_test =DataLoader(data_set_test , batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)
@@ -210,7 +210,8 @@ if __name__ == "__main__":
         netvlad_layer=NetVLAD(num_clusters=NUM_CLUSTERS, dim=512, alpha=ALPHA)
         model=EmbedNet(encoder, netvlad_layer)
 
-        model_name='model_l2800_b6_g0.75_c8_a10.0_split4.pth'
+        model_name='model_l3000_b6_g0.75_c8_a10.0_split4.pth'
+        print('Using model',model_name)
         model.load_state_dict(torch.load('models/'+model_name))
         model.eval()
         model.cuda()
