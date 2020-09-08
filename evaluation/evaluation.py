@@ -33,14 +33,14 @@ Matching SGs analytically to the View-Objects from 3D-Clustering
 4 scenes, random                                : {1: 1.826, 5: 8.55, 10: 12.336} {1: 0.3015, 5: 1.085, 10: 1.426} {1: 0.2, 5: 0.248, 10: 0.26} CARE:Increasing because of more scene-hits?
 4 scenes, scenegraph_for_view_cluster3d_7corners: {1: 8.52, 5: 10.16, 10: 10.72} {1: 0.867, 5: 1.057, 10: 1.1} {1: 0.6, 5: 0.532, 10: 0.524}
 
-10 scenes, NN-rels:                             : {1: 46.25, 3: 40.9, 5: 42.62, 10: 46.0} {1: 1.009, 3: 1.205, 5: 1.239, 10: 1.442} {1: 0.33, 3: 0.3132, 5: 0.3, 10: 0.288}
+10 scenes, NN-rels:                             : {1: 46.25, 3: 40.9, 5: 42.62, 10: 46.0} {1: 1.009, 3: 1.205, 5: 1.239, 10: 1.442} {1: 0.33, 3: 0.3132, 5: 0.3, 10: 0.288} #CARE: Scene-name err?!
 
 -simple check close-by / far away
 -check top-hits
--Handle empty Scene Graphs (0.0 score ✓)
+-Handle empty Scene Graphs strategies compare
 '''
 def scenegraph_to_viewObjects(data_loader_train, data_loader_test, top_k=(1,3,5,10)):
-    CHECK_COUNT=100
+    CHECK_COUNT=len(data_loader_test.dataset)
     print(f'# training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
 
     retrieval_dict={}
@@ -65,7 +65,7 @@ def scenegraph_to_viewObjects(data_loader_train, data_loader_test, top_k=(1,3,5,
         check_indices=np.random.randint(len(data_loader_test.dataset), size=CHECK_COUNT)
 
     for i_idx,idx in enumerate(check_indices):
-        print(f'\r index {i_idx} of {CHECK_COUNT}', end='')
+        #print(f'\r index {i_idx} of {CHECK_COUNT}', end='')
         scene_name_gt=scene_names_test[idx]
 
         #Score query SG vs. database scenes
@@ -103,7 +103,6 @@ def scenegraph_to_viewObjects(data_loader_train, data_loader_test, top_k=(1,3,5,
 '''
 Evaluating pure NetVLAD retrieval
 '''
-#TODO: Drop: scene names YES THIS ONE, training-pairs, eval-func ✖, check-indices ✖, other model
 def netvlad_retrieval(data_loader_train, data_loader_test, model, top_k=(1,3,5,10), random_features=False):
     CHECK_COUNT= len(data_loader_test.dataset)
     print(f'# training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
@@ -194,8 +193,8 @@ if __name__ == "__main__":
     ])  
 
     train_indices, test_indices=get_split_indices(TEST_SPLIT, 3000)
-    data_set_train=Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=train_indices, load_viewObjects=False, load_sceneGraphs=False)
-    data_set_test =Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=test_indices, load_viewObjects=False, load_sceneGraphs=False)
+    data_set_train=Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=train_indices, load_viewObjects=True, load_sceneGraphs=True)
+    data_set_test =Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=test_indices, load_viewObjects=True, load_sceneGraphs=True)
 
     data_loader_train=DataLoader(data_set_train, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #CARE: put shuffle off
     data_loader_test =DataLoader(data_set_test , batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)
