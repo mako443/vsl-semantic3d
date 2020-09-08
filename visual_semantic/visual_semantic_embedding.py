@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.autograd import Variable
 
 import numpy as np
 import os
@@ -18,7 +19,7 @@ class VisualSemanticEmbedding(torch.nn.Module):
         self.padding_idx=0 #Padding idx is also used for unkown words (there shouldn't be any)
         self.word_dictionary={} #dictionary {word: embedding_index}
         for i_word, word in enumerate(known_words):
-            word_dictionary[word]=i_word+1 #Index 0 is the padding/unknown index
+            self.word_dictionary[word]=i_word+1 #Index 0 is the padding/unknown index
 
         #Contrary to the paper, we use initialize the word-embedding from PyTorch
         self.word_embedding=nn.Embedding(len(known_words)+1, self.embedding_dim, padding_idx=self.padding_idx) 
@@ -30,7 +31,9 @@ class VisualSemanticEmbedding(torch.nn.Module):
         self.image_model=image_model
         self.image_model.requires_grad_(False)
         self.image_model.eval()
-        self.image_dim=image_model.dim*image_model.num_clusters #Output get's flattened during NetVLAD
+        #self.image_dim=image_model.dim*image_model.num_clusters #Output get's flattened during NetVLAD
+        self.image_dim=list(image_model.parameters())[-1].shape[0] #For VGG
+        assert self.image_dim==4096
 
         self.W_i=nn.Linear(self.image_dim,self.embedding_dim,bias=True)        
 
@@ -77,3 +80,28 @@ class VisualSemanticEmbedding(torch.nn.Module):
 
     def is_cuda(self):
         return next(self.parameters()).is_cuda
+
+class PairwiseRankingLoss(torch.nn.Module):
+    def __init__(self, margin=1.0):
+        super(PairwiseRankingLoss, self).__init__()
+        self.margin = margin
+
+    def forward(self, im, s): #Norming the input (as in paper) is actually not helpful
+        im=im/torch.norm(im,dim=1,keepdim=True)
+        s=s/torch.norm(s,dim=1,keepdim=True)
+
+        margin = self.margin
+        # compute image-sentence score matrix
+        scores = torch.mm(im, s.transpose(1, 0))
+        diagonal = scores.diag()
+
+        # compare every diagonal score to scores in its column (i.e, all contrastive images for each sentence)
+        cost_s = torch.max(Variable(torch.zeros(scores.size()[0], scores.size()[1]).cuda()), (margin-diagonal).expand_as(scores)+scores)
+        # compare every diagonal score to scores in its row (i.e, all contrastive sentences for each image)
+        cost_im = torch.max(Variable(torch.zeros(scores.size()[0], scores.size()[1]).cuda()), (margin-diagonal).expand_as(scores).transpose(1, 0)+scores)
+
+        for i in range(scores.size()[0]):
+            cost_s[i, i] = 0
+            cost_im[i, i] = 0
+
+        return (cost_s.sum() + cost_im.sum()) / len(im) #Take mean for batch-size stability        

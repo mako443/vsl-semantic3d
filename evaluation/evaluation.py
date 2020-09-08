@@ -103,6 +103,7 @@ def scenegraph_to_viewObjects(data_loader_train, data_loader_test, top_k=(1,3,5,
 '''
 Evaluating pure NetVLAD retrieval
 '''
+#TODO: Drop: scene names YES THIS ONE, training-pairs, eval-func ✖, check-indices ✖, other model
 def netvlad_retrieval(data_loader_train, data_loader_test, model, top_k=(1,3,5,10), random_features=False):
     CHECK_COUNT=len(data_loader_test.dataset)
     print(f'# training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
@@ -198,6 +199,14 @@ if __name__ == "__main__":
 
     data_loader_train=DataLoader(data_set_train, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #CARE: put shuffle off
     data_loader_test =DataLoader(data_set_test , batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)
+
+    # for idx in range(len(data_set_train)):
+    #     if data_set_train.get_scene_name(idx)!=data_set_train.image_scene_names[idx]:
+    #         print(idx)
+
+    # for idx in range(len(data_set_test)):
+    #     if data_set_test.get_scene_name(idx)!=data_set_test.image_scene_names[idx]:
+    #         print(idx)            
 
     '''
     Evaluation: NetVLAD retrieval

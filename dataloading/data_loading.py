@@ -22,11 +22,14 @@ TODO
 
 #Dataset is used for all loading during all training and evaluation, but never during data creation!
 class Semantic3dDataset(Dataset):
-    def __init__(self, dirpath_main, transform=None, image_limit=None, split_indices=None, load_viewObjects=True, load_sceneGraphs=True):
+    def __init__(self, dirpath_main, transform=None, image_limit=None, split_indices=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=False):
         assert os.path.isdir(dirpath_main)
-
+        
         self.dirpath_main=dirpath_main
         self.transform=transform
+        self.load_viewObjects=load_viewObjects
+        self.load_sceneGraphs=load_sceneGraphs
+        self.return_captions=return_captions
 
         '''
         Data is structured in directories and unordered dictionaries
@@ -37,8 +40,15 @@ class Semantic3dDataset(Dataset):
         #print('CARE / DEBUG ONE SCENE')
         print(f'Semantic3dData with {len(self.scene_names)} total scenes: {self.scene_names}')
 
-        self.image_paths,self.image_poses,self.image_positions,self.image_orientations,self.image_scene_names,self.view_objects,self.view_scenegraphs=[],[],[],[],[],[],[]
-        #TODO: image_captions
+        #CARE: these have to match for splitting below!!
+        self.image_paths=[]
+        self.image_poses=[]
+        self.image_positions=[]
+        self.image_orientations=[]
+        self.image_scene_names=[]
+        self.view_objects=[]
+        self.view_scenegraphs=[]
+        self.view_captions=[]
 
         #Go through all scenes and image-names
         for scene_name in self.scene_names:
@@ -74,7 +84,20 @@ class Semantic3dDataset(Dataset):
                 scene_scenegraphs= [ scene_scenegraphs_dict[image_name] for image_name in scene_image_names ]
                 self.view_scenegraphs.extend(scene_scenegraphs)
 
-        self.image_paths,self.image_poses,self.image_positions,self.image_orientations,self.view_objects,self.view_scenegraphs=np.array(self.image_paths),np.array(self.image_poses),np.array(self.image_positions),np.array(self.image_orientations),np.array(self.view_objects),np.array(self.view_scenegraphs)
+            #Load Captions
+            if load_sceneGraphs:
+                scene_captions_dict= pickle.load( open(os.path.join(scene_path,'captions.pkl'), 'rb') )
+                scene_captions= [ scene_captions_dict[image_name] for image_name in scene_image_names ]
+                self.view_captions.extend(scene_captions)
+
+        self.image_paths=np.array(self.image_paths)
+        self.image_poses=np.array(self.image_poses)
+        self.image_positions=np.array(self.image_positions)
+        self.image_orientations=np.array(self.image_orientations)
+        self.image_scene_names=np.array(self.image_scene_names)
+        self.view_objects=np.array(self.view_objects)
+        self.view_scenegraphs=np.array(self.view_scenegraphs)
+        self.view_captions=np.array(self.view_captions)
         
         assert self.image_positions.shape[1]==3
         assert len(self.image_paths)==len(self.image_poses) #==len(self.view_objects)==len(self.view_scenegraphs)
@@ -88,9 +111,11 @@ class Semantic3dDataset(Dataset):
             self.image_poses=self.image_poses[split_indices]
             self.image_positions=self.image_positions[split_indices]
             self.image_orientations=self.image_orientations[split_indices]
-            if load_viewObjects: self.view_objects=self.view_objects[split_indices]
-            if load_sceneGraphs: self.view_scenegraphs=self.view_scenegraphs[split_indices]
-            assert len(self.image_paths)==len(self.image_poses)
+            self.image_scene_names=self.image_scene_names[split_indices]
+            if self.load_viewObjects: self.view_objects=self.view_objects[split_indices]
+            if self.load_sceneGraphs: self.view_scenegraphs=self.view_scenegraphs[split_indices]
+            if self.load_sceneGraphs: self.view_captions=self.view_captions[split_indices]
+            assert len(self.image_paths)==len(self.image_poses)==len(self.image_scene_names)
 
         if image_limit and image_limit>0:
             self.image_limit=image_limit
@@ -104,8 +129,8 @@ class Semantic3dDataset(Dataset):
         else:
             return len(self.image_paths)
 
-    # def get_scene_name(self,idx):
-    #     return self.image_paths[idx].split('/')[2]     
+    def get_scene_name(self,idx):
+        return self.image_paths[idx].split('/')[2]     
 
     #Returns the image at the current index
     def __getitem__(self,index):       
@@ -113,14 +138,28 @@ class Semantic3dDataset(Dataset):
 
         if self.transform:
             image = self.transform(image)
-            
-        return image
+
+        if not self.return_captions: #TODO/CLEAN: always return as dict, add entries dep. on config
+            return image
+        else:
+            return {'images':image, 'captions':self.view_captions[index]}
+        
+
+    def get_known_words(self):
+        assert len(self.view_captions)>0
+        known_words=np.array(['In', ])
+        for caption in self.view_captions:
+            known_words=np.hstack(( known_words, np.unique(caption.split()) ))
+            known_words=np.unique(known_words)
+        print('known words:',known_words)
+        return known_words
+                
 
 #Subclass to load the images as trainig triplets
 #Also load SG/text triplets?
 class Semantic3dDatasetTriplet(Semantic3dDataset):
     def __init__(self, dirpath_main, transform=None, image_limit=None, split_indices=None, load_viewObjects=True, load_sceneGraphs=True):
-        super().__init__(dirpath_main, transform, image_limit, split_indices, load_viewObjects, load_sceneGraphs)
+        super().__init__(dirpath_main, transform=transform, image_limit=image_limit, split_indices=split_indices, load_viewObjects=load_viewObjects, load_sceneGraphs=load_sceneGraphs)
         self.positive_thresh=(7.5, 2*np.pi/10*1.01) #The 2 images left&right
         self.negative_thresh=(10,  np.pi / 2)
 
@@ -164,6 +203,7 @@ class Semantic3dDatasetTriplet(Semantic3dDataset):
             anchor, positive, negative = self.transform(anchor),self.transform(positive),self.transform(negative)
 
         return anchor, positive, negative
+
 
 if __name__ == "__main__":
     dataset=Semantic3dDatasetTriplet('data/pointcloud_images_o3d_merged_1scene', load_viewObjects=False, load_sceneGraphs=False)

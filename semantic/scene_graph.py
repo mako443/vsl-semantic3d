@@ -68,6 +68,7 @@ Strategy refined from 5 corners:
 -Use unused object from same corner or fg/bg (fg/bg allowed multiple times)
 => Used for text generation
 '''
+#TODO: New strat: Use biggest (in image plane) subject from each corner (if any), relate to closest object
 def scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=False, flip_relations=True):
     assert len(CORNERS)==5 #FG/BG not explicitly in corners
 
@@ -88,7 +89,7 @@ def scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=False,
         #Object selection
         #Care not to add fg/bg to used_objects
         obj_candidates=[ obj for obj in view_objects if obj!=sub and SceneGraphObject.from_viewobject_cluster3d(sub).corner in (corner_name, 'foreground', 'background') and obj not in used_objects ]
-        obj_distances=[ np.linalg.norm(np.array(sub.center)-np.array(obj.center)) for obj in obj_candidates]  
+        obj_distances=[ np.linalg.norm(np.array(sub.center)-np.array(obj.center)) for obj in obj_candidates]
 
         if len(obj_candidates)==0:
             continue
@@ -234,11 +235,11 @@ def create_captions_7corners(base_path, scene):
 if __name__ == "__main__":
     ### Scene graph debugging for Cluster3d
     # base_path='data/pointcloud_images_o3d_merged/'
-    # scene_name='sg27_station2_intensity_rgb'
+    # scene_name='bildstein_station1_xyz_intensity_rgb'
     # #scene_name=np.random.choice(('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'))
     # scene_view_objects=pickle.load( open(os.path.join(base_path,scene_name,'view_objects.pkl'), 'rb') )
 
-    # file_name='010.png'
+    # file_name='000.png'
     # #file_name=np.random.choice(list(scene_view_objects.keys()))
     # view_objects=scene_view_objects[file_name]
     # print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
@@ -249,7 +250,7 @@ if __name__ == "__main__":
 
     # sg=scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=False)
     # print(sg.get_text())
-    # score, groundings= semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects(sg, view_objects)
+    # score, groundings= semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects_7corners(sg, view_objects)
     # print('SG-Score:',score)
 
     # sg=scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=True)
