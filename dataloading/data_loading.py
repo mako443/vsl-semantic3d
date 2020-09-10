@@ -89,6 +89,7 @@ class Semantic3dDataset(Dataset):
                 scene_captions= [ scene_captions_dict[image_name] for image_name in scene_image_names ]
                 self.view_captions.extend(scene_captions)
 
+        #TODO: "ndarray from obj err"
         self.image_paths=np.array(self.image_paths)
         self.image_poses=np.array(self.image_poses)
         self.image_positions=np.array(self.image_positions)
