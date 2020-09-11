@@ -69,10 +69,11 @@ def create_view_objects(scene_objects, view_pose : Pose):
         o.project(I,E)
 
     fov_objects=[ obj for obj in scene_objects if obj.rect_i is not None and is_object_in_fov(obj) ]
-
     #print(f'Scene but not fov objects: {len(scene_objects) - len(fov_objects)}')
+
     visible_objects=[ obj for obj in fov_objects if not is_object_occluded(obj, fov_objects) ]
     #print(f'FoV but occluded objects: {len(fov_objects) - len(visible_objects)}')
+
     view_objects=[ ViewObject.from_clustered_object(obj) for obj in visible_objects ]
 
     return view_objects
@@ -82,7 +83,7 @@ if __name__ == "__main__":
     # scene_objects=pickle.load( open('data/numpy_merged/'+scene_name+'.objects.pkl', 'rb'))
     # poses_rendered=pickle.load( open( os.path.join('data','pointcloud_images_o3d_merged',scene_name,'poses_rendered.pkl'), 'rb'))
     
-    # file_name='000.png'
+    # file_name='001.png'
     # #file_name=np.random.choice(list(poses_rendered.keys()))
     # pose=poses_rendered[file_name]
     # img=cv2.imread( os.path.join('data','pointcloud_images_o3d_merged',scene_name,'rgb', file_name) )

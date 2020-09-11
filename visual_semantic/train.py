@@ -71,6 +71,7 @@ for lr in (7.5e-1, 5e-1, 1e-1):
 
     model=VisualSemanticEmbedding(vgg, data_set.get_known_words(), EMBED_DIM)
     model.cuda()
+    quit()
 
     criterion=PairwiseRankingLoss(margin=MARGIN)
     optimizer=optim.SGD(model.parameters(), lr=lr) #Using SGD for packed Embedding

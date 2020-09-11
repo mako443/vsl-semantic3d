@@ -8,6 +8,7 @@ import pickle
 from graphics.imports import Pose
 from semantic.patches import Patch
 from semantic.imports import SceneGraph, SceneGraphObject, ViewObject
+from geometric.utils import create_scenegraph_data
 
 
 '''
@@ -21,7 +22,7 @@ TODO
 '''
 #Dataset is used for all loading during all training and evaluation, but never during data creation!
 class Semantic3dDataset(Dataset):
-    def __init__(self, dirpath_main, transform=None, image_limit=None, split_indices=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=False):
+    def __init__(self, dirpath_main, transform=None, image_limit=None, split_indices=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=False, return_graph_data=False):
         assert os.path.isdir(dirpath_main)
         
         self.dirpath_main=dirpath_main
@@ -29,6 +30,9 @@ class Semantic3dDataset(Dataset):
         self.load_viewObjects=load_viewObjects
         self.load_sceneGraphs=load_sceneGraphs
         self.return_captions=return_captions
+
+        if return_captions: assert return_graph_data==False
+        if return_graph_data: assert return_captions==False
 
         '''
         Data is structured in directories and unordered dictionaries
@@ -48,6 +52,9 @@ class Semantic3dDataset(Dataset):
         self.view_objects=[]
         self.view_scenegraphs=[]
         self.view_captions=[]
+        #self.view_scenegraph_data=[] #Data for geometric learning
+
+        #TODO: load embedding dict, create graph-data for each SG
 
         #Go through all scenes and image-names
         for scene_name in self.scene_names:
@@ -87,7 +94,7 @@ class Semantic3dDataset(Dataset):
             if load_sceneGraphs:
                 scene_captions_dict= pickle.load( open(os.path.join(scene_path,'captions.pkl'), 'rb') )
                 scene_captions= [ scene_captions_dict[image_name] for image_name in scene_image_names ]
-                self.view_captions.extend(scene_captions)
+                self.view_captions.extend(scene_captions)             
 
         #TODO: "ndarray from obj err"
         self.image_paths=np.array(self.image_paths)
@@ -117,6 +124,14 @@ class Semantic3dDataset(Dataset):
             if self.load_sceneGraphs: self.view_captions=self.view_captions[split_indices]
             assert len(self.image_paths)==len(self.image_poses)==len(self.image_scene_names)
 
+        #Create Scene-Graph data
+        if self.load_sceneGraphs:
+            self.node_embeddings, self.edge_embeddings=pickle.load(open(os.path.join(dirpath_main,'graph_embeddings.pkl'), 'rb'))
+            self.view_scenegraph_data=np.array([ create_scenegraph_data(sg, self.node_embeddings, self.edge_embeddings) for sg in self.view_scenegraphs ], dtype=object)
+            assert len(self.view_scenegraph_data)==len(self.image_poses)
+            empty_graphs=[1 for sg in self.view_scenegraphs if sg.is_empty()]
+            print(f'Empty Graphs: {np.sum(empty_graphs)} of {len(self.image_poses)}, {np.sum(empty_graphs) / len(self.image_poses)}')
+
         if image_limit and image_limit>0:
             self.image_limit=image_limit
         else:
@@ -139,10 +154,14 @@ class Semantic3dDataset(Dataset):
         if self.transform:
             image = self.transform(image)
 
-        if not self.return_captions: #TODO/CLEAN: always return as dict, add entries dep. on config
-            return image
-        else:
+        # if not self.return_captions: #TODO/CLEAN: always return as dict, add entries dep. on config
+        #     return image
+        if self.return_captions:
             return {'images':image, 'captions':self.view_captions[index]}
+        if self.return_graph_data:
+            return {'images':image, 'graphs':self.view_scenegraph_data[index]}
+        else:
+            return image
         
 
     def get_known_words(self):
@@ -209,5 +228,5 @@ class Semantic3dDatasetTriplet(Semantic3dDataset):
 
 
 if __name__ == "__main__":
-    dataset=Semantic3dDatasetTriplet('data/pointcloud_images_o3d_merged_1scene', load_viewObjects=False, load_sceneGraphs=False)
+    dataset=Semantic3dDataset('data/pointcloud_images_o3d_merged', load_viewObjects=True, load_sceneGraphs=True)
 

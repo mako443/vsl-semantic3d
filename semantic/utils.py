@@ -59,6 +59,7 @@ def draw_scenegraph(img, scene_graph):
     relationships = scene_graph if type(scene_graph) is list else scene_graph.relationships
 
     for rel in relationships:
+        if rel is None: continue
         for p in (rel[0], rel[2]):
             #cv2.rectangle(img, (p.bbox[0], p.bbox[1]), (p.bbox[0]+p.bbox[2], p.bbox[1]+p.bbox[3]), (0,0,255), thickness=2)
             bbox=p.get_bbox()

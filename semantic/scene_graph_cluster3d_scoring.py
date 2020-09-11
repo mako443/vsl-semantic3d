@@ -142,8 +142,6 @@ As above, but also scores how much the grounded object is the closest one to the
 -works ✓, scores perfectly to self, now also groundings equal
 => For SG matching
 '''
-#TODO: score all objects used? (Just compare evaluate)
-#TODO: why bad? roll back / check
 def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_factor=None):
     MIN_SCORE=0.1 #OPTION: hardest penalty for relationship not found
     best_groundings=[None for i in range(len(scene_graph.relationships))]
@@ -185,8 +183,5 @@ def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_fac
         return np.prod(best_scores) * unused_factor**(len(unused_view_objects)), best_groundings #, unused_view_objects
     else:
         return np.prod(best_scores), best_groundings  
-
-    # #print("best scores",best_scores)
-    # return np.prod(best_scores), best_groundings          
 
 
