@@ -143,14 +143,15 @@ As above, but also scores how much the grounded object is the closest one to the
 => For SG matching
 '''
 #TODO: score all objects used? (Just compare evaluate)
-def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects):
+#TODO: why bad? roll back / check
+def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_factor=None):
     MIN_SCORE=0.1 #OPTION: hardest penalty for relationship not found
     best_groundings=[None for i in range(len(scene_graph.relationships))]
     best_scores=[MIN_SCORE for i in range(len(scene_graph.relationships))] 
 
+    #Can't score empty graphs 1.0 -> unused_factor because the factor is not enough to compensate
     if scene_graph.is_empty() or len(view_objects)<2:
         return 0.0, None
-
     for i_relation, relation in enumerate(scene_graph.relationships):
         assert type(relation[0] is SceneGraphObject)
 
@@ -174,7 +175,18 @@ def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects):
                     best_groundings[i_relation]=(sub,rel_type,obj)
                     best_scores[i_relation]=score
 
-    #print("best scores",best_scores)
-    return np.prod(best_scores), best_groundings      
+    if unused_factor is not None:
+        unused_view_objects=[v for v in view_objects]
+        for grounding in best_groundings:
+            if grounding is not None:
+                if grounding[0] in unused_view_objects: unused_view_objects.remove(grounding[0])                    
+                if grounding[2] in unused_view_objects: unused_view_objects.remove(grounding[2])
+
+        return np.prod(best_scores) * unused_factor**(len(unused_view_objects)), best_groundings #, unused_view_objects
+    else:
+        return np.prod(best_scores), best_groundings  
+
+    # #print("best scores",best_scores)
+    # return np.prod(best_scores), best_groundings          
 
 

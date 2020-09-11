@@ -10,3 +10,5 @@
 #SBATCH --error=slurm-%j.out
 
 srun python3 -m evaluation.evaluation netvlad+sg
+#srun python3 -m evaluation.evaluation vse
+#srun python3 -m evaluation.evaluation scenegraphs

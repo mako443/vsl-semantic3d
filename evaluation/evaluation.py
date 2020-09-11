@@ -7,6 +7,7 @@ import sys
 from torch.utils.data import DataLoader
 from torchvision import transforms
 import torchvision.models
+import torch.nn as nn
 
 from dataloading.data_loading import Semantic3dDataset, Semantic3dDatasetTriplet
 from retrieval.utils import get_split_indices
@@ -42,9 +43,10 @@ Matching SGs analytically to the View-Objects from 3D-Clustering
 -check top-hits ✓
 -Handle empty Scene Graphs strategies compare
 '''
-def scenegraph_to_viewObjects(data_loader_train, data_loader_test, top_k=(1,3,5,10)):
-    CHECK_COUNT=len(data_loader_test.dataset)
-    print(f'# training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
+def scenegraph_to_viewObjects(data_loader_train, data_loader_test, top_k=(1,3,5,10), unused_factor=None):
+    CHECK_COUNT=100 #len(data_loader_test.dataset)
+    print(f'#Check: {CHECK_COUNT}, # training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
+    print('unused-factor:',unused_factor)
 
     retrieval_dict={}
 
@@ -75,7 +77,7 @@ def scenegraph_to_viewObjects(data_loader_train, data_loader_test, top_k=(1,3,5,
         scene_graph=dataset_test.view_scenegraphs[idx]
         scores=np.zeros(len(dataset_train))
         for i in range(len(dataset_train)):
-            score,_=score_sceneGraph_to_viewObjects_nnRels(scene_graph, dataset_train.view_objects[i])
+            score,_=score_sceneGraph_to_viewObjects_nnRels(scene_graph, dataset_train.view_objects[i], unused_factor=unused_factor)
             scores[i]=score
         #scores=np.random.rand(len(dataset))
         
@@ -108,7 +110,7 @@ Evaluating pure NetVLAD retrieval
 '''
 def netvlad_retrieval(data_loader_train, data_loader_test, model, top_k=(1,3,5,10), random_features=False):
     CHECK_COUNT= len(data_loader_test.dataset)
-    print(f'# training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
+    print(f'#Check: {CHECK_COUNT}, # training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
 
     retrieval_dict={}
 
@@ -250,9 +252,6 @@ def netvlad_scenegraphs2viewobjects(data_loader_train, data_loader_test,model, t
         if combine=='sum':
             combined_scores= scores + -1.0*netvlad_diffs 
             sorted_indices=np.argsort( -1.0*combined_scores) #High->Low
-        if combine=='mean':
-            combined_scores= 0.5*(1.0-scores) + 0.5*netvlad_diffs
-            sorted_indices=np.argsort(combined_scores) #Low->High
         if combine=='multiply':
             combined_scores= (1.0-scores) * netvlad_diffs
             sorted_indices=np.argsort(combined_scores) #Low->High
@@ -282,14 +281,23 @@ def netvlad_scenegraphs2viewobjects(data_loader_train, data_loader_test,model, t
 
     return evaluate_topK(pos_results, ori_results, scene_results)    
 
-def vse_text2image(data_loader_train, data_loader_test, top_k=(1,3,5,10)):
-    CHECK_COUNT=10
+'''
+TODO:
+-sanity check
+-ggf. NetVLAD backbone / more text / discussion&graph results
+'''
+def vse_text2image(data_loader_train, data_loader_test, model, top_k=(1,3,5,10)):
+    CHECK_COUNT=len(data_loader_test.dataset)
     print(f'#Check: {CHECK_COUNT}, # training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
 
     retrieval_dict={}
 
     dataset_train=data_loader_train.dataset
     dataset_test=data_loader_test.dataset
+
+    #Turn on captions
+    dataset_train.return_captions=True
+    dataset_test.return_captions= True
 
     image_positions_train, image_orientations_train = data_loader_train.dataset.image_positions, data_loader_train.dataset.image_orientations
     image_positions_test, image_orientations_test = data_loader_test.dataset.image_positions, data_loader_test.dataset.image_orientations
@@ -327,7 +335,7 @@ def vse_text2image(data_loader_train, data_loader_test, top_k=(1,3,5,10)):
         embedding_diffs=x_train-v_test[idx]
         embedding_diffs=np.linalg.norm(embedding_diffs,axis=1) #CARE: Embedding-diffs can be big compared to NetVLAD-diffs
 
-        sorted_indices=np.argsort(embedding_diffs)
+        sorted_indices=np.argsort(embedding_diffs) #Sort low->high
         pos_dists=np.linalg.norm(image_positions_train[:]-image_positions_test[idx], axis=1) #CARE: also adds z-distance
         ori_dists=np.abs(image_orientations_train[:]-image_orientations_test[idx])
         ori_dists=np.minimum(ori_dists, 2*np.pi-ori_dists)
@@ -348,6 +356,10 @@ def vse_text2image(data_loader_train, data_loader_test, top_k=(1,3,5,10)):
 
     print('Saving retrieval results...')
     pickle.dump(retrieval_dict, open('retrievals_VSE.pkl','wb'))
+
+    #Turn off captions
+    dataset_train.return_captions=False
+    dataset_test.return_captions= False
 
     return evaluate_topK(pos_results, ori_results, scene_results)                     
 
@@ -383,10 +395,10 @@ if __name__ == "__main__":
         model=EmbedNet(encoder, netvlad_layer)
 
         model_name='model_l3000_b6_g0.75_c8_a10.0_split4.pth'
-        print('Using model',model_name)
         model.load_state_dict(torch.load('models/'+model_name))
         model.eval()
         model.cuda()
+        print('Model:',model_name)
 
         pos_results, ori_results, scene_results=netvlad_retrieval(data_loader_train, data_loader_test, model)
         print(pos_results, ori_results, scene_results)
@@ -396,8 +408,14 @@ if __name__ == "__main__":
     '''
     if "scenegraphs" in sys.argv:
         print('## Evaluation: pure Scene Graph scoring')  
-        pos_results, ori_results, scene_results=scenegraph_to_viewObjects(data_loader_train, data_loader_test)
-        print(pos_results, ori_results, scene_results)    
+        pos_results, ori_results, scene_results=scenegraph_to_viewObjects(data_loader_train, data_loader_test, unused_factor=None)
+        print(pos_results, ori_results, scene_results)
+        pos_results, ori_results, scene_results=scenegraph_to_viewObjects(data_loader_train, data_loader_test, unused_factor=0.5)
+        print(pos_results, ori_results, scene_results)
+        pos_results, ori_results, scene_results=scenegraph_to_viewObjects(data_loader_train, data_loader_test, unused_factor=0.3)
+        print(pos_results, ori_results, scene_results)        
+        pos_results, ori_results, scene_results=scenegraph_to_viewObjects(data_loader_train, data_loader_test, unused_factor=0.1)
+        print(pos_results, ori_results, scene_results)                    
 
     '''
     Evaluation: Combined NetVLAD + SG scoring
@@ -414,27 +432,27 @@ if __name__ == "__main__":
         model.load_state_dict(torch.load('models/'+model_name))
         model.eval()
         model.cuda()
+        print('Model:',model_name)
 
-        pos_results, ori_results, scene_results=netvlad_scenegraphs2viewobjects(data_loader_train, data_loader_test, model, combine='sum')
-        print(pos_results, ori_results, scene_results)
-        print()
-        pos_results, ori_results, scene_results=netvlad_scenegraphs2viewobjects(data_loader_train, data_loader_test, model, combine='mean')
-        print(pos_results, ori_results, scene_results)
-        print()
         pos_results, ori_results, scene_results=netvlad_scenegraphs2viewobjects(data_loader_train, data_loader_test, model, combine='multiply')
         print(pos_results, ori_results, scene_results)                
         print()
 
     if "vse" in sys.argv:
         print('## Evaluation: Pure VSE scoring')
+        EMBED_DIM=300 #CARE: Make sure this matches
         vgg=torchvision.models.vgg11(pretrained=True)
         for i in [4,5,6]: vgg.classifier[i]=nn.Identity()     #Remove layers after the 4096 features Linear layer
-        model=VisualSemanticEmbedding(vgg, data_set.get_known_words(), EMBED_DIM)
+        model=VisualSemanticEmbedding(vgg, data_set_train.get_known_words(), EMBED_DIM)
 
-        model_name='model_vse_l3000_b6_g0.75_e300_m0.2_split4.pth'
+        model_name='model_vse_l3000_b6_g0.75_e300_sTrue_m1.0_split4.pth'
         model.load_state_dict(torch.load('models/'+model_name))
         model.eval()
         model.cuda()
+        print('Model:',model_name)
+
+        pos_results, ori_results, scene_results=vse_text2image(data_loader_train, data_loader_test, model)
+        print(pos_results, ori_results, scene_results)   
 
 
 #DEPRECATED
