@@ -20,7 +20,6 @@ TODO
 
 
 '''
-
 #Dataset is used for all loading during all training and evaluation, but never during data creation!
 class Semantic3dDataset(Dataset):
     def __init__(self, dirpath_main, transform=None, image_limit=None, split_indices=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=False, return_graph_data=False):
@@ -97,6 +96,7 @@ class Semantic3dDataset(Dataset):
                 scene_captions= [ scene_captions_dict[image_name] for image_name in scene_image_names ]
                 self.view_captions.extend(scene_captions)             
 
+        #TODO: "ndarray from obj err"
         self.image_paths=np.array(self.image_paths)
         self.image_poses=np.array(self.image_poses)
         self.image_positions=np.array(self.image_positions)
@@ -196,7 +196,10 @@ class Semantic3dDatasetTriplet(Semantic3dDataset):
         #assert np.sum(indices)>0
         if not np.sum(indices)>0:
             #print(f'No positive indices for anchor {anchor_index}, using image itself') #TODO: investigate
-            indices[anchor_index]=True
+            #indices[anchor_index]=True
+            print(f'No positive indices for anchor {anchor_index}, using left or right') #TODO: investigate
+            if anchor_index>0: indices[ anchor_index-1 ]=True
+            if anchor_index<len(self)-1: indices[anchor_index+1]=True
 
         indices=np.argwhere(indices==True).flatten()
         #if len(indices)<2: print('Warning: only 1 pos. index choice')

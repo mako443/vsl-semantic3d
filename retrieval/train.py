@@ -48,8 +48,7 @@ same, random                    : ({1: 5.887, 5: 10.17, 10: 12.414}, {1: 0.4817,
 ----New scenes----
 
 resnet18, 9scenes, 3:2, 3-1 split:  {1: 6.707, 3: 13.47, 5: 15.86, 10: 17.86} {1: 0.4788, 3: 0.792, 5: 0.894, 10: 1.064} {1: 0.84, 3: 0.8467, 5: 0.81, 10: 0.733}
-resnet18, 10scenes, 3:2, 3-1 split: {1: 14.76, 3: 25.06, 5: 30.27, 10: 35.1} {1: 0.58, 3: 1.001, 5: 1.113, 10: 1.312} {1: 0.26, 3: 0.2617, 5: 0.261, 10: 0.259} #CARE: other sets during training!
-resnet18, 10scenes, 3:2, 3-1 split: 
+resnet18, 10scenes, 3:2, 3-1 split: {1: 7.094, 3: 10.68, 5: 12.875, 10: 16.17} {1: 0.489, 3: 0.748, 5: 0.8545, 10: 1.011} {1: 0.927, 3: 0.884, 5: 0.8374, 10: 0.773}
 
 '''
 
@@ -78,8 +77,8 @@ loss_dict={}
 best_loss=np.inf
 best_model=None
 
-#for lr in (5e-2,1e-2, 5e-3):
-for lr in (2e-2,1e-2,5e-3):
+#for lr in (2e-2,1e-2,5e-3):
+for lr in (1e-2,):
     print('\n\nlr: ',lr)
     encoder=networks.get_encoder_resnet18()
     encoder.requires_grad_(False) #Don't train encoder

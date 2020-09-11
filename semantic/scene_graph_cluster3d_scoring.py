@@ -149,10 +149,9 @@ def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_fac
     best_groundings=[None for i in range(len(scene_graph.relationships))]
     best_scores=[MIN_SCORE for i in range(len(scene_graph.relationships))] 
 
-    #CARE: Logic changed, re-evaluate!
+    #Can't score empty graphs 1.0 -> unused_factor because the factor is not enough to compensate
     if scene_graph.is_empty() or len(view_objects)<2:
-        best_scores=1.0
-
+        return 0.0, None
     for i_relation, relation in enumerate(scene_graph.relationships):
         assert type(relation[0] is SceneGraphObject)
 
@@ -170,7 +169,7 @@ def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_fac
                 color_score_obj= score_color(obj, object_color)
                 nn_score= sub_min_dist / np.linalg.norm(sub.get_center_c_world() - obj.get_center_c_world()) #Score whether Obj is Sub's nearest neighbor
 
-                score=relationship_score*color_score_sub*color_score_obj*nn_score #CARE: nn_score not used until now!!
+                score=relationship_score*color_score_sub*color_score_obj
 
                 if score>best_scores[i_relation]:
                     best_groundings[i_relation]=(sub,rel_type,obj)
@@ -183,10 +182,8 @@ def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_fac
                 if grounding[0] in unused_view_objects: unused_view_objects.remove(grounding[0])                    
                 if grounding[2] in unused_view_objects: unused_view_objects.remove(grounding[2])
 
-        #print('pen',unused_factor**(len(unused_view_objects)))
         return np.prod(best_scores) * unused_factor**(len(unused_view_objects)), best_groundings #, unused_view_objects
     else:
-        #print("best scores",best_scores)
-        return np.prod(best_scores), best_groundings      
+        return np.prod(best_scores), best_groundings  
 
 

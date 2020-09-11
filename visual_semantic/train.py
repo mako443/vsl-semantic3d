@@ -28,12 +28,12 @@ TODO:
 -Use other backbone?
 '''
 
-IMAGE_LIMIT=200
-BATCH_SIZE=3
+IMAGE_LIMIT=3000
+BATCH_SIZE=6 #12 gives memory error, 8 had more loss than 6?
 LR_GAMMA=0.75
 TEST_SPLIT=4
 EMBED_DIM=300
-MARGIN=0.2
+MARGIN=0.2 #0.2: works, 0.4: increases loss TODO: compare acc.
 
 print(f'image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} test-split: {TEST_SPLIT} embed-dim: {EMBED_DIM} margin: {MARGIN}')
 
@@ -46,13 +46,13 @@ transform=transforms.Compose([
 train_indices, test_indices=get_split_indices(TEST_SPLIT, 3000)
 
 data_set=Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=True)
-data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=False, shuffle=False) #Option: shuffle, Care: pin_memory!
+data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #Option: shuffle, Care: pin_memory!
 
 loss_dict={}
 best_loss=np.inf
 best_model=None
 
-for lr in (2e-2,1e-2,5e-3):
+for lr in (7.5e-1, 5e-1, 1e-1):
     print('\n\nlr: ',lr)
 
     vgg=torchvision.models.vgg11(pretrained=True)
@@ -67,7 +67,7 @@ for lr in (2e-2,1e-2,5e-3):
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)    
 
     loss_dict[lr]=[]
-    for epoch in range(3):
+    for epoch in range(8):
         epoch_loss_sum=0.0
         for i_batch, batch in enumerate(data_loader):
             optimizer.zero_grad()
