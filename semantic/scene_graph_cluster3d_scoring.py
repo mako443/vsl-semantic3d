@@ -146,7 +146,6 @@ As above, but also scores how much the grounded object is the closest one to the
 #TODO: score corners?
 def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_factor=None):
     MIN_SCORE=0.1 #OPTION: hardest penalty for relationship not found
-    unused_factor=0.5 #TODO: evaluate best parameter
     best_groundings=[None for i in range(len(scene_graph.relationships))]
     best_scores=[MIN_SCORE for i in range(len(scene_graph.relationships))] 
 

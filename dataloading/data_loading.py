@@ -23,7 +23,7 @@ TODO
 
 #Dataset is used for all loading during all training and evaluation, but never during data creation!
 class Semantic3dDataset(Dataset):
-    def __init__(self, dirpath_main, transform=None, image_limit=None, split_indices=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=False):
+    def __init__(self, dirpath_main, transform=None, image_limit=None, split_indices=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=False, return_graph_data=False):
         assert os.path.isdir(dirpath_main)
         
         self.dirpath_main=dirpath_main
@@ -31,6 +31,9 @@ class Semantic3dDataset(Dataset):
         self.load_viewObjects=load_viewObjects
         self.load_sceneGraphs=load_sceneGraphs
         self.return_captions=return_captions
+
+        if return_captions: assert return_graph_data==False
+        if return_graph_data: assert return_captions==False
 
         '''
         Data is structured in directories and unordered dictionaries
@@ -151,10 +154,14 @@ class Semantic3dDataset(Dataset):
         if self.transform:
             image = self.transform(image)
 
-        if not self.return_captions: #TODO/CLEAN: always return as dict, add entries dep. on config
-            return image
-        else:
+        # if not self.return_captions: #TODO/CLEAN: always return as dict, add entries dep. on config
+        #     return image
+        if self.return_captions:
             return {'images':image, 'captions':self.view_captions[index]}
+        if self.return_graph_data:
+            return {'images':image, 'graphs':self.view_scenegraph_data[index]}
+        else:
+            return image
         
 
     def get_known_words(self):

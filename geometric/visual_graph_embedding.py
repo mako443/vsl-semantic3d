@@ -16,12 +16,13 @@ TODO:
 -other and/or separate embedding dims?
 '''
 
-def create_image_model():
+def create_image_model_vgg11():
     vgg=torchvision.models.vgg11(pretrained=True)
-    for i in [4,5,6]: vgg.classifier[i]=nn.Identity()     
+    for i in [4,5,6]: vgg.classifier[i]=torch.nn.Identity()     
+    return vgg
 
 class VisualGraphEmbedding(torch.nn.Module):
-    def __init__(self, embedding_dim):
+    def __init__(self,image_model, embedding_dim):
         super(VisualGraphEmbedding, self).__init__()
 
         self.embedding_dim=embedding_dim
@@ -34,16 +35,15 @@ class VisualGraphEmbedding(torch.nn.Module):
         self.node_embedding=torch.nn.Embedding(30, self.embedding_dim) #30 should be enough
         self.node_embedding.requires_grad_(False) #TODO: train embedding?
 
-        #self.image_model=image_model
-        self.image_model=create_image_model()
+        self.image_model=image_model
         self.image_model.requires_grad_(False)
         self.image_model.eval()
         #self.image_dim=image_model.dim*image_model.num_clusters #Output get's flattened during NetVLAD
         self.image_dim=list(image_model.parameters())[-1].shape[0] #For VGG
         assert self.image_dim==4096        
         
-        self.W_g=nn.Linear(self.embedding_dim, self.embedding_dim, bias=True)
-        self.W_i=nn.Linear(self.image_dim,self.embedding_dim,bias=True)
+        self.W_g=torch.nn.Linear(self.embedding_dim, self.embedding_dim, bias=True)
+        self.W_i=torch.nn.Linear(self.image_dim,self.embedding_dim,bias=True)
 
     def forward(self, images, graphs):
         assert len(graphs)==len(images)

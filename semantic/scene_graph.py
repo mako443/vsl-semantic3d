@@ -150,6 +150,8 @@ def scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, f
         obj=min_obj
         assert obj is not None
         rel_type=semantic.scene_graph_cluster3d_scoring.get_relationship_type(sub, obj)
+        
+        blocked_subjects.append(obj) #No doublicate relations, CARE: do before flip
 
         if flip_relations:
             if rel_type=='right':
@@ -159,7 +161,6 @@ def scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, f
             if rel_type=='behind':
                 sub,rel_type,obj= obj, 'infront', sub    
 
-        blocked_subjects.append(obj) #No doublicate relations
 
         if keep_viewobjects: #Debugging
             scene_graph.add_relationship( sub, rel_type,  obj )
@@ -275,37 +276,37 @@ if __name__ == "__main__":
     ### Scene graph debugging for Cluster3d
 
     ### Scene graph nnRels debugging
-    base_path='data/pointcloud_images_o3d_merged/'
-    scene_name='bildstein_station1_xyz_intensity_rgb'
-    scene_view_objects=pickle.load( open(os.path.join(base_path,scene_name,'view_objects.pkl'), 'rb') )
-    #file_name=np.random.choice(list(scene_view_objects.keys()))
-    file_name='001.png'
-    view_objects=scene_view_objects[file_name]
-    print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
+    # base_path='data/pointcloud_images_o3d_merged/'
+    # scene_name='bildstein_station1_xyz_intensity_rgb'
+    # scene_view_objects=pickle.load( open(os.path.join(base_path,scene_name,'view_objects.pkl'), 'rb') )
+    # #file_name=np.random.choice(list(scene_view_objects.keys()))
+    # file_name='005.png'
+    # view_objects=scene_view_objects[file_name]
+    # print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
 
-    sg=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, flip_relations=False)
+    # sg=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, flip_relations=False)
 
-    sg_debug=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=True, flip_relations=False)
-    img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
-    draw_scenegraph(img,sg_debug)
-    cv2.imshow("",img); cv2.waitKey()
+    # sg_debug=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=True, flip_relations=False)
+    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
+    # draw_scenegraph(img,sg_debug)
+    # cv2.imshow("",img); cv2.waitKey()
 
-    score, grounding=semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects_nnRels(sg, view_objects)
-    print('Score',score)
+    # score, grounding=semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects_nnRels(sg, view_objects)
+    # print('Score',score)
 
-    img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
-    draw_scenegraph(img,grounding)
-    cv2.imshow("",img); cv2.waitKey()  
+    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
+    # draw_scenegraph(img,grounding)
+    # cv2.imshow("",img); cv2.waitKey()  
 
-    used_objects=[]
-    for rel in sg_debug.relationships:
-        if rel[0] not in used_objects: used_objects.append(rel[0])
-        if rel[2] not in used_objects: used_objects.append(rel[2])              
+    # used_objects=[]
+    # for rel in sg_debug.relationships:
+    #     if rel[0] not in used_objects: used_objects.append(rel[0])
+    #     if rel[2] not in used_objects: used_objects.append(rel[2])              
     
-    score, groundings, unused_obects=semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects_nnRels(sg, view_objects, unused_penalty=True)
-    print('Score w/ unused:',score)
+    # score, groundings, unused_obects=semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects_nnRels(sg, view_objects, unused_factor=True)
+    # print('Score w/ unused:',score)
 
-    quit()
+    # quit()
     ### Scene graph nnRels debugging
 
     ### Scene graph nnRels scoring debugging
