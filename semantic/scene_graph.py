@@ -69,6 +69,9 @@ Strategy refined from 5 corners:
 => Used for text generation
 '''
 #TODO: New strat: Use biggest (in image plane) subject from each corner (if any), relate to closest object
+#OR
+#TODO: New strat: Get biggest (in image plane) subject for each corner (if any), relate to closest in corner (if any), mention fg&bg object
+#TODO: Split SGs and Captions completely? Which one used for Geometric? (Want both?)
 def scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=False, flip_relations=True):
     assert len(CORNERS)==5 #FG/BG not explicitly in corners
 
@@ -272,30 +275,73 @@ if __name__ == "__main__":
     ### Scene graph debugging for Cluster3d
 
     ### Scene graph nnRels debugging
+    base_path='data/pointcloud_images_o3d_merged/'
+    scene_name='bildstein_station1_xyz_intensity_rgb'
+    scene_view_objects=pickle.load( open(os.path.join(base_path,scene_name,'view_objects.pkl'), 'rb') )
+    #file_name=np.random.choice(list(scene_view_objects.keys()))
+    file_name='001.png'
+    view_objects=scene_view_objects[file_name]
+    print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
+
+    sg=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, flip_relations=False)
+
+    sg_debug=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=True, flip_relations=False)
+    img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
+    draw_scenegraph(img,sg_debug)
+    cv2.imshow("",img); cv2.waitKey()
+
+    score, grounding=semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects_nnRels(sg, view_objects)
+    print('Score',score)
+
+    img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
+    draw_scenegraph(img,grounding)
+    cv2.imshow("",img); cv2.waitKey()  
+
+    used_objects=[]
+    for rel in sg_debug.relationships:
+        if rel[0] not in used_objects: used_objects.append(rel[0])
+        if rel[2] not in used_objects: used_objects.append(rel[2])              
+    
+    score, groundings, unused_obects=semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects_nnRels(sg, view_objects, unused_penalty=True)
+    print('Score w/ unused:',score)
+
+    quit()
+    ### Scene graph nnRels debugging
+
+    ### Scene graph nnRels scoring debugging
     # base_path='data/pointcloud_images_o3d_merged/'
-    # scene_name='sg27_station5_intensity_rgb'
+    # scene_name='sg27_station1_intensity_rgb'
     # scene_view_objects=pickle.load( open(os.path.join(base_path,scene_name,'view_objects.pkl'), 'rb') )
     # #file_name=np.random.choice(list(scene_view_objects.keys()))
-    # file_name='006.png'
-    # view_objects=scene_view_objects[file_name]
-    # print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
+    # file_name_query='009.png'
+    # file_name_db='012.png'
+    # query_objects=scene_view_objects[file_name_query]
+    # db_objects=scene_view_objects[file_name_db]
+    # print(f'{scene_name} - {file_name_query}->{file_name_db}; {len(db_objects)} view objects')
 
-    # sg=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, flip_relations=False)
+    # sg=scenegraph_for_view_cluster3d_nnRels(query_objects, keep_viewobjects=False, flip_relations=False)
+    # sg_debug=scenegraph_for_view_cluster3d_nnRels(query_objects, keep_viewobjects=True, flip_relations=False)
 
-    # sg_debug=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=True, flip_relations=False)
-    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
+    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name_query))
     # draw_scenegraph(img,sg_debug)
     # cv2.imshow("",img); cv2.waitKey()
 
-    # score, grounding=semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects_nnRels(sg, view_objects)
-    # print('Score',score)
-
-    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
+    # score, grounding=semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects_nnRels(sg, db_objects, unused_penalty=False)
+    # print('Score w/o unused',score)
+    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name_db))
     # draw_scenegraph(img,grounding)
-    # cv2.imshow("",img); cv2.waitKey()    
+    # cv2.imshow("",img); cv2.waitKey()            
+    
+    # score, groundings=semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects_nnRels(sg, db_objects, unused_penalty=True)
+    # print('Score w/ unused:',score)
+    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name_db))
+    # draw_scenegraph(img,grounding)
+    # #for u in unused_objects:
+    #     #u.draw_on_image(img)
+    # cv2.imshow("",img); cv2.waitKey() 
 
     # quit()
-    ### Scene graph nnRels debugging
+    ### Scene graph nnRels scoring debugging
 
     ### Scene Graph Scoring debugging
     # dataset=Semantic3dDataset('data/pointcloud_images_o3d_merged')
@@ -322,7 +368,7 @@ if __name__ == "__main__":
 
 
     # quit()
-    ### Scene Graph Eval debugging
+    ### Scene Graph Scoring debugging
 
     '''
     Data creation: Scene-Graphs and Captions from view-objects (separate SG strategies)

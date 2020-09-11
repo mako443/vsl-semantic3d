@@ -143,13 +143,16 @@ As above, but also scores how much the grounded object is the closest one to the
 => For SG matching
 '''
 #TODO: score all objects used? (Just evaluate)
-def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects):
+#TODO: score corners?
+def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_factor=None):
     MIN_SCORE=0.1 #OPTION: hardest penalty for relationship not found
+    unused_factor=0.5 #TODO: evaluate best parameter
     best_groundings=[None for i in range(len(scene_graph.relationships))]
     best_scores=[MIN_SCORE for i in range(len(scene_graph.relationships))] 
 
+    #CARE: Logic changed, re-evaluate!
     if scene_graph.is_empty() or len(view_objects)<2:
-        return 0.0, None
+        best_scores=1.0
 
     for i_relation, relation in enumerate(scene_graph.relationships):
         assert type(relation[0] is SceneGraphObject)
@@ -168,13 +171,23 @@ def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects):
                 color_score_obj= score_color(obj, object_color)
                 nn_score= sub_min_dist / np.linalg.norm(sub.get_center_c_world() - obj.get_center_c_world()) #Score whether Obj is Sub's nearest neighbor
 
-                score=relationship_score*color_score_sub*color_score_obj
+                score=relationship_score*color_score_sub*color_score_obj*nn_score #CARE: nn_score not used until now!!
 
                 if score>best_scores[i_relation]:
                     best_groundings[i_relation]=(sub,rel_type,obj)
                     best_scores[i_relation]=score
 
-    #print("best scores",best_scores)
-    return np.prod(best_scores), best_groundings      
+    if unused_factor is not None:
+        unused_view_objects=[v for v in view_objects]
+        for grounding in best_groundings:
+            if grounding is not None:
+                if grounding[0] in unused_view_objects: unused_view_objects.remove(grounding[0])                    
+                if grounding[2] in unused_view_objects: unused_view_objects.remove(grounding[2])
+
+        #print('pen',unused_factor**(len(unused_view_objects)))
+        return np.prod(best_scores) * unused_factor**(len(unused_view_objects)), best_groundings #, unused_view_objects
+    else:
+        #print("best scores",best_scores)
+        return np.prod(best_scores), best_groundings      
 
 

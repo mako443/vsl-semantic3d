@@ -84,7 +84,7 @@ class ClusteredObject:
         mask=np.bitwise_and.reduce(( points_i[:,0]>=0, points_i[:,0]<=IMAGE_WIDHT, points_i[:,1]>=0, points_i[:,1]<=IMAGE_HEIGHT, points_i[:,2]>0  )) #Mask to clamp to visible region
         points_i=points_i[mask, :].copy()
         points_c=points_c[mask, :].copy()
-        if len(points_i)>0: #Projection sucessful, partly in fov
+        if len(points_i)>4: #Projection sucessful, partly in fov, CARE: requiring at least for points, otherwise buggy
             self.rect_i=cv2.minAreaRect(points_i[:,0:2].astype(np.float32))
             self.mindist_i, self.maxdist_i = np.min(points_i[:,2]), np.max(points_i[:,2])
             self.points_i=points_i
