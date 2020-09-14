@@ -142,7 +142,7 @@ As above, but also scores how much the grounded object is the closest one to the
 -works ✓, scores perfectly to self, now also groundings equal
 => For SG matching
 '''
-def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_factor=None):
+def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_factor=0.5):
     MIN_SCORE=0.1 #OPTION: hardest penalty for relationship not found
     best_groundings=[None for i in range(len(scene_graph.relationships))]
     best_scores=[MIN_SCORE for i in range(len(scene_graph.relationships))] 

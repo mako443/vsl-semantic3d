@@ -41,10 +41,10 @@ Matching SGs analytically to the View-Objects from 3D-Clustering
 
 -simple check close-by / far away ✓
 -check top-hits ✓
--Handle empty Scene Graphs strategies compare
+-Handle empty Scene Graphs strategies compare: 1.0 doesn't work, Try to potentiate the unused_factor?
 '''
 def scenegraph_to_viewObjects(data_loader_train, data_loader_test, top_k=(1,3,5,10), unused_factor=None):
-    CHECK_COUNT=100 #len(data_loader_test.dataset)
+    CHECK_COUNT=len(data_loader_test.dataset)
     print(f'#Check: {CHECK_COUNT}, # training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
     print('unused-factor:',unused_factor)
 
@@ -364,7 +364,7 @@ def vse_text2image(data_loader_train, data_loader_test, model, top_k=(1,3,5,10))
     return evaluate_topK(pos_results, ori_results, scene_results)                     
 
 
-#TODO: save retrieval indices for failure evaluation
+#TODO/CARE: re-create view-objects & SGs for occl. bug
 if __name__ == "__main__":
     IMAGE_LIMIT=3000
     BATCH_SIZE=6
@@ -408,14 +408,8 @@ if __name__ == "__main__":
     '''
     if "scenegraphs" in sys.argv:
         print('## Evaluation: pure Scene Graph scoring')  
-        pos_results, ori_results, scene_results=scenegraph_to_viewObjects(data_loader_train, data_loader_test, unused_factor=None)
-        print(pos_results, ori_results, scene_results)
         pos_results, ori_results, scene_results=scenegraph_to_viewObjects(data_loader_train, data_loader_test, unused_factor=0.5)
-        print(pos_results, ori_results, scene_results)
-        pos_results, ori_results, scene_results=scenegraph_to_viewObjects(data_loader_train, data_loader_test, unused_factor=0.3)
-        print(pos_results, ori_results, scene_results)        
-        pos_results, ori_results, scene_results=scenegraph_to_viewObjects(data_loader_train, data_loader_test, unused_factor=0.1)
-        print(pos_results, ori_results, scene_results)                    
+        print(pos_results, ori_results, scene_results)                
 
     '''
     Evaluation: Combined NetVLAD + SG scoring

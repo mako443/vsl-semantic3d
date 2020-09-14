@@ -46,7 +46,7 @@ transform=transforms.Compose([
 
 train_indices, test_indices=get_split_indices(TEST_SPLIT, 3000)
 
-data_set=Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=None, load_viewObjects=True, load_sceneGraphs=True)
+data_set=Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=None, load_viewObjects=True, load_sceneGraphs=True, return_graph_data=True)
 #Option: shuffle, pin_memory crashes on my system, CARE: shuffle for PairWiseRankingLoss(!)
 data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=False, shuffle=SHUFFLE) 
 
@@ -72,6 +72,7 @@ for lr in (2e-2,1e-2,5e-3):
         for i_batch, batch in enumerate(data_loader):
             
             optimizer.zero_grad()
+            print(batch)
             
             out_visual, out_graph=model(batch['images'].cuda(), batch['graphs'].to('cuda'))
 

@@ -30,6 +30,7 @@ class Semantic3dDataset(Dataset):
         self.load_viewObjects=load_viewObjects
         self.load_sceneGraphs=load_sceneGraphs
         self.return_captions=return_captions
+        self.return_graph_data=return_graph_data
 
         if return_captions: assert return_graph_data==False
         if return_graph_data: assert return_captions==False
