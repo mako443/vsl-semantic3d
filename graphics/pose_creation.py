@@ -6,6 +6,7 @@ import sys
 import pickle
 from .imports import Pose
 from main import load_files, view_pptk, resize_window
+from graphics.imports import CLASSES_DICT, CLASSES_COLORS, Pose, IMAGE_WIDHT, IMAGE_HEIGHT, COMBINED_SCENE_NAMES
 import graphics.poses_train
 import graphics.poses_test
 
@@ -60,53 +61,68 @@ if __name__ == "__main__":
     '''
     View pptk -> write config -> interpolate&save poses
     '''    
-    scene_name='untermaederbrunnen_station1_xyz_intensity_rgb'
-    output_path_poses=os.path.join('data','pointcloud_images_o3d_merged',scene_name,'poses.pkl')
+    # scene_name='sg27_station1_intensity_rgb'
+    # output_path_poses=os.path.join('data','pointcloud_images_o3d_merged',scene_name,'poses.pkl')
 
-    #viewer=view_pptk('data/numpy_merged/'+scene_name, remove_artifacts=True, remove_unlabeled=True, max_points=int(15e6))
+    # #viewer=view_pptk('data/numpy_merged/'+scene_name, remove_artifacts=True, remove_unlabeled=True, max_points=int(15e6))
 
-    #num_points=scene_config[scene_name]['num_points']
-    #points=scene_config[scene_name]['points']
+    # #num_points=scene_config[scene_name]['num_points']
+    # #points=scene_config[scene_name]['points']
 
-    num_points_train=graphics.poses_train.scene_config[scene_name]['num_points']
-    points_train=graphics.poses_train.scene_config[scene_name]['points']
-    points_train=interpolate_points(points_train,num_points_train)
+    # num_points_train=graphics.poses_train.scene_config[scene_name]['num_points']
+    # points_train=graphics.poses_train.scene_config[scene_name]['points']
+    # points_train=interpolate_points(points_train,num_points_train)
 
-    num_points_test=graphics.poses_test.scene_config[scene_name]['num_points']
-    points_test=graphics.poses_test.scene_config[scene_name]['points']
-    if len(points_test)>0: points_test=interpolate_points(points_test,num_points_test)    
+    # num_points_test=graphics.poses_test.scene_config[scene_name]['num_points']
+    # points_test=graphics.poses_test.scene_config[scene_name]['points']
+    # if len(points_test)>0: points_test=interpolate_points(points_test,num_points_test)    
 
-    xyz, rgba, labels_rgba=load_files('data/numpy_merged/'+scene_name, remove_artifacts=True, remove_unlabeled=True, max_points=int(15e6))
-    xyz, rgba, labels_rgba=add_viewpoints_to_pointcloud(xyz, rgba, labels_rgba, points_train, 'train')
-    xyz, rgba, labels_rgba=add_viewpoints_to_pointcloud(xyz, rgba, labels_rgba, points_test , 'test')
+    # xyz, rgba, labels_rgba=load_files('data/numpy_merged/'+scene_name, remove_artifacts=True, remove_unlabeled=True, max_points=int(15e6))
+    # xyz, rgba, labels_rgba=add_viewpoints_to_pointcloud(xyz, rgba, labels_rgba, points_train, 'train')
+    # xyz, rgba, labels_rgba=add_viewpoints_to_pointcloud(xyz, rgba, labels_rgba, points_test , 'test')
 
-    viewer=pptk.viewer(xyz)
-    viewer.attributes(rgba.astype(np.float32)/255.0,labels_rgba.astype(np.float32)/255.0)
-    viewer.set(point_size=0.025)
+    # viewer=pptk.viewer(xyz)
+    # viewer.attributes(rgba.astype(np.float32)/255.0,labels_rgba.astype(np.float32)/255.0)
+    # viewer.set(point_size=0.025)
 
-    resize_window()
-    
-    quit()
+    # resize_window()
 
-    print('Adjust for split-screenshot')
-    input()
+    # viewer.capture(f'split_{scene_name}.png')    
 
-    viewer.capture(f'split_{scene_name}.png')    
-
-    points=interpolate_points(points,num_points)
+    # points=interpolate_points(points,num_points)
     # visualize_points(viewer,points)
     # quit()
 
-    #Using viewer-math to set the poses | viewer get's stuck after too many requests / naive work-around
-    poses=[]
-    viewer.close()
-    for start_idx in range(0,len(points),10):
-        viewer=view_pptk('data/numpy_merged/'+scene_name, remove_artifacts=True, remove_unlabeled=True, max_points=int(15e6))
-        resize_window()
-        poses.extend( calculate_poses(viewer, scene_name, points[start_idx:start_idx+10], num_angles=10) )
-        viewer.close()
+    '''
+    Data creation: calculate poses
+    '''
+    base_path='data/pointcloud_images_o3d_merged'    
+    for scene_name in COMBINED_SCENE_NAMES:
+        #for split in ('train','test',):
+        for split in ('test',):
+            print(f'\n\n Scene: {scene_name} split: {split}')
+            if split=='train':
+                num_points=graphics.poses_train.scene_config[scene_name]['num_points']
+                points=graphics.poses_train.scene_config[scene_name]['points']
+                num_angles=10
+            if split=='test':
+                num_points=graphics.poses_test.scene_config[scene_name]['num_points']
+                points=graphics.poses_test.scene_config[scene_name]['points']
+                num_angles=6                
 
-    #poses=calculate_poses(viewer, scene_name, points, num_angles=10)
-    print('num poses:',len(poses))
-    pickle.dump( poses, open(output_path_poses, 'wb') )
-    print('Poses saved!', output_path_poses)
+            points=interpolate_points(points, num_points)
+            output_path_poses=os.path.join('data','pointcloud_images_o3d_merged',split,scene_name,'poses.pkl')
+            print(f'Output path poses: {output_path_poses}')
+
+            #Using viewer-math to set the poses | viewer get's stuck after too many requests / naive work-around
+            poses=[]
+            for start_idx in range(0,len(points),10):
+                viewer=view_pptk('data/numpy_merged/'+scene_name, remove_artifacts=True, remove_unlabeled=True, max_points=int(15e6))
+                resize_window()
+                poses.extend( calculate_poses(viewer, scene_name, points[start_idx:start_idx+10], num_angles=num_angles) )
+                viewer.close()
+
+            #poses=calculate_poses(viewer, scene_name, points, num_angles=10)
+            print('num poses:',len(poses))
+            pickle.dump( poses, open(output_path_poses, 'wb') )
+            print('Poses saved!', output_path_poses)

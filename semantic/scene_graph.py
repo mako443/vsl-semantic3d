@@ -199,9 +199,9 @@ def annotate_view(pose, scene_objects):
 Data creation: Scene-Graphs and Captions
 '''
 #scene_relationships as { file_name: [rels] }
-def create_scenegraphs_nnRels(base_path, scene_name):
+def create_scenegraphs_nnRels(base_path,split, scene_name):
     print('Scenegraphs (for matching) for scene',scene_name)
-    scene_view_objects=pickle.load(open(os.path.join(base_path, scene_name,'view_objects.pkl'), 'rb'))
+    scene_view_objects=pickle.load(open(os.path.join(base_path,split, scene_name,'view_objects.pkl'), 'rb'))
     scene_graphs={}
 
     for file_name in scene_view_objects.keys():
@@ -222,9 +222,9 @@ def create_scenegraphs_nnRels(base_path, scene_name):
     print()
     return scene_graphs    
 
-def create_captions_7corners(base_path, scene):
+def create_captions_7corners(base_path,split, scene):
     print('Scenegraphs (for captions) for scene',scene_name)
-    scene_view_objects=pickle.load(open(os.path.join(base_path, scene_name,'view_objects.pkl'), 'rb'))
+    scene_view_objects=pickle.load(open(os.path.join(base_path,split, scene_name,'view_objects.pkl'), 'rb'))
     captions={}
 
     for file_name in scene_view_objects.keys():
@@ -374,11 +374,14 @@ if __name__ == "__main__":
     '''
     Data creation: Scene-Graphs and Captions from view-objects (separate SG strategies)
     '''
-    base_path='data/pointcloud_images_o3d_merged'    
-    for scene_name in COMBINED_SCENE_NAMES:
-        scene_graphs=create_scenegraphs_nnRels(base_path, scene_name)   
-        pickle.dump( scene_graphs, open(os.path.join(base_path, scene_name,'scene_graphs.pkl'), 'wb'))
+    base_path='data/pointcloud_images_o3d_merged'   
+    #for split in ('train','test',):
+    for split in ('test',):     
+        for scene_name in COMBINED_SCENE_NAMES:
+            print(f'\n\n Scene-Graphs and Captions for scene <{scene_name}> split <{split}>')
+            scene_graphs=create_scenegraphs_nnRels(base_path,split,scene_name)   
+            pickle.dump( scene_graphs, open(os.path.join(base_path,split, scene_name,'scene_graphs.pkl'), 'wb'))
 
-        scene_captions=create_captions_7corners(base_path, scene_name)
-        pickle.dump( scene_captions, open(os.path.join(base_path, scene_name,'captions.pkl'), 'wb'))
+            scene_captions=create_captions_7corners(base_path,split,scene_name)
+            pickle.dump( scene_captions, open(os.path.join(base_path,split, scene_name,'captions.pkl'), 'wb'))
     
