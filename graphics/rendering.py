@@ -68,15 +68,15 @@ Rendering via 3D clusters
 # def capture_view(visualizer, pose, scene_objects):
 #     set_pose(view_control,pose)
 
-def capture_scene(dirpath, scene_name):
-    filepath_poses=os.path.join(dirpath,scene_name,'poses.pkl')
-    dirpath_out=os.path.join(dirpath,scene_name,'rgb')
+def capture_scene(dirpath,split, scene_name):
+    filepath_poses=os.path.join(dirpath,split,scene_name,'poses.pkl')
+    dirpath_out=os.path.join(dirpath,split,scene_name,'rgb')
     assert os.path.isfile(filepath_poses) and os.path.isdir(dirpath_out)
 
     scene_poses=pickle.load( open( filepath_poses, 'rb') )
     poses_rendered={} #Dictionary for the rendered poses, indexed by file name, I,E added
 
-    print(f'Capturing {len(scene_poses)} poses for <{scene_name}>')
+    print(f'Capturing {len(scene_poses)} poses for <{split}> <{scene_name}>')
     xyz, rgba, labels_rgba=load_files2('data/numpy_merged/',scene_name, max_points=int(30e6)) #TODO: use load_files from here / new artifact removal, more points? (Seems to help!!)
     labels_rgba=None
     rgb=rgba[:,0:3].copy()
@@ -108,7 +108,7 @@ def capture_scene(dirpath, scene_name):
 
     print()
     print('Saving rendered poses...')
-    pickle.dump(poses_rendered, open(os.path.join(dirpath,scene_name,'poses_rendered.pkl'), 'wb'))
+    pickle.dump(poses_rendered, open(os.path.join(dirpath,split,scene_name,'poses_rendered.pkl'), 'wb'))
     print('Scene finished!')
     vis.close()
 
@@ -143,8 +143,11 @@ if __name__ == "__main__":
     '''
     #for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
     #for scene_name in enumerate(COMBINED_SCENE_NAMES):
-    for scene_name in ('sg27_station2_intensity_rgb',):
-        capture_scene('data/pointcloud_images_o3d_merged/',scene_name)
+    #for split in ('train','test',):
+    for split in ('test',):
+        for scene_name in COMBINED_SCENE_NAMES:
+            print(f'\n\n Rendering Scene {scene_name} split {split}')
+            capture_scene('data/pointcloud_images_o3d_merged/',split,scene_name)
     quit()
 
     ### Project & bbox verify 

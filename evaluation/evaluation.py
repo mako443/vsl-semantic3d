@@ -383,6 +383,17 @@ if __name__ == "__main__":
     data_loader_train=DataLoader(data_set_train, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #CARE: put shuffle off
     data_loader_test =DataLoader(data_set_test , batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)        
 
+    #####
+    ds=Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=None, image_limit=IMAGE_LIMIT, split_indices=train_indices, load_viewObjects=True, load_sceneGraphs=True)
+    vgg=torchvision.models.vgg11(pretrained=True)
+    for i in [4,5,6]: vgg.classifier[i]=torch.nn.Identity()     #Remove layers after the 4096 features Linear layer
+    model=VisualSemanticEmbedding(vgg, data_set_train.get_known_words(), 300)
+
+    model_name='model_vse_l3000_b6_g0.75_e300_sTrue_m1.0_split4.pth'
+    model.load_state_dict(torch.load('models/'+model_name))
+    model.eval()
+    model.cuda()    
+
     '''
     Evaluation: NetVLAD retrieval
     '''

@@ -22,7 +22,10 @@ TODO
 '''
 #Dataset is used for all loading during all training and evaluation, but never during data creation!
 class Semantic3dDataset(Dataset):
-    def __init__(self, dirpath_main, transform=None, image_limit=None, split_indices=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=False, return_graph_data=False):
+    def __init__(self, dirpath_main,split, transform=None, image_limit=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=False, return_graph_data=False):
+        assert split in ('train','test')
+        dirpath_main=os.path.join(dirpath_main,split)
+
         assert os.path.isdir(dirpath_main)
         
         self.dirpath_main=dirpath_main
@@ -42,7 +45,7 @@ class Semantic3dDataset(Dataset):
         self.scene_names=sorted([folder_name for folder_name in os.listdir(dirpath_main) if os.path.isdir(os.path.join(dirpath_main,folder_name))]) #Sorting scene-names
         #self.scene_names=('sg27_station5_intensity_rgb',)
         #print('CARE / DEBUG ONE SCENE')
-        print(f'Semantic3dData with {len(self.scene_names)} total scenes: {self.scene_names}')
+        print(f'Semantic3dData split <{split}> with {len(self.scene_names)} total scenes: {self.scene_names}')
 
         #CARE: these have to match for splitting below!!
         self.image_paths=[]
@@ -54,8 +57,6 @@ class Semantic3dDataset(Dataset):
         self.view_scenegraphs=[]
         self.view_captions=[]
         #self.view_scenegraph_data=[] #Data for geometric learning
-
-        #TODO: load embedding dict, create graph-data for each SG
 
         #Go through all scenes and image-names
         for scene_name in self.scene_names:
@@ -97,37 +98,39 @@ class Semantic3dDataset(Dataset):
                 scene_captions= [ scene_captions_dict[image_name] for image_name in scene_image_names ]
                 self.view_captions.extend(scene_captions)             
 
-        #TODO: "ndarray from obj err"
-        self.image_paths=np.array(self.image_paths)
-        self.image_poses=np.array(self.image_poses)
-        self.image_positions=np.array(self.image_positions)
-        self.image_orientations=np.array(self.image_orientations)
-        self.image_scene_names=np.array(self.image_scene_names)
-        self.view_objects=np.array(self.view_objects)
-        self.view_scenegraphs=np.array(self.view_scenegraphs)
-        self.view_captions=np.array(self.view_captions)
+        self.image_paths=np.array(self.image_paths,dtype=np.object)
+        self.image_poses=np.array(self.image_poses,dtype=np.object)
+        self.image_positions=np.array(self.image_positions,dtype=np.object)
+        self.image_orientations=np.array(self.image_orientations,dtype=np.object)
+        self.image_scene_names=np.array(self.image_scene_names,dtype=np.object)
+        self.view_objects=np.array(self.view_objects,dtype=np.object)
+        self.view_scenegraphs=np.array(self.view_scenegraphs,dtype=np.object)
+        self.view_captions=np.array(self.view_captions,dtype=np.object)
         
         assert self.image_positions.shape[1]==3
         assert len(self.image_paths)==len(self.image_poses) #==len(self.view_objects)==len(self.view_scenegraphs)
+        if load_sceneGraphs:
+            assert len(self.view_scenegraphs)==len(self.image_poses)
 
-        if split_indices is None:
-            print('No splitting...')
-        else:
-            print(f'Splitting, using {np.sum(split_indices)} of {len(self.image_paths)} indices')
-            assert len(split_indices)==len(self.image_paths)
-            self.image_paths=self.image_paths[split_indices]
-            self.image_poses=self.image_poses[split_indices]
-            self.image_positions=self.image_positions[split_indices]
-            self.image_orientations=self.image_orientations[split_indices]
-            self.image_scene_names=self.image_scene_names[split_indices]
-            if self.load_viewObjects: self.view_objects=self.view_objects[split_indices]
-            if self.load_sceneGraphs: self.view_scenegraphs=self.view_scenegraphs[split_indices]
-            if self.load_sceneGraphs: self.view_captions=self.view_captions[split_indices]
-            assert len(self.image_paths)==len(self.image_poses)==len(self.image_scene_names)
+        # if split_indices is None:
+        #     print('No splitting...')
+        # else:
+        #     print(f'Splitting, using {np.sum(split_indices)} of {len(self.image_paths)} indices')
+        #     assert len(split_indices)==len(self.image_paths)
+        #     self.image_paths=self.image_paths[split_indices]
+        #     self.image_poses=self.image_poses[split_indices]
+        #     self.image_positions=self.image_positions[split_indices]
+        #     self.image_orientations=self.image_orientations[split_indices]
+        #     self.image_scene_names=self.image_scene_names[split_indices]
+        #     if self.load_viewObjects: self.view_objects=self.view_objects[split_indices]
+        #     if self.load_sceneGraphs: self.view_scenegraphs=self.view_scenegraphs[split_indices]
+        #     if self.load_sceneGraphs: self.view_captions=self.view_captions[split_indices]
+
+        assert len(self.image_paths)==len(self.image_poses)==len(self.image_scene_names)
 
         #Create Scene-Graph data
         if self.load_sceneGraphs:
-            self.node_embeddings, self.edge_embeddings=pickle.load(open(os.path.join(dirpath_main,'graph_embeddings.pkl'), 'rb'))
+            self.node_embeddings, self.edge_embeddings=pickle.load(open(os.path.join(dirpath_main,'..','graph_embeddings.pkl'), 'rb')) #Graph embeddings are in the top dir
             self.view_scenegraph_data=np.array([ create_scenegraph_data(sg, self.node_embeddings, self.edge_embeddings) for sg in self.view_scenegraphs ], dtype=object)
             assert len(self.view_scenegraph_data)==len(self.image_poses)
             empty_graphs=[1 for sg in self.view_scenegraphs if sg.is_empty()]
@@ -145,8 +148,8 @@ class Semantic3dDataset(Dataset):
         else:
             return len(self.image_paths)
 
-    def get_scene_name(self,idx):
-        return self.image_paths[idx].split('/')[2]     
+    # def get_scene_name(self,idx):
+    #     return self.image_paths[idx].split('/')[2]     
 
     #Returns the image at the current index
     def __getitem__(self,index):       
@@ -178,8 +181,8 @@ class Semantic3dDataset(Dataset):
 #Subclass to load the images as trainig triplets
 #Also load SG/text triplets?
 class Semantic3dDatasetTriplet(Semantic3dDataset):
-    def __init__(self, dirpath_main, transform=None, image_limit=None, split_indices=None, load_viewObjects=True, load_sceneGraphs=True):
-        super().__init__(dirpath_main, transform=transform, image_limit=image_limit, split_indices=split_indices, load_viewObjects=load_viewObjects, load_sceneGraphs=load_sceneGraphs)
+    def __init__(self, dirpath_main,split, transform=None, image_limit=None, load_viewObjects=True, load_sceneGraphs=True):
+        super().__init__(dirpath_main,split, transform=transform, image_limit=image_limit, load_viewObjects=load_viewObjects, load_sceneGraphs=load_sceneGraphs)
         self.positive_thresh=(7.5, 2*np.pi/10*1.01) #The 2 images left&right
         self.negative_thresh=(10,  np.pi / 2)
 
@@ -229,5 +232,5 @@ class Semantic3dDatasetTriplet(Semantic3dDataset):
 
 
 if __name__ == "__main__":
-    dataset=Semantic3dDataset('data/pointcloud_images_o3d_merged', load_viewObjects=True, load_sceneGraphs=True)
+    dataset=Semantic3dDataset('data/pointcloud_images_o3d_merged','test',load_viewObjects=True, load_sceneGraphs=True)
 

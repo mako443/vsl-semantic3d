@@ -105,24 +105,25 @@ if __name__ == "__main__":
     Data creation: View objects from clustered objects
     '''
     base_dir='data/pointcloud_images_o3d_merged/'
-    for i_scene_name,scene_name in enumerate(COMBINED_SCENE_NAMES):
-    #for scene_name in ('sg27_station5_intensity_rgb',)
-        print()
-        print("Scene: ",scene_name)
-        scene_objects=pickle.load( open('data/numpy_merged/'+scene_name+'.objects.pkl', 'rb'))
-        poses_rendered=pickle.load( open( os.path.join(base_dir,scene_name,'poses_rendered.pkl'), 'rb'))
+    #for split in ('train','test',):
+    for split in ('test',):
+        for i_scene_name,scene_name in enumerate(COMBINED_SCENE_NAMES):
+        #for scene_name in ('sg27_station5_intensity_rgb',)
+            print(f'\n\n View-Objects for scene <{scene_name}> split <{split}>')
+            scene_objects=pickle.load( open('data/numpy_merged/'+scene_name+'.objects.pkl', 'rb'))
+            poses_rendered=pickle.load( open( os.path.join(base_dir,split,scene_name,'poses_rendered.pkl'), 'rb'))
 
-        scene_view_objects={}
-        total_view_objects=0
-        for i_file,file_name in enumerate(poses_rendered.keys()):
-            pose=poses_rendered[file_name]
-            view_objects=create_view_objects(scene_objects,pose)
-            total_view_objects+=len(view_objects)
-            scene_view_objects[file_name]=view_objects
-            #print(f'\r file {i_file} of {len(poses_rendered)}',end='')
+            scene_view_objects={}
+            total_view_objects=0
+            for i_file,file_name in enumerate(poses_rendered.keys()):
+                pose=poses_rendered[file_name]
+                view_objects=create_view_objects(scene_objects,pose)
+                total_view_objects+=len(view_objects)
+                scene_view_objects[file_name]=view_objects
+                #print(f'\r file {i_file} of {len(poses_rendered)}',end='')
 
-        print()
-        print('Saving view objects...', total_view_objects/len(scene_view_objects),'view objects on average')
-        pickle.dump( scene_view_objects, open(os.path.join(base_dir,scene_name,'view_objects.pkl'), 'wb'))
+            print()
+            print('Saving view objects...', total_view_objects/len(scene_view_objects),'view objects on average')
+            pickle.dump( scene_view_objects, open(os.path.join(base_dir,split,scene_name,'view_objects.pkl'), 'wb'))
 
     quit()  
