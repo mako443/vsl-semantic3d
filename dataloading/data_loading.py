@@ -98,14 +98,14 @@ class Semantic3dDataset(Dataset):
                 scene_captions= [ scene_captions_dict[image_name] for image_name in scene_image_names ]
                 self.view_captions.extend(scene_captions)             
 
-        self.image_paths=np.array(self.image_paths,dtype=np.object)
+        self.image_paths=np.array(self.image_paths)
         self.image_poses=np.array(self.image_poses,dtype=np.object)
-        self.image_positions=np.array(self.image_positions,dtype=np.object)
-        self.image_orientations=np.array(self.image_orientations,dtype=np.object)
-        self.image_scene_names=np.array(self.image_scene_names,dtype=np.object)
+        self.image_positions=np.array(self.image_positions)
+        self.image_orientations=np.array(self.image_orientations)
+        self.image_scene_names=np.array(self.image_scene_names)
         self.view_objects=np.array(self.view_objects,dtype=np.object)
         self.view_scenegraphs=np.array(self.view_scenegraphs,dtype=np.object)
-        self.view_captions=np.array(self.view_captions,dtype=np.object)
+        self.view_captions=np.array(self.view_captions)
         
         assert self.image_positions.shape[1]==3
         assert len(self.image_paths)==len(self.image_poses) #==len(self.view_objects)==len(self.view_scenegraphs)
@@ -131,7 +131,7 @@ class Semantic3dDataset(Dataset):
         #Create Scene-Graph data
         if self.load_sceneGraphs:
             self.node_embeddings, self.edge_embeddings=pickle.load(open(os.path.join(dirpath_main,'..','graph_embeddings.pkl'), 'rb')) #Graph embeddings are in the top dir
-            self.view_scenegraph_data=np.array([ create_scenegraph_data(sg, self.node_embeddings, self.edge_embeddings) for sg in self.view_scenegraphs ], dtype=object)
+            self.view_scenegraph_data=[ create_scenegraph_data(sg, self.node_embeddings, self.edge_embeddings) for sg in self.view_scenegraphs ]
             assert len(self.view_scenegraph_data)==len(self.image_poses)
             empty_graphs=[1 for sg in self.view_scenegraphs if sg.is_empty()]
             print(f'Empty Graphs: {np.sum(empty_graphs)} of {len(self.image_poses)}, {np.sum(empty_graphs) / len(self.image_poses)}')

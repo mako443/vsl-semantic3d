@@ -4,13 +4,15 @@ import cv2
 import os
 import torch
 import sys
-from torch.utils.data import DataLoader
+#from torch.utils.data import DataLoader
 from torchvision import transforms
 import torchvision.models
 import torch.nn as nn
 
+from torch_geometric.data import DataLoader #Use the PyG DataLoader
+
 from dataloading.data_loading import Semantic3dDataset, Semantic3dDatasetTriplet
-from retrieval.utils import get_split_indices
+#from retrieval.utils import get_split_indices
 from retrieval import networks
 from retrieval.netvlad import NetVLAD, EmbedNet
 
@@ -19,6 +21,7 @@ from semantic.scene_graph_cluster3d_scoring import score_sceneGraph_to_viewObjec
 from evaluation.utils import evaluate_topK, generate_sanity_check_dataset
 
 from visual_semantic.visual_semantic_embedding import VisualSemanticEmbedding
+from geometric.visual_graph_embedding import create_image_model_vgg11, VisualGraphEmbedding
 
 
 '''
@@ -43,9 +46,8 @@ Matching SGs analytically to the View-Objects from 3D-Clustering
 -check top-hits ✓
 -Handle empty Scene Graphs strategies compare: 1.0 doesn't work, Try to potentiate the unused_factor?
 '''
-def scenegraph_to_viewObjects(data_loader_train, data_loader_test, top_k=(1,3,5,10), unused_factor=None):
-    CHECK_COUNT=len(data_loader_test.dataset)
-    print(f'#Check: {CHECK_COUNT}, # training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
+def scenegraph_to_viewObjects(data_loader_train, data_loader_test, top_k=(1,3,5,10), unused_factor=None, check_count='all'):
+    print(f'#Check: {check_count}, # training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
     print('unused-factor:',unused_factor)
 
     retrieval_dict={}
@@ -62,15 +64,14 @@ def scenegraph_to_viewObjects(data_loader_train, data_loader_test, top_k=(1,3,5,
     ori_results  ={k:[] for k in top_k}
     scene_results={k:[] for k in top_k}
 
-    if CHECK_COUNT==len(data_loader_test.dataset):
+    if check_count=='all':
         print('evaluating all indices...')
         check_indices=np.arange(len(data_loader_test.dataset))
     else:
         print('evaluating random indices...')
-        check_indices=np.random.randint(len(data_loader_test.dataset), size=CHECK_COUNT)
+        check_indices=np.random.randint(len(data_loader_test.dataset), size=check_count)
 
     for i_idx,idx in enumerate(check_indices):
-        #print(f'\r index {i_idx} of {CHECK_COUNT}', end='')
         scene_name_gt=scene_names_test[idx]
 
         #Score query SG vs. database scenes
@@ -98,7 +99,7 @@ def scenegraph_to_viewObjects(data_loader_train, data_loader_test, top_k=(1,3,5,
             ori_results[k].append( np.mean( topk_ori_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
             scene_results[k].append( np.mean(scene_correct) ) #Always append the scene-scores
     
-    assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==CHECK_COUNT
+    assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==len(check_indices)
 
     print('Saving retrieval results...')
     pickle.dump(retrieval_dict, open('retrievals_PureSG.pkl','wb'))
@@ -108,9 +109,8 @@ def scenegraph_to_viewObjects(data_loader_train, data_loader_test, top_k=(1,3,5,
 '''
 Evaluating pure NetVLAD retrieval
 '''
-def netvlad_retrieval(data_loader_train, data_loader_test, model, top_k=(1,3,5,10), random_features=False):
-    CHECK_COUNT= len(data_loader_test.dataset)
-    print(f'#Check: {CHECK_COUNT}, # training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
+def netvlad_retrieval(data_loader_train, data_loader_test, model, top_k=(1,3,5,10), random_features=False, check_count='all'):
+    print(f'#Check: {check_count}, # training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
 
     retrieval_dict={}
 
@@ -147,12 +147,12 @@ def netvlad_retrieval(data_loader_train, data_loader_test, model, top_k=(1,3,5,1
     ori_results  ={k:[] for k in top_k}
     scene_results={k:[] for k in top_k}
 
-    if CHECK_COUNT==len(data_loader_test.dataset):
+    if check_count=='all':
         print('evaluating all indices...')
-        check_indices=np.arange(len(netvlad_vectors_test))
+        check_indices=np.arange(len(data_loader_test.dataset))
     else:
         print('evaluating random indices...')
-        check_indices=np.random.randint(len(netvlad_vectors_test), size=CHECK_COUNT)
+        check_indices=np.random.randint(len(data_loader_test.dataset), size=check_count)
         
     for idx in check_indices:
         scene_name_gt=scene_names_test[idx]
@@ -178,7 +178,7 @@ def netvlad_retrieval(data_loader_train, data_loader_test, model, top_k=(1,3,5,1
             ori_results[k].append( np.mean( topk_ori_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
             scene_results[k].append( np.mean(scene_correct) ) #Always append the scene-scores
     
-    assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==CHECK_COUNT
+    assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==len(check_indices)
 
     print('Saving retrieval results...')
     pickle.dump(retrieval_dict, open('retrievals_NetVLAD.pkl','wb'))
@@ -190,9 +190,8 @@ Combining NetVLAD and Scene-Graph matching
 
 -10 scenes, nnRels, sum : 
 '''
-def netvlad_scenegraphs2viewobjects(data_loader_train, data_loader_test,model, top_k=(1,3,5,10), combine='sum'):
-    CHECK_COUNT=len(data_loader_test.dataset)
-    print(f'#Check: {CHECK_COUNT}, # training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
+def netvlad_scenegraphs2viewobjects(data_loader_train, data_loader_test,model, top_k=(1,3,5,10), combine='sum', check_count='all'):
+    print(f'#Check: {check_count}, # training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
 
     assert combine in ('sum','mean','multiply')
     print('COMBINING STRATEGY:',combine)
@@ -211,12 +210,12 @@ def netvlad_scenegraphs2viewobjects(data_loader_train, data_loader_test,model, t
     ori_results  ={k:[] for k in top_k}
     scene_results={k:[] for k in top_k}
 
-    if CHECK_COUNT==len(data_loader_test.dataset):
+    if check_count=='all':
         print('evaluating all indices...')
         check_indices=np.arange(len(data_loader_test.dataset))
     else:
         print('evaluating random indices...')
-        check_indices=np.random.randint(len(data_loader_test.dataset), size=CHECK_COUNT)
+        check_indices=np.random.randint(len(data_loader_test.dataset), size=check_count)
 
     print('Building NetVLAD vectors...')
     netvlad_vectors_train, netvlad_vectors_test=torch.tensor([]).cuda(), torch.tensor([]).cuda()
@@ -274,7 +273,7 @@ def netvlad_scenegraphs2viewobjects(data_loader_train, data_loader_test,model, t
             ori_results[k].append( np.mean( topk_ori_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
             scene_results[k].append( np.mean(scene_correct) ) #Always append the scene-scores
     
-    assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==CHECK_COUNT  
+    assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==len(check_indices)  
 
     print('Saving retrieval results...')
     pickle.dump(retrieval_dict, open('retrievals_NetVLAD_SGmatch.pkl','wb'))
@@ -286,9 +285,8 @@ TODO:
 -sanity check
 -ggf. NetVLAD backbone / more text / discussion&graph results
 '''
-def vse_text2image(data_loader_train, data_loader_test, model, top_k=(1,3,5,10)):
-    CHECK_COUNT=len(data_loader_test.dataset)
-    print(f'#Check: {CHECK_COUNT}, # training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
+def vse_text2image(data_loader_train, data_loader_test, model, top_k=(1,3,5,10), check_count='all'):
+    print(f'#Check: {check_count}, # training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
 
     retrieval_dict={}
 
@@ -308,12 +306,12 @@ def vse_text2image(data_loader_train, data_loader_test, model, top_k=(1,3,5,10))
     ori_results  ={k:[] for k in top_k}
     scene_results={k:[] for k in top_k}
 
-    if CHECK_COUNT==len(data_loader_test.dataset):
+    if check_count=='all':
         print('evaluating all indices...')
         check_indices=np.arange(len(data_loader_test.dataset))
     else:
         print('evaluating random indices...')
-        check_indices=np.random.randint(len(data_loader_test.dataset), size=CHECK_COUNT)
+        check_indices=np.random.randint(len(data_loader_test.dataset), size=check_count)
 
     print('Building embeddings...')
     x_train, v_train=torch.tensor([]).cuda(), torch.tensor([]).cuda() #Visual and Semantic embeddings for train dataset
@@ -352,7 +350,7 @@ def vse_text2image(data_loader_train, data_loader_test, model, top_k=(1,3,5,10))
             ori_results[k].append( np.mean( topk_ori_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
             scene_results[k].append( np.mean(scene_correct) ) #Always append the scene-scores
     
-    assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==CHECK_COUNT
+    assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==len(check_indices)
 
     print('Saving retrieval results...')
     pickle.dump(retrieval_dict, open('retrievals_VSE.pkl','wb'))
@@ -361,7 +359,81 @@ def vse_text2image(data_loader_train, data_loader_test, model, top_k=(1,3,5,10))
     dataset_train.return_captions=False
     dataset_test.return_captions= False
 
-    return evaluate_topK(pos_results, ori_results, scene_results)                     
+    return evaluate_topK(pos_results, ori_results, scene_results)   
+
+def vge_graph2image(data_loader_train, data_loader_test, model, top_k=(1,3,5,10), check_count='all'):
+    retrieval_dict={}
+
+    dataset_train=data_loader_train.dataset
+    dataset_test=data_loader_test.dataset
+
+    #Turn on graph data
+    dataset_train.return_graph_data=True
+    dataset_test.return_graph_data= True
+
+    image_positions_train, image_orientations_train = data_loader_train.dataset.image_positions, data_loader_train.dataset.image_orientations
+    image_positions_test, image_orientations_test = data_loader_test.dataset.image_positions, data_loader_test.dataset.image_orientations
+    scene_names_train = data_loader_train.dataset.image_scene_names
+    scene_names_test  = data_loader_test.dataset.image_scene_names    
+
+    pos_results  ={k:[] for k in top_k}
+    ori_results  ={k:[] for k in top_k}
+    scene_results={k:[] for k in top_k}
+
+    if check_count=='all':
+        print('evaluating all indices...')
+        check_indices=np.arange(len(data_loader_test.dataset))
+    else:
+        print('evaluating random indices...')
+        check_indices=np.random.randint(len(data_loader_test.dataset), size=check_count)
+
+    print('Building embeddings...')
+    x_train, v_train=torch.tensor([]).cuda(), torch.tensor([]).cuda() #Visual and Semantic embeddings for train dataset
+    x_test , v_test =torch.tensor([]).cuda(), torch.tensor([]).cuda() #Visual and Semantic embeddings for test dataset
+    with torch.no_grad():
+        for batch in data_loader_train:
+            x,v=model(batch['images'].cuda(),batch['graphs'].to('cuda'))
+            x_train, v_train=torch.cat((x_train, x)), torch.cat((v_train,v))
+        for batch in data_loader_test:
+            x,v=model(batch['images'].cuda(),batch['graphs'].to('cuda'))
+            x_test, v_test=torch.cat((x_test, x)), torch.cat((v_test,v)) 
+
+    x_train, v_train= x_train.cpu().detach().numpy(), v_train.cpu().detach().numpy()
+    x_test , v_test = x_test.cpu().detach().numpy(), v_test.cpu().detach().numpy()    
+
+    for idx in check_indices:
+        scene_name_gt=scene_names_test[idx]
+
+        embedding_diffs=x_train-v_test[idx]
+        embedding_diffs=np.linalg.norm(embedding_diffs,axis=1) #CARE: Embedding-diffs can be big compared to NetVLAD-diffs
+
+        sorted_indices=np.argsort(embedding_diffs) #Sort low->high
+        pos_dists=np.linalg.norm(image_positions_train[:]-image_positions_test[idx], axis=1) #CARE: also adds z-distance
+        ori_dists=np.abs(image_orientations_train[:]-image_orientations_test[idx])
+        ori_dists=np.minimum(ori_dists, 2*np.pi-ori_dists)
+
+        retrieval_dict[idx]=sorted_indices[0:np.max(top_k)]   
+
+        for k in top_k:
+            scene_correct=np.array([scene_name_gt == scene_names_train[retrieved_index] for retrieved_index in sorted_indices[0:k]])
+            topk_pos_dists=pos_dists[sorted_indices[0:k]]
+            topk_ori_dists=ori_dists[sorted_indices[0:k]]    
+
+            #Append the average pos&ori. errors *for the cases that the scene was hit*
+            pos_results[k].append( np.mean( topk_pos_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
+            ori_results[k].append( np.mean( topk_ori_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
+            scene_results[k].append( np.mean(scene_correct) ) #Always append the scene-scores
+    
+    assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==len(check_indices)
+
+    print('Saving retrieval results...')
+    pickle.dump(retrieval_dict, open('retrievals_VGE.pkl','wb'))
+
+    #Turn off graph data
+    dataset_train.return_graph_data=False
+    dataset_test.return_graph_data= False
+
+    return evaluate_topK(pos_results, ori_results, scene_results)      
 
 
 #TODO/CARE: re-create view-objects & SGs for occl. bug
@@ -377,22 +449,22 @@ if __name__ == "__main__":
     ])  
 
     train_indices, test_indices=get_split_indices(TEST_SPLIT, 3000)
-    data_set_train=Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=train_indices, load_viewObjects=True, load_sceneGraphs=True)
-    data_set_test =Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=test_indices, load_viewObjects=True, load_sceneGraphs=True)
+    data_set_train=Semantic3dDataset('data/pointcloud_images_o3d_merged','train',transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True)
+    data_set_test =Semantic3dDataset('data/pointcloud_images_o3d_merged','test', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True)
 
     data_loader_train=DataLoader(data_set_train, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #CARE: put shuffle off
     data_loader_test =DataLoader(data_set_test , batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)        
 
     #####
-    ds=Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=None, image_limit=IMAGE_LIMIT, split_indices=train_indices, load_viewObjects=True, load_sceneGraphs=True)
-    vgg=torchvision.models.vgg11(pretrained=True)
-    for i in [4,5,6]: vgg.classifier[i]=torch.nn.Identity()     #Remove layers after the 4096 features Linear layer
-    model=VisualSemanticEmbedding(vgg, data_set_train.get_known_words(), 300)
+    # ds=Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=None, image_limit=IMAGE_LIMIT, split_indices=train_indices, load_viewObjects=True, load_sceneGraphs=True)
+    # vgg=torchvision.models.vgg11(pretrained=True)
+    # for i in [4,5,6]: vgg.classifier[i]=torch.nn.Identity()     #Remove layers after the 4096 features Linear layer
+    # model=VisualSemanticEmbedding(vgg, data_set_train.get_known_words(), 300)
 
-    model_name='model_vse_l3000_b6_g0.75_e300_sTrue_m1.0_split4.pth'
-    model.load_state_dict(torch.load('models/'+model_name))
-    model.eval()
-    model.cuda()    
+    # model_name='model_vse_l3000_b6_g0.75_e300_sTrue_m1.0_split4.pth'
+    # model.load_state_dict(torch.load('models/'+model_name))
+    # model.eval()
+    # model.cuda()    
 
     '''
     Evaluation: NetVLAD retrieval
@@ -405,7 +477,7 @@ if __name__ == "__main__":
         netvlad_layer=NetVLAD(num_clusters=NUM_CLUSTERS, dim=512, alpha=ALPHA)
         model=EmbedNet(encoder, netvlad_layer)
 
-        model_name='model_l3000_b6_g0.75_c8_a10.0_split4.pth'
+        model_name='model_netvlad_l3000_b6_g0.75_c8_a10.0.pth'
         model.load_state_dict(torch.load('models/'+model_name))
         model.eval()
         model.cuda()
@@ -458,6 +530,21 @@ if __name__ == "__main__":
 
         pos_results, ori_results, scene_results=vse_text2image(data_loader_train, data_loader_test, model)
         print(pos_results, ori_results, scene_results)   
+
+    if "vge" in sys.argv:
+        print('## Evaluation: Pure VGE scoring')
+        EMBED_DIM=300 #CARE: Make sure this matches
+        vgg=create_image_model_vgg11()
+        model=VisualGraphEmbedding(vgg, EMBED_DIM).cuda()
+
+        model_name='model_vgeUE_l3000_b6_g0.75_e300_sTrue_m1.0.pth'
+        model.load_state_dict(torch.load('models/'+model_name))
+        model.eval()
+        model.cuda()
+        print('Model:',model_name)
+
+        pos_results, ori_results, scene_results=vge_graph2image(data_loader_train, data_loader_test, model)
+        print(pos_results, ori_results, scene_results)        
 
 
 #DEPRECATED

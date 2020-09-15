@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name="Point-Cloud Rendering"
+#SBATCH --job-name="S3D Rendering"
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:1,VRAM:12G

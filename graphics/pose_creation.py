@@ -12,6 +12,9 @@ import graphics.poses_test
 
 '''
 Module to find the poses and save them
+
+TODO:
+-assert that the poses files are there, add comment
 '''
 
 def interpolate_points(points_in, num_points):
