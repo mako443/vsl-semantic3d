@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
+#from torch.utils.data import DataLoader
 from torchvision import transforms
 import torchvision
 import torchvision.models
@@ -10,6 +10,8 @@ import random
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+
+from torch_geometric.data import DataLoader #Use the PyG DataLoader
 
 from retrieval.utils import get_split_indices
 from dataloading.data_loading import Semantic3dDataset
@@ -46,7 +48,7 @@ transform=transforms.Compose([
 
 train_indices, test_indices=get_split_indices(TEST_SPLIT, 3000)
 
-data_set=Semantic3dDataset('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=None, load_viewObjects=True, load_sceneGraphs=True)
+data_set=Semantic3dDataset('data/pointcloud_images_o3d_merged','train', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True, return_graph_data=True)
 #Option: shuffle, pin_memory crashes on my system, CARE: shuffle for PairWiseRankingLoss(!)
 data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=False, shuffle=SHUFFLE) 
 

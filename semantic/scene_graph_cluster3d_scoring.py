@@ -149,7 +149,7 @@ def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_fac
     best_groundings=[None for i in range(len(scene_graph.relationships))]
     best_scores=[MIN_SCORE for i in range(len(scene_graph.relationships))] 
 
-    #Can't score empty graphs 1.0 -> unused_factor because the factor is not enough to compensate
+    #Can't score empty graphs 1.0 then apply unused_factor because the factor is not enough to compensate
     if scene_graph.is_empty() or len(view_objects)<2:
         return 0.0, None
     for i_relation, relation in enumerate(scene_graph.relationships):

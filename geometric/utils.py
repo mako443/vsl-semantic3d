@@ -1,6 +1,8 @@
 import os
 import pickle
 import numpy as np
+import torch_geometric
+import torch
 from semantic.imports import SceneGraph, SceneGraphObject
 
 '''
@@ -56,7 +58,9 @@ def create_scenegraph_data(scene_graph, node_dict, edge_dict):
         edges.append((0,1))
         edge_features.append(edge_dict['attribute'])
         edges=np.array(edges).reshape((2,1))
-        return np.array(node_features), np.array(edges), np.array(edge_features)
+        return torch_geometric.data.Data(x=torch.from_numpy(np.array(node_features,dtype=np.int64)),
+                                        edge_index=torch.from_numpy(np.array(edges,dtype=np.int64)),
+                                        edge_attr= torch.from_numpy(np.array(edge_features,dtype=np.float32)))
 
     for rel in scene_graph.relationships:
         sub, rel_type, obj=rel
@@ -89,11 +93,17 @@ def create_scenegraph_data(scene_graph, node_dict, edge_dict):
         edges.append( (len(node_features)-1, obj_idx) )
         edge_features.append(edge_dict['attribute'])        
 
+    node_features=np.array(node_features)
     edges=np.array(edges).T #Transpose for PyG-format
+    edge_features=np.array(edge_features)
     assert len(edge_features)==edges.shape[1]== len(scene_graph.relationships) * (2*2+1)
     assert len(node_features)==len(scene_graph.relationships) * (2*3)
 
-    return np.array(node_features), np.array(edges), np.array(edge_features)
+    #return np.array(node_features), np.array(edges), np.array(edge_features)
+    return torch_geometric.data.Data(x=torch.from_numpy(node_features.astype(np.int64)),
+                                     edge_index=torch.from_numpy(edges.astype(np.int64)),
+                                     edge_attr= torch.from_numpy(edge_features.astype(np.float32)))
+
 
 
 def draw_graph(scene_graph):

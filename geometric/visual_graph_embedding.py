@@ -46,7 +46,7 @@ class VisualGraphEmbedding(torch.nn.Module):
         self.W_i=torch.nn.Linear(self.image_dim,self.embedding_dim,bias=True)
 
     def forward(self, images, graphs):
-        assert len(graphs)==len(images)
+        #assert len(graphs)==len(images)
 
         out_images=self.encode_images(images)
         out_graphs=self.encode_graphs(graphs)

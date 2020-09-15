@@ -70,7 +70,7 @@ transform=transforms.Compose([
 
 train_indices, test_indices=get_split_indices(TEST_SPLIT, 3000)
 
-data_set=Semantic3dDatasetTriplet('data/pointcloud_images_o3d_merged', transform=transform, image_limit=IMAGE_LIMIT, split_indices=train_indices, load_viewObjects=False, load_sceneGraphs=False)
+data_set=Semantic3dDatasetTriplet('data/pointcloud_images_o3d_merged','train', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=False, load_sceneGraphs=False)
 data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #Option: shuffle
 
 loss_dict={}
@@ -85,6 +85,7 @@ for lr in (1e-2,):
     netvlad_layer=NetVLAD(num_clusters=NUM_CLUSTERS, dim=512, alpha=ALPHA)
 
     model=EmbedNet(encoder, netvlad_layer).cuda()
+    quit()
 
     criterion=nn.TripletMarginLoss(margin=1.0)
     optimizer=optim.Adam(model.parameters(), lr=lr)    
