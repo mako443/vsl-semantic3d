@@ -102,8 +102,8 @@ class Semantic3dDataset(Dataset):
 
         self.image_paths=np.array(self.image_paths)
         self.image_poses=np.array(self.image_poses,dtype=np.object)
-        self.image_positions=np.array(self.image_positions,dtype=np.object)
-        self.image_orientations=np.array(self.image_orientations,dtype=np.object)
+        self.image_positions=np.array(self.image_positions)
+        self.image_orientations=np.array(self.image_orientations)
         self.image_scene_names=np.array(self.image_scene_names)
         self.view_objects=np.array(self.view_objects,dtype=np.object)
         self.view_scenegraphs=np.array(self.view_scenegraphs,dtype=np.object)

@@ -60,7 +60,7 @@ class CambridgeDataset(Dataset):
         return image
 
 
-dataset_train=CambridgeDataset('data_cambridge','train')
-print(np.min(dataset_train.image_orientations), np.max(dataset_train.image_orientations))
-
-#dataset_test =CambridgeDataset('data_cambridge','test')
+# dataset_train=CambridgeDataset('data_cambridge','train')
+# print(np.min(dataset_train.image_orientations), np.max(dataset_train.image_orientations))
+# dataset_test =CambridgeDataset('data_cambridge','test')
+# print(np.min(dataset_test.image_orientations), np.max(dataset_test.image_orientations))

@@ -105,7 +105,6 @@ def create_scenegraph_data(scene_graph, node_dict, edge_dict):
                                      edge_attr= torch.from_numpy(edge_features.astype(np.float32)))
 
 
-
 def draw_graph(scene_graph):
     pass
 

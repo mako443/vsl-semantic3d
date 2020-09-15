@@ -68,8 +68,11 @@ transform=transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
+<<<<<<< HEAD
 train_indices, test_indices=get_split_indices(TEST_SPLIT, 3000)
 
+=======
+>>>>>>> 12c732288798d3049cee1325dc884ea970532bb5
 data_set=Semantic3dDatasetTriplet('data/pointcloud_images_o3d_merged','train', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=False, load_sceneGraphs=False)
 data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #Option: shuffle
 
@@ -122,7 +125,7 @@ for lr in (1e-2,):
         best_model=model
 
 print('\n----')           
-model_name=f'model_netvlad_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_c{NUM_CLUSTERS}_a{ALPHA}_split{TEST_SPLIT}.pth'
+model_name=f'model_netvlad_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_c{NUM_CLUSTERS}_a{ALPHA}.pth'
 print('Saving best model',model_name)
 torch.save(best_model.state_dict(),model_name)
 
@@ -132,4 +135,4 @@ for k in loss_dict.keys():
     line.set_label(k)
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_netvlad_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_c{NUM_CLUSTERS}_a{ALPHA}_split{TEST_SPLIT}.png')    
+plt.savefig(f'loss_netvlad_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_c{NUM_CLUSTERS}_a{ALPHA}.png')    

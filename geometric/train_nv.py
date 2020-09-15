@@ -16,37 +16,30 @@ from torch_geometric.data import DataLoader #Use the PyG DataLoader
 from retrieval.utils import get_split_indices
 from dataloading.data_loading import Semantic3dDataset
 from visual_semantic.visual_semantic_embedding import PairwiseRankingLoss
-from .visual_graph_embedding import VisualGraphEmbedding, create_image_model_vgg11
+from .visual_graph_embedding import VisualGraphEmbedding,VisualGraphEmbeddingNetVLAD, create_image_model_vgg11, create_image_model_netvlad
 
 '''
-Visual Graph Embedding training
+Visual Graph Embedding training (NetVLAD backbone)
 
 TODO:
--Very small
--Train big, evaluate
--NetVLAD backbone
--train w/ TripletMarginLoss?
-
--NetVLAD backbone, train all together w/ TripletMarginLoss
+-Weight decay ✓
 '''
 
-IMAGE_LIMIT=60
-BATCH_SIZE=2 #12 gives memory error, 8 had more loss than 6?
+IMAGE_LIMIT=3000
+BATCH_SIZE=6 #12 gives memory error, 8 had more loss than 6?
 LR_GAMMA=0.75
-TEST_SPLIT=4
 EMBED_DIM=300
 SHUFFLE=True
+DECAY=0.001 #This decay proved best
 MARGIN=1.0 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
 
-print(f'image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} test-split: {TEST_SPLIT} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN}')
+print(f'VGE-NV (naive) training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN} decay: {DECAY}')
 
 transform=transforms.Compose([
     #transforms.Resize((950,1000)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
-
-train_indices, test_indices=get_split_indices(TEST_SPLIT, 3000)
 
 data_set=Semantic3dDataset('data/pointcloud_images_o3d_merged','train', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True, return_graph_data=True)
 #Option: shuffle, pin_memory crashes on my system, CARE: shuffle for PairWiseRankingLoss(!)
@@ -56,24 +49,23 @@ loss_dict={}
 best_loss=np.inf
 best_model=None
 
-for lr in (2e-2,1e-2,5e-3):
+for lr in (1e-2,5e-2,1e-3,5e-3,1e-4):
     print('\n\nlr: ',lr)
 
-    vgg=create_image_model_vgg11()
-    model=VisualGraphEmbedding(vgg, EMBED_DIM).cuda()
+    netvlad=create_image_model_netvlad()
+    model=VisualGraphEmbeddingNetVLAD(netvlad, EMBED_DIM).cuda()
 
-    criterion=PairwiseRankingLoss(margin=MARGIN)
-    optimizer=optim.Adam(model.parameters(), lr=lr) #Adam is ok for PyG
+    criterion=nn.MSELoss()
+    optimizer=optim.Adam(model.parameters(), lr=lr, weight_decay=DECAY) #Adam is ok for PyG
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)   
 
-    if type(criterion)==PairwiseRankingLoss: assert SHUFFLE==True 
-
     loss_dict[lr]=[]
-    for epoch in range(3):
+    for epoch in range(4):
         epoch_loss_sum=0.0
         for i_batch, batch in enumerate(data_loader):
             
             optimizer.zero_grad()
+            #print(batch)
             
             out_visual, out_graph=model(batch['images'].cuda(), batch['graphs'].to('cuda'))
 
@@ -88,7 +80,7 @@ for lr in (2e-2,1e-2,5e-3):
         scheduler.step()
 
         epoch_avg_loss = epoch_loss_sum/(i_batch+1)
-        print(f'epoch {epoch} final avg-loss {epoch_avg_loss}')
+        print(f'epoch {epoch} final avg-loss {epoch_avg_loss} vec-norm {np.linalg.norm(out_graph.cpu().detach().numpy(),axis=1)}')
         loss_dict[lr].append(epoch_avg_loss)
 
     #Now using loss-avg of last epoch!
@@ -97,7 +89,7 @@ for lr in (2e-2,1e-2,5e-3):
         best_model=model
 
 print('\n----')           
-model_name=f'model_vge_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_split{TEST_SPLIT}.pth'
+model_name=f'model_vgeNV_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_d{DECAY}.pth'
 print('Saving best model',model_name)
 torch.save(best_model.state_dict(),model_name)
 
@@ -107,4 +99,4 @@ for k in loss_dict.keys():
     line.set_label(k)
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_vge_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_split{TEST_SPLIT}.png')    
+plt.savefig(f'loss_vgeNV_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_d{DECAY}.png')    
