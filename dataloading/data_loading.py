@@ -183,8 +183,8 @@ class Semantic3dDataset(Dataset):
 #Subclass to load the images as trainig triplets
 #Also load SG/text triplets?
 class Semantic3dDatasetTriplet(Semantic3dDataset):
-    def __init__(self, dirpath_main,split, transform=None, image_limit=None, load_viewObjects=True, load_sceneGraphs=True):
-        super().__init__(dirpath_main,split, transform=transform, image_limit=image_limit, load_viewObjects=load_viewObjects, load_sceneGraphs=load_sceneGraphs)
+    def __init__(self, dirpath_main,split, transform=None, image_limit=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=False, return_graph_data=False):
+        super().__init__(dirpath_main,split, transform=transform, image_limit=image_limit, load_viewObjects=load_viewObjects, load_sceneGraphs=load_sceneGraphs, return_captions=return_captions, return_graph_data=return_graph_data)
         self.positive_thresh=(7.5, 2*np.pi/10*1.01) #The 2 images left&right
         self.negative_thresh=(10,  np.pi / 2)
 
@@ -230,7 +230,14 @@ class Semantic3dDatasetTriplet(Semantic3dDataset):
         if self.transform:
             anchor, positive, negative = self.transform(anchor),self.transform(positive),self.transform(negative)
 
-        return anchor, positive, negative
+        if self.return_captions:
+            return {'images_anchor':anchor, 'images_positive':positive, 'images_negative':negative,
+                    'captions_anchor':self.view_captions[anchor_index], 'captions_positive':self.view_captions[positive_index], 'captions_negative':self.view_captions[negative_index]}
+        elif self.return_graph_data:
+            return {'images_anchor':anchor, 'images_positive':positive, 'images_negative':negative,
+                    'graphs_anchor':self.view_scenegraph_data[anchor_index], 'graphs_positive':self.view_scenegraph_data[positive_index], 'graphs_negative':self.view_scenegraph_data[negative_index]}
+        else:
+            return anchor, positive, negative            
 
 
 if __name__ == "__main__":
