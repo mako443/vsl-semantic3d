@@ -13,32 +13,23 @@ import matplotlib.pyplot as plt
 
 from torch_geometric.data import DataLoader #Use the PyG DataLoader
 
-from retrieval.utils import get_split_indices
-from dataloading.data_loading import Semantic3dDataset
-from visual_semantic.visual_semantic_embedding import PairwiseRankingLoss
-from .visual_graph_embedding import VisualGraphEmbedding, create_image_model_vgg11
+from dataloading.data_loading import Semantic3dDatasetTriplet
+
+from .graph_embedding import GraphEmbedding
 
 '''
-Visual Graph Embedding training
-
-TODO:
--Very small
--Train big, evaluate
--NetVLAD backbone
--train w/ TripletMarginLoss?
-
--NetVLAD backbone, train all together w/ TripletMarginLoss
+Module to train a simple Graph-Embedding model to score the similarity of graphs (using no visual information)
 '''
 
 IMAGE_LIMIT=3000
-BATCH_SIZE=6 #12 gives memory error, 8 had more loss than 6?
+BATCH_SIZE=12
 LR_GAMMA=0.75
-TEST_SPLIT=4
-EMBED_DIM=300
+EMBED_DIM=100
 SHUFFLE=True
+DECAY=None #Tested, no decay here
 MARGIN=1.0 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
 
-print(f'VGE-UE training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN}')
+print(f'Graph Embedding training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN}')
 
 transform=transforms.Compose([
     #transforms.Resize((950,1000)),
@@ -46,38 +37,38 @@ transform=transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
-data_set=Semantic3dDataset('data/pointcloud_images_o3d_merged','train', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True, return_graph_data=True)
-#Option: shuffle, pin_memory crashes on my system, CARE: shuffle for PairWiseRankingLoss(!)
+data_set=Semantic3dDatasetTriplet('data/pointcloud_images_o3d_merged','train', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True, return_graph_data=True)
+#Option: shuffle, pin_memory crashes on my system, 
 data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=False, shuffle=SHUFFLE) 
 
 loss_dict={}
 best_loss=np.inf
 best_model=None
 
-#for lr in (1e-2,5e-3,1e-3,5e-4):
-for lr in (1e-3,5e-4,2e-4):
+#for lr in (5e-3,1e-3,5e-4):
+for lr in (5e-3,1e-3):
     print('\n\nlr: ',lr)
 
-    vgg=create_image_model_vgg11()
-    model=VisualGraphEmbedding(vgg, EMBED_DIM).cuda()
+    model=GraphEmbedding(EMBED_DIM)
+    model.cuda()
 
-    criterion=PairwiseRankingLoss(margin=MARGIN)
+    criterion=nn.TripletMarginLoss(margin=MARGIN)
     optimizer=optim.Adam(model.parameters(), lr=lr) #Adam is ok for PyG
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)   
 
-    if type(criterion)==PairwiseRankingLoss: assert SHUFFLE==True 
-
     loss_dict[lr]=[]
-    for epoch in range(8):
+    for epoch in range(10):
         epoch_loss_sum=0.0
         for i_batch, batch in enumerate(data_loader):
             
             optimizer.zero_grad()
             #print(batch)
             
-            out_visual, out_graph=model(batch['images'].cuda(), batch['graphs'].to('cuda'))
+            a_out=model(batch['graphs_anchor'].to('cuda'))
+            p_out=model(batch['graphs_positive'].to('cuda'))
+            n_out=model(batch['graphs_negative'].to('cuda'))
 
-            loss=criterion(out_visual, out_graph)
+            loss=criterion(a_out,p_out,n_out)
             loss.backward()
             optimizer.step()
 
@@ -97,7 +88,7 @@ for lr in (1e-3,5e-4,2e-4):
         best_model=model
 
 print('\n----')           
-model_name=f'model_vgeUE_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}.pth'
+model_name=f'model_GraphEmbed_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}.pth'
 print('Saving best model',model_name)
 torch.save(best_model.state_dict(),model_name)
 
@@ -108,4 +99,4 @@ for k in loss_dict.keys():
 plt.gca().set_ylim(bottom=0.0) #Set the bottom to 0.0
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_vgeUE_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}.png')    
+plt.savefig(f'loss_GraphEmbed_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}.png')    
