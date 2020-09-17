@@ -53,7 +53,7 @@ class VisualGraphEmbedding(torch.nn.Module):
         self.image_model=image_model
         self.image_model.requires_grad_(False)
         self.image_model.eval()
-        #self.image_dim=image_model.dim*image_model.num_clusters #Output get's flattened during NetVLAD
+        #self.image_dim=image_model.dim*image_model.num_clusters #Output gets flattened during NetVLAD
         self.image_dim=list(image_model.parameters())[-1].shape[0] #For VGG
         assert self.image_dim==4096        
         
@@ -112,6 +112,7 @@ class VisualGraphEmbeddingNetVLAD(torch.nn.Module):
         self.image_model.requires_grad_(False)
         self.image_model.eval()
         self.image_dim=image_model.net_vlad.dim*image_model.net_vlad.num_clusters #Output get's flattened during NetVLAD
+        print('Image_Dim',self.image_dim)
         assert self.image_dim==4096        
         
         #TODO: Add linear layers?

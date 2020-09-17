@@ -21,6 +21,7 @@ from .graph_embedding import GraphEmbedding
 Module to train a simple Graph-Embedding model to score the similarity of graphs (using no visual information)
 '''
 
+<<<<<<< HEAD
 IMAGE_LIMIT=60
 BATCH_SIZE=2
 LR_GAMMA=0.75
@@ -30,6 +31,17 @@ DECAY=0.001 #This decay proved best
 MARGIN=1.0 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
 
 print(f'Graph Embedding training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN} decay: {DECAY}')
+=======
+IMAGE_LIMIT=3000
+BATCH_SIZE=12
+LR_GAMMA=0.75
+EMBED_DIM=100
+SHUFFLE=True
+DECAY=None #Tested, no decay here
+MARGIN=1.0 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
+
+print(f'Graph Embedding training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN}')
+>>>>>>> 766ad8cfb42f9c72b67e0c7316e944d1d0cadec3
 
 transform=transforms.Compose([
     #transforms.Resize((950,1000)),
@@ -45,18 +57,31 @@ loss_dict={}
 best_loss=np.inf
 best_model=None
 
+<<<<<<< HEAD
 for lr in (1e-1,1e-2,1e-3,1e-4):
+=======
+#for lr in (5e-3,1e-3,5e-4):
+for lr in (5e-3,1e-3):
+>>>>>>> 766ad8cfb42f9c72b67e0c7316e944d1d0cadec3
     print('\n\nlr: ',lr)
 
     model=GraphEmbedding(EMBED_DIM)
     model.cuda()
 
     criterion=nn.TripletMarginLoss(margin=MARGIN)
+<<<<<<< HEAD
     optimizer=optim.Adam(model.parameters(), lr=lr, weight_decay=DECAY) #Adam is ok for PyG
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)   
 
     loss_dict[lr]=[]
     for epoch in range(4):
+=======
+    optimizer=optim.Adam(model.parameters(), lr=lr) #Adam is ok for PyG
+    scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)   
+
+    loss_dict[lr]=[]
+    for epoch in range(10):
+>>>>>>> 766ad8cfb42f9c72b67e0c7316e944d1d0cadec3
         epoch_loss_sum=0.0
         for i_batch, batch in enumerate(data_loader):
             
@@ -87,7 +112,11 @@ for lr in (1e-1,1e-2,1e-3,1e-4):
         best_model=model
 
 print('\n----')           
+<<<<<<< HEAD
 model_name=f'model_GraphEmbed_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_d{DECAY}.pth'
+=======
+model_name=f'model_GraphEmbed_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}.pth'
+>>>>>>> 766ad8cfb42f9c72b67e0c7316e944d1d0cadec3
 print('Saving best model',model_name)
 torch.save(best_model.state_dict(),model_name)
 
@@ -95,6 +124,13 @@ for k in loss_dict.keys():
     l=loss_dict[k]
     line, = plt.plot(l)
     line.set_label(k)
+<<<<<<< HEAD
 plt.legend()
 #plt.show()
 plt.savefig(f'loss_GraphEmbed_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_d{DECAY}.png')    
+=======
+plt.gca().set_ylim(bottom=0.0) #Set the bottom to 0.0
+plt.legend()
+#plt.show()
+plt.savefig(f'loss_GraphEmbed_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}.png')    
+>>>>>>> 766ad8cfb42f9c72b67e0c7316e944d1d0cadec3

@@ -12,7 +12,6 @@ import torch.nn as nn
 from torch_geometric.data import DataLoader #Use the PyG DataLoader
 
 from dataloading.data_loading import Semantic3dDataset, Semantic3dDatasetTriplet
-#from retrieval.utils import get_split_indices
 from retrieval import networks
 from retrieval.netvlad import NetVLAD, EmbedNet
 
@@ -277,7 +276,7 @@ def netvlad_scenegraphs2viewobjects(data_loader_train, data_loader_test,model, t
     assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==len(check_indices)  
 
     print('Saving retrieval results...')
-    pickle.dump(retrieval_dict, open('retrievals_NetVLAD_SGmatch.pkl','wb'))
+    pickle.dump(retrieval_dict, open('retrievals_NV_SG-Match.pkl','wb'))
 
     return evaluate_topK(pos_results, ori_results, scene_results)    
 
@@ -330,7 +329,7 @@ def vse_text2image(data_loader_train, data_loader_test, model, top_k=(1,3,5,10),
 
     for idx in check_indices:
         scene_name_gt=scene_names_test[idx]
-
+        #TODO/ERROR: cosine-similarity vs. L2-difference
         embedding_diffs=x_train-v_test[idx]
         embedding_diffs=np.linalg.norm(embedding_diffs,axis=1) #CARE: Embedding-diffs can be big compared to NetVLAD-diffs
 
@@ -405,10 +404,14 @@ def vge_graph2image(data_loader_train, data_loader_test, model, top_k=(1,3,5,10)
     for idx in check_indices:
         scene_name_gt=scene_names_test[idx]
 
-        embedding_diffs=x_train-v_test[idx]
-        embedding_diffs=np.linalg.norm(embedding_diffs,axis=1) #CARE: Embedding-diffs can be big compared to NetVLAD-diffs
+        scores= x_train@v_test[idx]
+        assert len(scores)==len(dataset_train)
+        sorted_indices=np.argsort(-1.0*scores) #Sort high->low
 
-        sorted_indices=np.argsort(embedding_diffs) #Sort low->high
+        #embedding_diffs=x_train-v_test[idx]
+        #embedding_diffs=np.linalg.norm(embedding_diffs,axis=1) #CARE: Embedding-diffs can be big compared to NetVLAD-diffs
+        #sorted_indices=np.argsort(embedding_diffs) #Sort low->high
+
         pos_dists=np.linalg.norm(image_positions_train[:]-image_positions_test[idx], axis=1) #CARE: also adds z-distance
         ori_dists=np.abs(image_orientations_train[:]-image_orientations_test[idx])
         ori_dists=np.minimum(ori_dists, 2*np.pi-ori_dists)
@@ -449,7 +452,6 @@ if __name__ == "__main__":
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])  
 
-    train_indices, test_indices=get_split_indices(TEST_SPLIT, 3000)
     data_set_train=Semantic3dDataset('data/pointcloud_images_o3d_merged','train',transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True)
     data_set_test =Semantic3dDataset('data/pointcloud_images_o3d_merged','test', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True)
 
@@ -506,13 +508,13 @@ if __name__ == "__main__":
         netvlad_layer=NetVLAD(num_clusters=NUM_CLUSTERS, dim=512, alpha=ALPHA)
         model=EmbedNet(encoder, netvlad_layer)
 
-        model_name='model_l2800_b6_g0.75_c8_a10.0_split4.pth'
+        model_name='model_netvlad_l3000_b6_g0.75_c8_a10.0.pth'
         model.load_state_dict(torch.load('models/'+model_name))
         model.eval()
         model.cuda()
         print('Model:',model_name)
 
-        pos_results, ori_results, scene_results=netvlad_scenegraphs2viewobjects(data_loader_train, data_loader_test, model, combine='multiply')
+        pos_results, ori_results, scene_results=netvlad_scenegraphs2viewobjects(data_loader_train, data_loader_test, model, combine='sum')
         print(pos_results, ori_results, scene_results)                
         print()
 
@@ -544,7 +546,7 @@ if __name__ == "__main__":
         model.cuda()
         print('Model:',model_name)
 
-        pos_results, ori_results, scene_results=vge_graph2image(data_loader_train, data_loader_test, model)
+        pos_results, ori_results, scene_results=vge_graph2image(data_loader_train, data_loader_test, model, check_count=100)
         print(pos_results, ori_results, scene_results)        
 
 

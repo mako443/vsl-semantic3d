@@ -105,6 +105,7 @@ for k in loss_dict.keys():
     l=loss_dict[k]
     line, = plt.plot(l)
     line.set_label(k)
+plt.gca().set_ylim(bottom=0.0) #Set the bottom to 0.0
 plt.legend()
 #plt.show()
 plt.savefig(f'loss_vgeUE_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}.png')    
