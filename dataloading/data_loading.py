@@ -1,14 +1,16 @@
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from PIL import Image
 import time
 import os
 import pickle
+from torchvision import transforms
 from graphics.imports import Pose
 from semantic.patches import Patch
 from semantic.imports import SceneGraph, SceneGraphObject, ViewObject
 from geometric.utils import create_scenegraph_data
+from torch_geometric.data import DataLoader
 
 
 '''
@@ -239,5 +241,10 @@ class Semantic3dDatasetTriplet(Semantic3dDataset):
 
 
 if __name__ == "__main__":
-    dataset=Semantic3dDataset('data/pointcloud_images_o3d_merged','test',load_viewObjects=True, load_sceneGraphs=True)
+    dataset_train=Semantic3dDataset('data/pointcloud_images_o3d_merged','train',transform=transforms.ToTensor(), load_viewObjects=True, load_sceneGraphs=True, return_graph_data=False)
+    dataset_test =Semantic3dDataset('data/pointcloud_images_o3d_merged','test' ,transform=transforms.ToTensor(), load_viewObjects=True, load_sceneGraphs=True, return_graph_data=False)
+
+    image_positions_train, image_orientations_train = dataset_train.image_positions, dataset_train.image_orientations
+    image_positions_test, image_orientations_test = dataset_test.image_positions, dataset_test.image_orientations    
+
 

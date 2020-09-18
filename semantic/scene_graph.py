@@ -222,6 +222,7 @@ def create_scenegraphs_nnRels(base_path,split, scene_name):
     print()
     return scene_graphs    
 
+#DEPRECATED | more empty and less-rich captions
 def create_captions_7corners(base_path,split, scene):
     print('Scenegraphs (for captions) for scene',scene_name)
     scene_view_objects=pickle.load(open(os.path.join(base_path,split, scene_name,'view_objects.pkl'), 'rb'))
@@ -234,6 +235,19 @@ def create_captions_7corners(base_path,split, scene):
         
     print()
     return captions     
+
+def create_captions_nnRels(base_path,split, scene):
+    print('Scenegraphs (for captions, NN-Rels) for scene',scene_name)
+    scene_view_objects=pickle.load(open(os.path.join(base_path,split, scene_name,'view_objects.pkl'), 'rb'))
+    captions={}
+
+    for file_name in scene_view_objects.keys():
+        print(f'\r {file_name}', end='')
+        view_scenegraph=scenegraph_for_view_cluster3d_nnRels(scene_view_objects[file_name], keep_viewobjects=False)
+        captions[file_name]=view_scenegraph.get_text_extensive()
+        
+    print()
+    return captions      
 
 
 if __name__ == "__main__":
@@ -248,16 +262,16 @@ if __name__ == "__main__":
     # view_objects=scene_view_objects[file_name]
     # print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
 
-    # texts=[ str(SceneGraphObject.from_viewobject_cluster3d(v)) for v in view_objects ]
-    # print(texts)
-    # print()
+    # # texts=[ str(SceneGraphObject.from_viewobject_cluster3d(v)) for v in view_objects ]
+    # # print(texts)
+    # # print()
 
-    # sg=scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=False)
+    # sg=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False)
     # print(sg.get_text())
     # score, groundings= semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects_7corners(sg, view_objects)
     # print('SG-Score:',score)
 
-    # sg=scenegraph_for_view_cluster3d_7corners(view_objects, keep_viewobjects=True)
+    # sg=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=True)
 
     # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
     # draw_view_objects(img, view_objects, texts)    
@@ -278,33 +292,36 @@ if __name__ == "__main__":
     ### Scene graph nnRels debugging
     # base_path='data/pointcloud_images_o3d_merged/'
     # scene_name='bildstein_station1_xyz_intensity_rgb'
-    # scene_view_objects=pickle.load( open(os.path.join(base_path,scene_name,'view_objects.pkl'), 'rb') )
-    # #file_name=np.random.choice(list(scene_view_objects.keys()))
-    # file_name='005.png'
+    # split='train'
+    # scene_view_objects=pickle.load( open(os.path.join(base_path,split,scene_name,'view_objects.pkl'), 'rb') )
+    # file_name=np.random.choice(list(scene_view_objects.keys()))
+    # #file_name='005.png'
     # view_objects=scene_view_objects[file_name]
     # print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
 
     # sg=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, flip_relations=False)
+    # print(sg.get_text_extensive())
 
     # sg_debug=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=True, flip_relations=False)
-    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
+
+    # img=cv2.imread(os.path.join(base_path,split, scene_name,'rgb', file_name))
     # draw_scenegraph(img,sg_debug)
     # cv2.imshow("",img); cv2.waitKey()
 
     # score, grounding=semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects_nnRels(sg, view_objects)
     # print('Score',score)
 
-    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
-    # draw_scenegraph(img,grounding)
-    # cv2.imshow("",img); cv2.waitKey()  
+    # # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
+    # # draw_scenegraph(img,grounding)
+    # # cv2.imshow("",img); cv2.waitKey()  
 
-    # used_objects=[]
-    # for rel in sg_debug.relationships:
-    #     if rel[0] not in used_objects: used_objects.append(rel[0])
-    #     if rel[2] not in used_objects: used_objects.append(rel[2])              
+    # # used_objects=[]
+    # # for rel in sg_debug.relationships:
+    # #     if rel[0] not in used_objects: used_objects.append(rel[0])
+    # #     if rel[2] not in used_objects: used_objects.append(rel[2])              
     
-    # score, groundings, unused_obects=semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects_nnRels(sg, view_objects, unused_factor=True)
-    # print('Score w/ unused:',score)
+    # # score, groundings, unused_obects=semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects_nnRels(sg, view_objects, unused_factor=True)
+    # # print('Score w/ unused:',score)
 
     # quit()
     ### Scene graph nnRels debugging
@@ -375,13 +392,13 @@ if __name__ == "__main__":
     Data creation: Scene-Graphs and Captions from view-objects (separate SG strategies)
     '''
     base_path='data/pointcloud_images_o3d_merged'   
-    #for split in ('train','test',):
-    for split in ('test',):     
+    for split in ('train','test',):  
         for scene_name in COMBINED_SCENE_NAMES:
             print(f'\n\n Scene-Graphs and Captions for scene <{scene_name}> split <{split}>')
             scene_graphs=create_scenegraphs_nnRels(base_path,split,scene_name)   
             pickle.dump( scene_graphs, open(os.path.join(base_path,split, scene_name,'scene_graphs.pkl'), 'wb'))
 
-            scene_captions=create_captions_7corners(base_path,split,scene_name)
+            #scene_captions=create_captions_7corners(base_path,split,scene_name)
+            scene_captions=create_captions_nnRels(base_path,split,scene_name)
             pickle.dump( scene_captions, open(os.path.join(base_path,split, scene_name,'captions.pkl'), 'wb'))
     

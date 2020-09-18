@@ -26,3 +26,4 @@ def get_encoder_resnet18():
 
 def get_encoder_fcn_resnet101():
     model=torchvision.models.segmentation.fcn_resnet101(pretrained=True)
+

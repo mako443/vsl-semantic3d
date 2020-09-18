@@ -57,3 +57,8 @@ def generate_sanity_check_dataset():
     scene_names_train[:]='test-scene' #3 exact matches
 
     return netvlad_train, netvlad_test, pos_train, pos_test, ori_train, ori_test, scene_names_train, scene_names_test
+
+if __name__=='__main__':
+    names=['s0','s1','s2']
+    indices0=[0,1,2]
+    indices1=[0,1,2]

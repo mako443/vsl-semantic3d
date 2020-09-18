@@ -83,6 +83,7 @@ for lr in (1e-2,):
     netvlad_layer=NetVLAD(num_clusters=NUM_CLUSTERS, dim=512, alpha=ALPHA)
 
     model=EmbedNet(encoder, netvlad_layer).cuda()
+    quit()
 
     criterion=nn.TripletMarginLoss(margin=1.0)
     optimizer=optim.Adam(model.parameters(), lr=lr)    
