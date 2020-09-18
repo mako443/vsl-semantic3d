@@ -216,6 +216,25 @@ class SceneGraph:
 
         return text
 
+    #Same as above, but also describes the objects corner and allows dublicates, making it equivalent to the Scene-Graph relationships used in Geometric Learning.
+    def get_text_extensive(self):
+        if len(self.relationships)==0: #TODO/CARE: this ok?
+            return 'There is nothing to describe.'
+
+        text=''
+        for rel in self.relationships:
+            sub, rel_type, obj=rel
+            rel_text=f'In the {sub.corner} there is a {sub.color} {sub.label} that is {rel_type} of a {obj.color} {obj.label} in the {obj.corner}. '
+           
+            #Doublicates barely seem to happen.
+            #if rel_text not in text: #Prevent doublicate sentences
+            #    text+=rel_text
+
+            text+=rel_text
+
+        return text
+    
+
     def is_empty(self):
         return len(self.relationships)==0
 

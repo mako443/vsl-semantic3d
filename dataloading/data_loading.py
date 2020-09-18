@@ -237,11 +237,7 @@ class Semantic3dDatasetTriplet(Semantic3dDataset):
             return {'images_anchor':anchor, 'images_positive':positive, 'images_negative':negative,
                     'graphs_anchor':self.view_scenegraph_data[anchor_index], 'graphs_positive':self.view_scenegraph_data[positive_index], 'graphs_negative':self.view_scenegraph_data[negative_index]}
         else:
-<<<<<<< HEAD
-            return anchor, positive, negative            
-=======
             return anchor, positive, negative 
->>>>>>> 766ad8cfb42f9c72b67e0c7316e944d1d0cadec3
 
 
 if __name__ == "__main__":
