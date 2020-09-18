@@ -3,10 +3,13 @@ import numpy as np
 import cv2
 import os
 
-
 #TODO
 #Sanity check by always selecting up to top-3 retrievals
 #Evaluate for simple NetVLAD
+#Evaluate NV+SG
+def reduceIndices_top3(indices):
+    return indices[0:3]
+
 def reduceIndices_sceneVoting(scene_names_train, indices0, indices1=None):
     if indices1 is None:
         indices0=np.array(indices0)
@@ -19,8 +22,6 @@ def reduceIndices_sceneVoting(scene_names_train, indices0, indices1=None):
         indices_scene_names=np.hstack((indices0_scene_names,indices1_scene_names))
         most_frequent_scene_name=max(set(indices_scene_names), key=list(indices_scene_names).count)
         return indices0[indices0_scene_names==most_frequent_scene_name], indices1[indices1_scene_names==most_frequent_scene_name]
-
-
 
 def evaluate_topK(pos_results, ori_results, scene_results):
     top_k=list(pos_results.keys())

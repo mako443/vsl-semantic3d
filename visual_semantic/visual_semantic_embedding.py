@@ -7,7 +7,7 @@ import numpy as np
 import os
 import pickle
 
-#TODO/CARE: do a sanity check that the Text-LSTM can capture information
+#TODO: do a sanity check that the Text-LSTM can capture information -> Done ✓
 
 '''
 A Visual Semantic Embedding with a pre-trained feature-extractor + NetVLAD as the image-model (https://arxiv.org/pdf/1411.2539.pdf)
