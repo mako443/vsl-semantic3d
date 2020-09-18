@@ -131,7 +131,6 @@ def eval_netvlad_plus_sceneGraph(dataset_train, dataset_test, netvlad_vectors_tr
             if k==np.max(top_k): retrieval_dict[test_index]=sorted_indices                
 
             scene_correct=np.array([scene_name_gt == scene_names_train[retrieved_index] for retrieved_index in sorted_indices])
-            if test_index<5 and combine=='scene-voting->netvlad': print(scene_correct)
 
             topk_pos_dists=pos_dists[sorted_indices]
             topk_ori_dists=ori_dists[sorted_indices]    
