@@ -8,6 +8,7 @@ import torchvision.models
 import string
 import random
 import os
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -22,15 +23,18 @@ from .visual_semantic_embedding import PairwiseRankingLoss
 Module to train a simple Semantic-Embedding model to score the similarity of captions (using no visual information)
 '''
 
-IMAGE_LIMIT=960
-BATCH_SIZE=12
+IMAGE_LIMIT=3000
+BATCH_SIZE=24
 LR_GAMMA=0.75
 EMBED_DIM=100
 SHUFFLE=True
-DECAY=None #Tested, no decay here
+#DECAY=None #Tested, no decay here
 MARGIN=0.5 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
 
-print(f'Semantic Embedding training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN}')
+#CAPTURE arg values
+LR=float(sys.argv[-1])
+
+print(f'Semantic Embedding training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN} LR: {LR}')
 
 transform=transforms.Compose([
     #transforms.Resize((950,1000)),
@@ -46,7 +50,8 @@ loss_dict={}
 best_loss=np.inf
 best_model=None
 
-for lr in (1e-1,5e-2,1e-2,5e-3,1e-3):
+#for lr in (5e-3,1e-3,5e-4):
+for lr in (LR,):
     print('\n\nlr: ',lr)
 
     model=SemanticEmbedding(data_set.get_known_words(),EMBED_DIM)
@@ -57,7 +62,7 @@ for lr in (1e-1,5e-2,1e-2,5e-3,1e-3):
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)   
 
     loss_dict[lr]=[]
-    for epoch in range(6):
+    for epoch in range(8):
         epoch_loss_sum=0.0
         for i_batch, batch in enumerate(data_loader):
             
@@ -88,7 +93,7 @@ for lr in (1e-1,5e-2,1e-2,5e-3,1e-3):
         best_model=model
 
 print('\n----')           
-model_name=f'model_SemanticEmbed_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}.pth'
+model_name=f'model_SemanticEmbed_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.pth'
 print('Saving best model',model_name)
 torch.save(best_model.state_dict(),model_name)
 
@@ -99,4 +104,4 @@ for k in loss_dict.keys():
 plt.gca().set_ylim(bottom=0.0) #Set the bottom to 0.0
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_SemanticEmbed_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}.png')    
+plt.savefig(f'loss_SemanticEmbed_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.png')    

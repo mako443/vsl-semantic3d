@@ -16,12 +16,12 @@ from retrieval import networks
 from retrieval.netvlad import NetVLAD, EmbedNet
 
 from semantic.imports import SceneGraph, SceneGraphObject, ViewObject
-from semantic.scene_graph_cluster3d_scoring import score_sceneGraph_to_viewObjects_nnRels
+from semantic.scene_graph_cluster3d_scoring import score_sceneGraph_to_viewObjects_nnRels, score_sceneGraph_to_sceneGraph_nnRels
 from evaluation.utils import evaluate_topK, generate_sanity_check_dataset
 import evaluation.utils
 
-def gather_sceneGraph_scores(dataset_train, dataset_test):
-    print(f'gather_sceneGraph_scores(): # training: {len(dataset_train)}, # test: {len(dataset_test)}')
+def gather_sceneGraph2viewObjects(dataset_train, dataset_test):
+    print(f'gather_sceneGraph2viewObjects(): # training: {len(dataset_train)}, # test: {len(dataset_test)}')
 
     score_dict={} # {test-idx: {train_idx: score} }
 
@@ -36,9 +36,27 @@ def gather_sceneGraph_scores(dataset_train, dataset_test):
     assert len(score_dict)==len(dataset_test)
 
     print('Saving SG-scores...')
-    pickle.dump(score_dict, open('scenegraph_scores.pkl','wb'))
+    pickle.dump(score_dict, open('scores_sceneGraph2viewObjects.pkl','wb'))
 
-def eval_sceneGraph2viewObjects(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10)):
+def gather_sceneGraph2sceneGraph(dataset_train, dataset_test):
+    print(f'gather_sceneGraph2sceneGraph(): # training: {len(dataset_train)}, # test: {len(dataset_test)}')
+
+    score_dict={} # {test-idx: {train_idx: score} }
+
+    for test_idx in range(len(dataset_test)):
+        score_dict[test_idx]={}
+        scene_graph=dataset_test.view_scenegraphs[test_idx]
+        for train_idx in range(len(dataset_train)):
+            score=score_sceneGraph_to_sceneGraph_nnRels(scene_graph, dataset_train.view_scenegraphs[train_idx])
+            score_dict[test_idx][train_idx]=score  
+
+        assert len(score_dict[test_idx])==len(dataset_train)
+    assert len(score_dict)==len(dataset_test)
+
+    print('Saving SG-scores...')
+    pickle.dump(score_dict, open('scores_sceneGraph2sceneGraph.pkl','wb'))
+
+def eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10)):
     assert len(scenegraph_scores)==len(dataset_test)
     assert len(scenegraph_scores[0])==len(dataset_train)
 
@@ -89,9 +107,9 @@ def eval_sceneGraph2viewObjects(dataset_train, dataset_test, scenegraph_scores, 
 #Pure-NetVLAD sanity-check ✓
 #Sum-combine sanity check ✓
 #Scene-Voting
-def eval_netvlad_plus_sceneGraph(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, scenegraph_scores, top_k=(1,3,5,10), combine='sum'):
+def eval_netvlad__sceneGraphScoring(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, scenegraph_scores, top_k=(1,3,5,10), combine='sum'):
     assert combine in ('sum','scene-voting->netvlad')
-    print(f'eval_netvlad_plus_sceneGraph(): combine {str(combine)}')
+    print(f'eval_netvlad__sceneGraphScoring(): combine {str(combine)}')
 
     image_positions_train, image_orientations_train = dataset_train.image_positions, dataset_train.image_orientations
     image_positions_test, image_orientations_test = dataset_test.image_positions, dataset_test.image_orientations
@@ -153,18 +171,41 @@ if __name__ == "__main__":
     dataset_test =Semantic3dDataset('data/pointcloud_images_o3d_merged','test', transform=None, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True)    
 
     if 'gather' in sys.argv:
-        gather_sceneGraph_scores(dataset_train, dataset_test)
+        #gather_sceneGraph2viewObjects(dataset_train, dataset_test)
+        gather_sceneGraph2sceneGraph(dataset_train, dataset_test)
 
-    scenegraph_scores=pickle.load(open('scenegraph_scores.pkl','rb'))
+    #scenegraph_scores=pickle.load(open('scenegraph_scores.pkl','rb'))
 
     if 'SG-match' in sys.argv:
-        pos_results, ori_results, scene_results = eval_sceneGraph2viewObjects(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
+        scores_filename='scores_sceneGraph2viewObjects.pkl'
+        scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
+        pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
+        print(pos_results, ori_results, scene_results,'\n') 
+
+        scores_filename='scores_sceneGraph2sceneGraph.pkl'
+        scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
+        pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
         print(pos_results, ori_results, scene_results,'\n')        
 
     if 'NetVLAD+SG-match' in sys.argv:
-        netvlad_vectors_train,netvlad_vectors_test=pickle.load(open('netvlad_vectors.pkl','rb'))
-        pos_results, ori_results, scene_results = eval_netvlad_plus_sceneGraph(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, scenegraph_scores, top_k=(1,3,5,10), combine='sum')
+        netvlad_vectors_filename='features_netvlad-S3D.pkl'
+        netvlad_vectors_train,netvlad_vectors_test=pickle.load(open('evaluation_res/'+netvlad_vectors_filename,'rb')); print('Using vectors:', netvlad_vectors_filename)
+
+        #SG->VO
+        scores_filename='scores_sceneGraph2viewObjects.pkl'
+        scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
+
+        pos_results, ori_results, scene_results = eval_netvlad__sceneGraphScoring(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, scenegraph_scores, top_k=(1,3,5,10), combine='sum')
         print(pos_results, ori_results, scene_results,'\n')        
-        pos_results, ori_results, scene_results = eval_netvlad_plus_sceneGraph(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, scenegraph_scores, top_k=(1,3,5,10), combine='scene-voting->netvlad')
+        pos_results, ori_results, scene_results = eval_netvlad__sceneGraphScoring(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, scenegraph_scores, top_k=(1,3,5,10), combine='scene-voting->netvlad')
+        print(pos_results, ori_results, scene_results,'\n')  
+
+        #SG->SG
+        scores_filename='scores_sceneGraph2sceneGraph.pkl'
+        scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
+
+        pos_results, ori_results, scene_results = eval_netvlad__sceneGraphScoring(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, scenegraph_scores, top_k=(1,3,5,10), combine='sum')
         print(pos_results, ori_results, scene_results,'\n')        
+        pos_results, ori_results, scene_results = eval_netvlad__sceneGraphScoring(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, scenegraph_scores, top_k=(1,3,5,10), combine='scene-voting->netvlad')
+        print(pos_results, ori_results, scene_results,'\n')               
 

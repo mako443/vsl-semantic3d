@@ -8,6 +8,7 @@ import torchvision.models
 import string
 import random
 import os
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -24,12 +25,15 @@ Module to train a simple Graph-Embedding model to score the similarity of graphs
 IMAGE_LIMIT=3000
 BATCH_SIZE=12
 LR_GAMMA=0.75
-EMBED_DIM=100
+EMBED_DIM_GEOMETRIC=1024
 SHUFFLE=True
 DECAY=None #Tested, no decay here
 MARGIN=1.0 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
 
-print(f'Graph Embedding training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN}')
+#Capture arguments
+LR=float(sys.argv[-1])
+
+print(f'Graph Embedding training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM_GEOMETRIC} shuffle: {SHUFFLE} margin: {MARGIN} lr:{LR}')
 
 transform=transforms.Compose([
     #transforms.Resize((950,1000)),
@@ -45,11 +49,11 @@ loss_dict={}
 best_loss=np.inf
 best_model=None
 
-#for lr in (5e-3,1e-3,5e-4):
-for lr in (5e-3,1e-3):
+#for lr in (1e-2,5e-3):
+for lr in (LR,):
     print('\n\nlr: ',lr)
 
-    model=GraphEmbedding(EMBED_DIM)
+    model=GraphEmbedding(EMBED_DIM_GEOMETRIC)
     model.cuda()
 
     criterion=nn.TripletMarginLoss(margin=MARGIN)
@@ -88,7 +92,7 @@ for lr in (5e-3,1e-3):
         best_model=model
 
 print('\n----')           
-model_name=f'model_GraphEmbed_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}.pth'
+model_name=f'model_GraphEmbed_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM_GEOMETRIC}_s{SHUFFLE}_m{MARGIN}_lr{LR}.pth'
 print('Saving best model',model_name)
 torch.save(best_model.state_dict(),model_name)
 
@@ -99,4 +103,4 @@ for k in loss_dict.keys():
 plt.gca().set_ylim(bottom=0.0) #Set the bottom to 0.0
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_GraphEmbed_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}.png')    
+plt.savefig(f'loss_GraphEmbed_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM_GEOMETRIC}_s{SHUFFLE}_m{MARGIN}_lr{LR}.png')    

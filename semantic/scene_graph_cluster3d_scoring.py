@@ -94,6 +94,36 @@ def score_color(v: ViewObject, color_name):
     score= np.min(color_distances) / color_distances[COLOR_NAMES.index(color_name)]
     return np.clip(score,0,1)
 
+#Roughly similar to above but for Scene-Graph objects (not view-objects)
+#Returns 1.0 if objects are in the same corner, otherwise same logic as above
+#CARE: since precise information is lost, scoring can be wrong, e.g. foreground could be left of bottom-left 
+CORNER_LOCATION_DICT={ 'top-left':np.array((0.2, 0.2,0.0)) ,'top-right':np.array( (0.8,0.2,0.0)),'bottom-left':np.array( (0.2,0.8,0.0)),'bottom-right':np.array( (0.8,0.8,0.0)),'center':np.array( (0.5,0.5,0.0)), 'foreground':np.array( (0.5,0.5,-0.8)), 'background':np.array( (0.5,0.5,0.8))}
+def score_relationship_type_SGO(sub, rel_type, obj):
+    if sub.corner==obj.corner: 
+        return 1.0
+
+    sub_center=CORNER_LOCATION_DICT[sub.corner]
+    obj_center=CORNER_LOCATION_DICT[obj.corner]
+
+    dleft= obj_center[0]-sub_center[0]
+    dright= -dleft
+    dbelow= sub_center[1]-obj_center[1]
+    dabove= -dbelow
+    dinfront= obj_center[2]-sub_center[2]
+    dbehind= -dinfront
+
+    distances=(dleft,dright,dbelow,dabove,dinfront,dbehind)    
+    rel_dist=distances[RELATIONSHIP_TYPES.index(rel_type)]
+    if rel_dist>=0.0:
+        return 1.0
+    else:
+        return 0.0
+
+def score_color_SGO(sgo: SceneGraphObject, color_name):
+    assert color_name in COLOR_NAMES
+    color_distance= np.linalg.norm(COLORS[COLOR_NAMES.index(sgo.color)]-COLORS[COLOR_NAMES.index(color_name)])
+    return np.clip(1.0 - color_distance,0,1)    
+
 #Going through all identity-assignment combinations: unfeasible
 #All walks: here not possible because Graphs can be (very) incomplete
 #Worst-case: evaluate just as before w/o identities?
@@ -135,14 +165,71 @@ def score_sceneGraph_to_viewObjects_7corners(scene_graph, view_objects):
                     best_scores[i_relation]=score
 
     print("best scores",best_scores)
-    return np.prod(best_scores), best_groundings  
+    return np.prod(best_scores), best_groundings 
 
 '''
 As above, but also scores how much the grounded object is the closest one to the subject
 -works ✓, scores perfectly to self, now also groundings equal
 => For SG matching
 '''
-def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_factor=0.5):
+def score_sceneGraph_to_sceneGraph_nnRels(sg0,sg1):
+    score0=scenegraph_similarity(sg1,sg0)
+    score1=scenegraph_similarity(sg0,sg1)
+    return 0.5*(score0+score1)
+
+#Same logic as above, but w/o min-dist scoring 
+#TODO: unused_factor
+def scenegraph_similarity(source,target):
+    MIN_SCORE=0.1 #OPTION: hardest penalty for relationship not found
+    #best_groundings=[None for i in range(len(scene_graph.relationships))]
+    best_scores=[MIN_SCORE for i in range(len(source.relationships))] 
+
+    if source.is_empty() or target.is_empty():
+        return 0.0
+
+    target_objects=extract_scenegraph_objects(target)
+    for i_relation, relation in enumerate(source.relationships):
+        assert type(relation[0] is SceneGraphObject)
+
+        subject_label, rel_type, object_label = relation[0].label, relation[1], relation[2].label
+        subject_color, object_color = relation[0].color,relation[2].color
+
+        for sub in [obj for obj in target_objects if obj.label==subject_label]: 
+            for obj in [obj for obj in target_objects if obj.label==object_label]:
+                if sub==obj: continue
+
+                relationship_score= score_relationship_type_SGO(sub, rel_type, obj)     
+                color_score_sub=score_color_SGO(sub, subject_color)
+                color_score_obj=score_color_SGO(obj, object_color)
+
+                score=relationship_score*color_score_sub*color_score_obj
+
+                if score>best_scores[i_relation]:
+                    best_scores[i_relation]=score
+
+    return np.prod(best_scores) 
+
+def extract_scenegraph_objects(sg):
+    unique_objects=[]
+    for candidate in [rel[0] for rel in sg.relationships] + [rel[2] for rel in sg.relationships]:
+        obj_already_added=False
+        for added_obj in unique_objects:
+            if candidate.label==added_obj.label and candidate.color==added_obj.color and candidate.corner==added_obj.corner:
+                obj_already_added=True
+                break
+
+        if not obj_already_added or True:
+            unique_objects.append(candidate)
+
+    return unique_objects        
+
+'''
+As above, but also scores how much the grounded object is the closest one to the subject
+-works ✓, scores perfectly to self, now also groundings equal
+-Tested: unused 0.5, use_nn_score=False best
+=> For SG matching
+'''
+def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_factor=0.5, use_nn_score=False):
     MIN_SCORE=0.1 #OPTION: hardest penalty for relationship not found
     best_groundings=[None for i in range(len(scene_graph.relationships))]
     best_scores=[MIN_SCORE for i in range(len(scene_graph.relationships))] 
@@ -166,8 +253,12 @@ def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_fac
                 color_score_sub= score_color(sub, subject_color)
                 color_score_obj= score_color(obj, object_color)
                 nn_score= sub_min_dist / np.linalg.norm(sub.get_center_c_world() - obj.get_center_c_world()) #Score whether Obj is Sub's nearest neighbor
+                #TODO/CARE: use nn_score?!?!?!
 
-                score=relationship_score*color_score_sub*color_score_obj
+                if use_nn_score:
+                    score=relationship_score*color_score_sub*color_score_obj*nn_score
+                else:
+                    score=relationship_score*color_score_sub*color_score_obj
 
                 if score>best_scores[i_relation]:
                     best_groundings[i_relation]=(sub,rel_type,obj)
@@ -183,5 +274,6 @@ def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_fac
         return np.prod(best_scores) * unused_factor**(len(unused_view_objects)), best_groundings #, unused_view_objects
     else:
         return np.prod(best_scores), best_groundings  
+
 
 

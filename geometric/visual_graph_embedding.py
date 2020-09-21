@@ -73,6 +73,8 @@ class VisualGraphEmbedding(torch.nn.Module):
         assert len(images.shape)==4 #Expect a batch of images
         q=self.image_model(images)
         x=self.W_i(q)
+        x=x/torch.norm(x, dim=1, keepdim=True)
+
         return x
 
     def encode_graphs(self, graphs):
@@ -91,6 +93,8 @@ class VisualGraphEmbedding(torch.nn.Module):
         x = global_mean_pool(x, batch)  # [batch_size, hidden_channels]
 
         x = self.W_g(x)
+
+        x=x/torch.norm(x, dim=1, keepdim=True)
         
         return x
    
