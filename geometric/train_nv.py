@@ -24,19 +24,20 @@ Visual Graph Embedding training (NetVLAD backbone)
 TODO:
 -Weight decay ✓
 -Sanity: NV-vectors from encode_image() and pure NetVLAD are same ✓
+-Sanity: Can the model predict NV-outputs?! -> No! ✖
 
--Sanity: Can the model predict NV-outputs?!
+-Train embedding: 
+-PWR vs. PWR++ vs. TripletMargin (bessere Triplets?)
 '''
 
-IMAGE_LIMIT=120
+IMAGE_LIMIT=480
 BATCH_SIZE=6 #12 gives memory error, 8 had more loss than 6?
 LR_GAMMA=0.75
-EMBED_DIM=300
+EMBED_DIM=1024
 SHUFFLE=True
-DECAY=0.001 #This decay proved best
 MARGIN=1.0 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
 
-print(f'VGE-NV (naive) training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN} decay: {DECAY}')
+print(f'VGE-NV (naive) training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN}')
 
 transform=transforms.Compose([
     #transforms.Resize((950,1000)),
@@ -55,30 +56,22 @@ best_model=None
 for lr in (1e-2,5e-3,1e-3,5e-4,1e-4):
     print('\n\nlr: ',lr)
 
-    netvlad=create_image_model_netvlad()
-    model=VisualGraphEmbeddingNetVLAD(netvlad, EMBED_DIM)
+    netvlad_model_name='model_netvlad_l3000_b6_g0.75_c8_a10.0.mdl'
+    print('Model:',netvlad_model_name)
+    netvlad_model=torch.load('models/'+netvlad_model_name)
+
+    model=VisualGraphEmbeddingNetVLAD(netvlad_model, EMBED_DIM)
+    model.train()
     model.cuda()
 
-    #Sanity check: can it predict NV vectors?!
-    model.load_state_dict(torch.load('model_vgeNV_l120_b6_g0.75_e300_sTrue_m1.0_d0.001.pth'))
-    model.cuda()
-    netvlad.cuda()
-
-    for batch in data_loader:
-        out_visual, out_graph=model(batch['images'].cuda(), batch['graphs'].to('cuda'))
-        out_visual, out_graph=out_visual.cpu().detach().numpy(), out_graph.cpu().detach().numpy()
-        print('g',np.linalg.norm( out_visual - out_graph ) / np.linalg.norm( out_visual) )
-        print('min',np.min(out_visual),np.min(out_graph))
-        print('max',np.max(out_visual),np.max(out_graph))
-    quit()
-
-    #criterion=nn.MSELoss()
-    criterion=nn.L1Loss() #CARE: using L1 loss for testing
-    optimizer=optim.Adam(model.parameters(), lr=lr, weight_decay=DECAY) #Adam is ok for PyG
+    criterion=PairwiseRankingLoss(margin=MARGIN)
+    optimizer=optim.Adam(model.parameters(), lr=lr) #Adam is ok for PyG
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)   
 
+    if type(criterion)==PairwiseRankingLoss: assert SHUFFLE==True 
+
     loss_dict[lr]=[]
-    for epoch in range(8):
+    for epoch in range(4):
         epoch_loss_sum=0.0
         for i_batch, batch in enumerate(data_loader):
             
@@ -107,7 +100,7 @@ for lr in (1e-2,5e-3,1e-3,5e-4,1e-4):
         best_model=model
 
 print('\n----')           
-model_name=f'model_vgeNV_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_d{DECAY}.pth'
+model_name=f'model_vgeNV_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}.pth'
 print('Saving best model',model_name)
 torch.save(best_model.state_dict(),model_name)
 
@@ -118,4 +111,4 @@ for k in loss_dict.keys():
 plt.gca().set_ylim(bottom=0.0) #Set the bottom to 0.0
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_vgeNV_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_d{DECAY}.png')    
+plt.savefig(f'loss_vgeNV_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}.png')    

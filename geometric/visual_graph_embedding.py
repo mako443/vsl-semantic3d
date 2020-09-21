@@ -110,7 +110,9 @@ class VisualGraphEmbeddingNetVLAD(torch.nn.Module):
         self.conv3 = GCNConv(self.embedding_dim, self.embedding_dim)
 
         self.node_embedding=torch.nn.Embedding(30, self.embedding_dim) #30 should be enough
-        self.node_embedding.requires_grad_(False) #TODO: train embedding?
+        train_embed=True
+        print('VisualGraphEmbedding(): train_embed',train_embed)
+        self.node_embedding.requires_grad_(train_embed) #TODO: train embedding?
 
         self.image_model=image_model
         self.image_model.requires_grad_(False)
@@ -119,9 +121,8 @@ class VisualGraphEmbeddingNetVLAD(torch.nn.Module):
         print('Image_Dim',self.image_dim)
         assert self.image_dim==4096        
         
-        #TODO: Add linear layers?
-        self.W_g=torch.nn.Linear(self.embedding_dim, self.image_dim, bias=True) #In this case going from Embed-Dim -> NetVLAD-/Image-Dim to predict the NetVLAD output
-        #self.W_i=torch.nn.Linear(self.embedding_dim,self.image_dim,bias=True) 
+        self.W_g=torch.nn.Linear(self.embedding_dim, self.embedding_dim, bias=True) # From NetVLAD-output to embedding
+        self.W_i=torch.nn.Linear(self.image_dim,self.embedding_dim,bias=True) #From Graph-output to embedding
 
     def forward(self, images, graphs):
         #assert len(graphs)==len(images)
@@ -134,9 +135,11 @@ class VisualGraphEmbeddingNetVLAD(torch.nn.Module):
 
     def encode_images(self, images):
         assert len(images.shape)==4 #Expect a batch of images
-        #q=self.image_model(images)
-        #x=self.W_i(q)
         x=self.image_model(images)
+        x=self.W_i(x)
+
+        x=x/torch.norm(x, dim=1, keepdim=True)
+
         return x
 
     def encode_graphs(self, graphs):
@@ -155,5 +158,7 @@ class VisualGraphEmbeddingNetVLAD(torch.nn.Module):
         x = global_mean_pool(x, batch)  # [batch_size, hidden_channels]
 
         x = self.W_g(x)
+
+        x=x/torch.norm(x, dim=1, keepdim=True)
         
         return x   
