@@ -8,6 +8,7 @@ import torchvision.models
 import string
 import random
 import os
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -30,14 +31,17 @@ TODO:
 -PWR vs. PWR++ vs. TripletMargin (bessere Triplets?)
 '''
 
-IMAGE_LIMIT=480
-BATCH_SIZE=6 #12 gives memory error, 8 had more loss than 6?
+IMAGE_LIMIT=3000
+BATCH_SIZE=8 #12 gives memory error, 8 had more loss than 6?
 LR_GAMMA=0.75
 EMBED_DIM=1024
 SHUFFLE=True
-MARGIN=1.0 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
+MARGIN=0.5 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
 
-print(f'VGE-NV (naive) training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN}')
+#Capture arguments
+LR=float(sys.argv[-1])
+
+print(f'VGE-NV training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN} lr:{LR}')
 
 transform=transforms.Compose([
     #transforms.Resize((950,1000)),
@@ -53,7 +57,8 @@ loss_dict={}
 best_loss=np.inf
 best_model=None
 
-for lr in (1e-2,5e-3,1e-3,5e-4,1e-4):
+#for lr in (1e-4,7.5e-5,5e-5):
+for lr in (LR,):
     print('\n\nlr: ',lr)
 
     netvlad_model_name='model_netvlad_l3000_b6_g0.75_c8_a10.0.mdl'
@@ -71,7 +76,7 @@ for lr in (1e-2,5e-3,1e-3,5e-4,1e-4):
     if type(criterion)==PairwiseRankingLoss: assert SHUFFLE==True 
 
     loss_dict[lr]=[]
-    for epoch in range(4):
+    for epoch in range(10):
         epoch_loss_sum=0.0
         for i_batch, batch in enumerate(data_loader):
             
@@ -91,7 +96,7 @@ for lr in (1e-2,5e-3,1e-3,5e-4,1e-4):
         scheduler.step()
 
         epoch_avg_loss = epoch_loss_sum/(i_batch+1)
-        print(f'epoch {epoch} final avg-loss {epoch_avg_loss} vec-sum {np.sum( np.abs(out_graph.cpu().detach().numpy()),axis=1)}')
+        print(f'epoch {epoch} final avg-loss {epoch_avg_loss}')
         loss_dict[lr].append(epoch_avg_loss)
 
     #Now using loss-avg of last epoch!
@@ -100,7 +105,7 @@ for lr in (1e-2,5e-3,1e-3,5e-4,1e-4):
         best_model=model
 
 print('\n----')           
-model_name=f'model_vgeNV_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}.pth'
+model_name=f'model_VGE-NV_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.pth'
 print('Saving best model',model_name)
 torch.save(best_model.state_dict(),model_name)
 
@@ -111,4 +116,4 @@ for k in loss_dict.keys():
 plt.gca().set_ylim(bottom=0.0) #Set the bottom to 0.0
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_vgeNV_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}.png')    
+plt.savefig(f'loss_VGE-NV_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.png')    

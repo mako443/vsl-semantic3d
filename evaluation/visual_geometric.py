@@ -47,7 +47,7 @@ def gather_GE_vectors(dataloader_train, dataloader_test, model):
 
 def gather_VGE_UE_vectors(dataloader_train, dataloader_test, model):
     #Gather all features
-    print('Building GE vectors')
+    print('Building VGE-UE vectors')
     embed_vectors_visual_train, embed_vectors_graph_train=torch.tensor([]).cuda(), torch.tensor([]).cuda()
     embed_vectors_visual_test, embed_vectors_graph_test=torch.tensor([]).cuda(), torch.tensor([]).cuda()
     with torch.no_grad():
@@ -69,11 +69,37 @@ def gather_VGE_UE_vectors(dataloader_train, dataloader_test, model):
     assert len(embed_vectors_visual_test)==len(embed_vectors_graph_test)==len(dataloader_test.dataset)
 
     pickle.dump((embed_vectors_visual_train, embed_vectors_graph_train, embed_vectors_visual_test, embed_vectors_graph_test), open(f'features_VGE-UE_e{embed_dim}.pkl','wb'))
-    print('Saved VGE-UE_vectors')    
+    print('Saved VGE-UE_vectors')   
+
+def gather_VGE_NV_vectors(dataloader_train, dataloader_test, model):
+    #Gather all features
+    print('Building VGE-NV vectors')
+    embed_vectors_visual_train, embed_vectors_graph_train=torch.tensor([]).cuda(), torch.tensor([]).cuda()
+    embed_vectors_visual_test, embed_vectors_graph_test=torch.tensor([]).cuda(), torch.tensor([]).cuda()
+    with torch.no_grad():
+        for i_batch, batch in enumerate(dataloader_train):
+            out_visual, out_graph=model(batch['images'].to('cuda'), batch['graphs'].to('cuda'))
+            embed_vectors_visual_train=torch.cat((embed_vectors_visual_train, out_visual))
+            embed_vectors_graph_train=torch.cat((embed_vectors_graph_train, out_graph))  
+        for i_batch, batch in enumerate(dataloader_test):
+            out_visual, out_graph=model(batch['images'].to('cuda'), batch['graphs'].to('cuda'))
+            embed_vectors_visual_test=torch.cat((embed_vectors_visual_test, out_visual))
+            embed_vectors_graph_test=torch.cat((embed_vectors_graph_test, out_graph))  
+    embed_vectors_visual_train=embed_vectors_visual_train.cpu().detach().numpy()
+    embed_vectors_graph_train =embed_vectors_graph_train.cpu().detach().numpy()
+    embed_vectors_visual_test=embed_vectors_visual_test.cpu().detach().numpy()
+    embed_vectors_graph_test =embed_vectors_graph_test.cpu().detach().numpy()    
+    embed_dim=embed_vectors_graph_train.shape[1]
+
+    assert len(embed_vectors_visual_train)==len(embed_vectors_graph_train)==len(dataloader_train.dataset)
+    assert len(embed_vectors_visual_test)==len(embed_vectors_graph_test)==len(dataloader_test.dataset)
+
+    pickle.dump((embed_vectors_visual_train, embed_vectors_graph_train, embed_vectors_visual_test, embed_vectors_graph_test), open(f'features_VGE-NV_e{embed_dim}.pkl','wb'))
+    print('Saved VGE-NV_vectors')         
   
 '''
 Goes from query-side embed-vectors to db-side embed vectors
-Used for vectors from GE, VGE-UE and VGE
+Used for vectors from GE, VGE-UE and VGE-NV
 '''
 def eval_GE_scoring(dataset_train, dataset_test, embedding_train, embedding_test ,top_k=(1,3,5,10), reduce_indices=None):
     assert len(embedding_train)==len(dataset_train) and len(embedding_test)==len(dataset_test)
@@ -199,9 +225,6 @@ def eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_train, ne
 
     return evaluate_topK(pos_results, ori_results, scene_results)          
 
-def eval_VGE_UE_scoring():
-    pass
-
 
 '''
 Evaluation between a NetVLAD-model and a model that predicts the NetVLAD vector cross-modal
@@ -214,6 +237,7 @@ embed-only: uses only the graph embeddings (both sides semantic-only, but "ancho
 -> Distance-Sum & Mean-Vector work the same and perform equal to pure-NV, mean-vector-test slightly worse, cross-modal bad, embed-only bad
 -> VGE-NV does not precisely predict the NetVLAD vectors...
 TODO: redo with smaller NetVLAD, higher Embed-Dim, combine by linear
+TODO: remove, right? now all done in func above
 '''
 def eval_netvlad__VGE_NV(dataset_train, dataset_test, netvlad_train, netvlad_test, embedding_train, embedding_test ,top_k=(1,3,5,10), combine='distance-sum'):
     assert combine in ('distance-sum','mean-vector-test','mean-vector','cross-modal','embed-only')
@@ -330,6 +354,19 @@ if __name__ == "__main__":
         vge_ue_model.cuda()
         gather_VGE_UE_vectors(dataloader_train, dataloader_test, vge_ue_model)
 
+        #Gather VGE-NV
+        EMBED_DIM_GEOMETRIC=1024
+        netvlad_model_name='model_netvlad_l3000_b6_g0.75_c8_a10.0.mdl'
+        print('NetVLAD Model:',netvlad_model_name)
+        netvlad_model=torch.load('models/'+netvlad_model_name)
+
+        vge_nv_model=VisualGraphEmbeddingNetVLAD(netvlad_model, EMBED_DIM_GEOMETRIC)
+        vge_nv_model_name='model_VGE-NV_l3000_b8_g0.75_e1024_sTrue_m0.5_lr0.0001.pth'
+        vge_nv_model.load_state_dict(torch.load('models/'+vge_nv_model_name)); print('Model:',vge_nv_model_name)
+        vge_nv_model.eval()
+        vge_nv_model.cuda()
+        gather_VGE_NV_vectors(dataloader_train, dataloader_test, vge_nv_model)        
+
     if 'GE-match' in sys.argv:
         ge_vectors_filename='features_GE_e100.pkl'
         ge_vectors_train, ge_vectors_test=pickle.load(open('evaluation_res/'+ge_vectors_filename,'rb')); print('Using vectors',ge_vectors_filename)
@@ -382,5 +419,34 @@ if __name__ == "__main__":
         pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vge_vectors_visual_train, vge_vectors_graph_test ,top_k=(1,3,5,10), combine='distance-sum')
         print(pos_results, ori_results, scene_results,'\n')
         pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vge_vectors_visual_train, vge_vectors_graph_test ,top_k=(1,3,5,10), combine='scene-voting->netvlad')
-        print(pos_results, ori_results, scene_results,'\n')        
+        print(pos_results, ori_results, scene_results,'\n')   
+
+    if 'VGE-NV-match' in sys.argv:
+        vge_vectors_filename='features_VGE-NV_e1024.pkl'
+        vge_vectors_visual_train, vge_vectors_graph_train, vge_vectors_visual_test, vge_vectors_graph_test=pickle.load(open('evaluation_res/'+vge_vectors_filename,'rb')); print('Using vectors',vge_vectors_filename)        
+
+        print('Eval VGE-NV image-image')
+        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_visual_train, vge_vectors_visual_test ,top_k=(1,3,5,10))
+        print(pos_results, ori_results, scene_results,'\n')
+
+        print('Eval VGE-NV graph-graph')
+        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_graph_train, vge_vectors_graph_test ,top_k=(1,3,5,10)) 
+        print(pos_results, ori_results, scene_results,'\n')
+
+        print('Eval VGE-NV graph-image')
+        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_visual_train, vge_vectors_graph_test ,top_k=(1,3,5,10))                
+        print(pos_results, ori_results, scene_results,'\n')    
+
+    if 'NetVLAD+VGE-NV-match' in sys.argv:
+        netvlad_vectors_filename='features_netvlad-S3D.pkl'
+        netvlad_vectors_train,netvlad_vectors_test=pickle.load(open('evaluation_res/'+netvlad_vectors_filename,'rb')); print('Using vectors:', netvlad_vectors_filename)
+
+        vge_vectors_filename='features_VGE-NV_e1024.pkl'
+        vge_vectors_visual_train, vge_vectors_graph_train, vge_vectors_visual_test, vge_vectors_graph_test=pickle.load(open('evaluation_res/'+vge_vectors_filename,'rb')); print('Using vectors',vge_vectors_filename)        
+
+        print('Eval NetVLAD + VGE-NV (graph->image)')
+        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vge_vectors_visual_train, vge_vectors_graph_test ,top_k=(1,3,5,10), combine='distance-sum')
+        print(pos_results, ori_results, scene_results,'\n')
+        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vge_vectors_visual_train, vge_vectors_graph_test ,top_k=(1,3,5,10), combine='scene-voting->netvlad')
+        print(pos_results, ori_results, scene_results,'\n')                  
 

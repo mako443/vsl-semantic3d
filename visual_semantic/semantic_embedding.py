@@ -29,8 +29,9 @@ class SemanticEmbedding(torch.nn.Module):
 
         self.lstm=nn.LSTM(self.embedding_dim,self.embedding_dim)
 
-        #TODO: add a linear layer? (VSE paper does not, VSE++ paper does)
-        self.linear=nn.Linear(self.embedding_dim,2)
+        #TODO: add a linear layer? (VSE paper does not, VSE++ paper does), GE did not have one
+        #TODO: also add ReLU? (GE has ReLUs inside)
+        #self.linear=nn.Linear(self.embedding_dim,2)
 
     def forward(self,captions):
         word_indices=[ [self.word_dictionary.get(word,self.padding_idx) for word in caption.split()] for caption in captions]
@@ -60,7 +61,7 @@ class SemanticEmbedding(torch.nn.Module):
         _,(h,c)=self.lstm(x,(h,c))
 
         h=torch.squeeze(h)
-        h=self.linear(h)
+        #h=self.linear(h)
         h=h/torch.norm(h, dim=1, keepdim=True)
         return h
 

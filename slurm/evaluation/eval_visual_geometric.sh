@@ -9,4 +9,4 @@
 #SBATCH --output=slurm-%j.out
 #SBATCH --error=slurm-%j.out
 
-srun python3 -m evaluation.visual_geometric GE-match
+srun python3 -m evaluation.visual_geometric NetVLAD+VGE-NV-match

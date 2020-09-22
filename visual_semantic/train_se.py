@@ -24,12 +24,12 @@ Module to train a simple Semantic-Embedding model to score the similarity of cap
 '''
 
 IMAGE_LIMIT=3000
-BATCH_SIZE=24
+BATCH_SIZE=12
 LR_GAMMA=0.75
 EMBED_DIM=100
 SHUFFLE=True
 #DECAY=None #Tested, no decay here
-MARGIN=0.5 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
+MARGIN=1.0 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
 
 #CAPTURE arg values
 LR=float(sys.argv[-1])
@@ -50,7 +50,7 @@ loss_dict={}
 best_loss=np.inf
 best_model=None
 
-#for lr in (5e-3,1e-3,5e-4):
+#for lr in (5e-3,2.5e-3,1e-3):
 for lr in (LR,):
     print('\n\nlr: ',lr)
 
@@ -62,7 +62,7 @@ for lr in (LR,):
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)   
 
     loss_dict[lr]=[]
-    for epoch in range(8):
+    for epoch in range(10):
         epoch_loss_sum=0.0
         for i_batch, batch in enumerate(data_loader):
             

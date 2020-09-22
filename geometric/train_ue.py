@@ -36,10 +36,9 @@ BATCH_SIZE=8 #12 gives memory error, 8 had more loss than 6?
 LR_GAMMA=0.75
 EMBED_DIM=1024
 SHUFFLE=True
-#MARGIN=0.5 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
+MARGIN=0.5 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
 
 #CAPTURE arg values
-MARGIN=float(sys.argv[-2])
 LR=float(sys.argv[-1])
 
 print(f'VGE-UE training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN} LR: {LR}')

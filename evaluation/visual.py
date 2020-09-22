@@ -130,7 +130,7 @@ if __name__ == "__main__":
         gather_netvlad_vectors(dataloader_train, dataloader_test, netvlad_model)
 
     if 'netvlad' in sys.argv:
-        netvlad_vectors_train,netvlad_vectors_test=pickle.load(open('features_netvlad-S3D.pkl','rb'))
+        netvlad_vectors_train,netvlad_vectors_test=pickle.load(open('evaluation_res/features_netvlad-S3D.pkl','rb'))
         pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices=None)
         print(pos_results, ori_results, scene_results)
         pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices='scene-voting')

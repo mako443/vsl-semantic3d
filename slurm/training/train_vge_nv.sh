@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name="S3D VGE NV training"
+#SBATCH --job-name="S3D VGE-NV training"
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:1,VRAM:12G
@@ -9,4 +9,4 @@
 #SBATCH --output=slurm-%j.out
 #SBATCH --error=slurm-%j.out
 
-srun python3 -m geometric.train_nv
+srun python3 -m geometric.train_nv "$@"

@@ -110,9 +110,7 @@ class VisualGraphEmbeddingNetVLAD(torch.nn.Module):
         self.conv3 = GCNConv(self.embedding_dim, self.embedding_dim)
 
         self.node_embedding=torch.nn.Embedding(30, self.embedding_dim) #30 should be enough
-        train_embed=True
-        print('VisualGraphEmbedding(): train_embed',train_embed)
-        self.node_embedding.requires_grad_(train_embed) #TODO: train embedding?
+        self.node_embedding.requires_grad_(False) # Performance proved better w/o training the Embedding ✓
 
         self.image_model=image_model
         self.image_model.requires_grad_(False)
