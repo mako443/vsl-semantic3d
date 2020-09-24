@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
+import torch.nn.functional as F
 
 import numpy as np
 import os
@@ -31,7 +32,7 @@ class SemanticEmbedding(torch.nn.Module):
 
         #TODO: add a linear layer? (VSE paper does not, VSE++ paper does), GE did not have one
         #TODO: also add ReLU? (GE has ReLUs inside)
-        #self.linear=nn.Linear(self.embedding_dim,2)
+        self.linear=nn.Linear(self.embedding_dim,self.embedding_dim)
 
     def forward(self,captions):
         word_indices=[ [self.word_dictionary.get(word,self.padding_idx) for word in caption.split()] for caption in captions]
@@ -61,7 +62,11 @@ class SemanticEmbedding(torch.nn.Module):
         _,(h,c)=self.lstm(x,(h,c))
 
         h=torch.squeeze(h)
-        #h=self.linear(h)
+
+        h=F.relu(h)
+
+        h=self.linear(h)
+
         h=h/torch.norm(h, dim=1, keepdim=True)
         return h
 

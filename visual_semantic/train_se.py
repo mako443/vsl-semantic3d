@@ -26,12 +26,13 @@ Module to train a simple Semantic-Embedding model to score the similarity of cap
 IMAGE_LIMIT=3000
 BATCH_SIZE=12
 LR_GAMMA=0.75
-EMBED_DIM=100
+EMBED_DIM=512 # 100 performed worse than GE (which had )
 SHUFFLE=True
 #DECAY=None #Tested, no decay here
-MARGIN=1.0 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
+#MARGIN=1.0 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
 
 #CAPTURE arg values
+MARGIN=float(sys.argv[-2])
 LR=float(sys.argv[-1])
 
 print(f'Semantic Embedding training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN} LR: {LR}')
@@ -50,7 +51,7 @@ loss_dict={}
 best_loss=np.inf
 best_model=None
 
-#for lr in (5e-3,2.5e-3,1e-3):
+#for lr in (5e-3,1e-3,5e-4,1e-4):
 for lr in (LR,):
     print('\n\nlr: ',lr)
 
@@ -93,7 +94,7 @@ for lr in (LR,):
         best_model=model
 
 print('\n----')           
-model_name=f'model_SemanticEmbed_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.pth'
+model_name=f'model_SemanticEmbed2_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.pth'
 print('Saving best model',model_name)
 torch.save(best_model.state_dict(),model_name)
 
@@ -104,4 +105,4 @@ for k in loss_dict.keys():
 plt.gca().set_ylim(bottom=0.0) #Set the bottom to 0.0
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_SemanticEmbed_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.png')    
+plt.savefig(f'loss_SemanticEmbed2_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.png')    
