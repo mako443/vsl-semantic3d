@@ -251,43 +251,50 @@ def create_captions_nnRels(base_path,split, scene):
 
 
 if __name__ == "__main__":
-    ### Scene graph debugging for Cluster3d
-    # base_path='data/pointcloud_images_o3d_merged/'
-    # scene_name='bildstein_station1_xyz_intensity_rgb'
-    # #scene_name=np.random.choice(('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'))
-    # scene_view_objects=pickle.load( open(os.path.join(base_path,scene_name,'view_objects.pkl'), 'rb') )
+    ## Scene graph debugging for Cluster3d
+    base_path='data/pointcloud_images_o3d_merged/'
+    scene_name='bildstein_station1_xyz_intensity_rgb'
+    split='test'
+    scene_view_objects=pickle.load( open(os.path.join(base_path,split,scene_name,'view_objects.pkl'), 'rb') )
 
-    # #file_name='000.png'
-    # file_name=np.random.choice(list(scene_view_objects.keys()))
-    # view_objects=scene_view_objects[file_name]
-    # print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
+    file_name='003.png'
+    view_objects=scene_view_objects[file_name]
+    print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
+    sg0=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, flip_relations=False)
+    sg0_debug=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=True, flip_relations=False)
+    img=cv2.imread(os.path.join(base_path,split, scene_name,'rgb', file_name))
+    draw_scenegraph(img,sg0_debug)
+    #draw_view_objects(img, view_objects, [o.label for o in view_objects])
+    #cv2.imshow(file_name,img)
+    objs=semantic.scene_graph_cluster3d_scoring.extract_scenegraph_objects(sg0)
+    for o in objs: print(o)
 
-    # # texts=[ str(SceneGraphObject.from_viewobject_cluster3d(v)) for v in view_objects ]
-    # # print(texts)
-    # # print()
+    file_name='009.png'
+    view_objects=scene_view_objects[file_name]
+    print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
+    sg1=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, flip_relations=False)
+    sg1_debug=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=True, flip_relations=False)
+    img=cv2.imread(os.path.join(base_path,split, scene_name,'rgb', file_name))
+    draw_scenegraph(img,sg1_debug)
+    cv2.imshow(file_name,img)
 
-    # sg=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False)
+    print(semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_sceneGraph_nnRels(sg0,sg0))
+    print(semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_sceneGraph_nnRels(sg1,sg1))
+    print()
+    print(semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_sceneGraph_nnRels(sg0,sg1))
+    print(semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_sceneGraph_nnRels(sg1,sg0))
+    
+    #cv2.waitKey()    
+
     # print(sg.get_text())
-    # score, groundings= semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects_7corners(sg, view_objects)
+    # score= semantic.scene_graph_cluster3d_scoring.scenegraph_similarity(sg,sg)
     # print('SG-Score:',score)
 
-    # sg=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=True)
-
-    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
-    # draw_view_objects(img, view_objects, texts)    
+    # img=cv2.imread(os.path.join(base_path,split, scene_name,'rgb', file_name))
+    # draw_scenegraph(img,sg_debug)
     # cv2.imshow("",img); cv2.waitKey()
-
-    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
-    # draw_scenegraph(img,sg)
-    # cv2.imshow("",img); cv2.waitKey()
-    
-    # img=cv2.imread(os.path.join(base_path, scene_name,'rgb', file_name))
-    # draw_scenegraph(img,groundings)
-    # cv2.imshow("",img); cv2.waitKey()
-    
-    # cv2.imwrite("sg_demo.jpg",img)
-    # quit()
-    ### Scene graph debugging for Cluster3d
+    quit()
+    ## Scene graph debugging for Cluster3d
 
     ### Scene graph nnRels debugging
     # base_path='data/pointcloud_images_o3d_merged/'

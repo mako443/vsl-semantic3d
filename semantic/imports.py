@@ -4,6 +4,7 @@ import cv2
 from graphics.imports import IMAGE_WIDHT, IMAGE_HEIGHT, CLASSES_COLORS
 
 RELATIONSHIP_TYPES=('left','right','below','above','infront','behind')
+INVERSE_RELATIONSHIP_TYPES={'left':'right','right':'left','below':'above','above':'below','infront':'behind','behind':'infront'}
 DEPTH_DIST_FACTOR=IMAGE_WIDHT/255.0*2
 
 #COLOR_NAMES=('black','red','green','blue','cyan','yellow', 'purple', 'white', 'gray') #Colors as 8 corners of unit-cube plus gray
@@ -63,6 +64,7 @@ class ClusteredObject:
         self.scene_name=scene_name
         self.label=label
         self.points_w=points_w #3D world-coordinate points, possibly reduced | convex-hull not possible because of projection errors
+        #TODO: give global (for scene) indices here (from clustering.py) -> check which made it to projection & pass to View-Object -> check which are confirmed (lbl&depth)
 
         self.points_i=None #3D image-coordinate points, available after self.project()
         self.points_c=None
@@ -81,7 +83,7 @@ class ClusteredObject:
         #points_c= np.array( [ project_point_extrinsic(E, point) for point in self.points_w ] ) #TODO: are points_c unstable, too?
         points_c=project_points_extrinsic(E, self.points_w)
         
-        mask=np.bitwise_and.reduce(( points_i[:,0]>=0, points_i[:,0]<=IMAGE_WIDHT, points_i[:,1]>=0, points_i[:,1]<=IMAGE_HEIGHT, points_i[:,2]>0  )) #Mask to clamp to visible region
+        mask=np.bitwise_and.reduce(( points_i[:,0]>=0, points_i[:,0]<IMAGE_WIDHT-1, points_i[:,1]>=0, points_i[:,1]<IMAGE_HEIGHT-1, points_i[:,2]>0  )) #Mask to clamp to visible region
         points_i=points_i[mask, :].copy()
         points_c=points_c[mask, :].copy()
         if len(points_i)>4: #Projection sucessful, partly in fov, CARE: requiring at least for points, otherwise buggy
@@ -126,7 +128,7 @@ class ViewObject:
         assert clustered_object.rect_i is not None
         v.scene_name=clustered_object.scene_name
         v.label=clustered_object.label
-        v.points=clustered_object.points_i #Projected image-coord points, clamped to FoV #TODO: remove?
+        v.points=clustered_object.points_i #Projected image-coord points, clamped to FoV
         v.rect=clustered_object.rect_i
         v.mindist=clustered_object.mindist_i
         v.maxdist=clustered_object.maxdist_i
@@ -148,8 +150,11 @@ class ViewObject:
         cv2.drawContours(img,[box],0,color,thickness=2)
         #cv2.circle(img, (int(self.center[0]), int(self.center[1])), 8, color, thickness=4)
         cv2.putText(img, self.label, (int(self.center[0] - 50), int(self.center[1])), cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, thickness=2)
-        #for p in self.points:
-        #    _=cv2.circle(img, (int(p[0]), int(p[1])), 6, color=(255,0,255), thickness=3)
+        
+        #color=CLASSES_COLORS[self.label]
+        #for p in self.points[::100]:
+        #     _=cv2.circle(img, (int(p[0]), int(p[1])), 2, color=(color[2],color[1],color[0]), thickness=2)
+        #     cv2.putText(img, str(p[2]), (int(p[0])+2, int(p[1])), cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, thickness=1)
 
     def get_area(self):
         center, lengths, angle=self.rect
@@ -240,7 +245,7 @@ class SceneGraph:
 
 #TODO: attributes here or in graph? Should be possible to convert to graph
 class SceneGraphObject:
-    __slots__ = ['label', 'color', 'corner','maxdist']
+    __slots__ = ['label', 'color', 'corner','maxdist','corner5']
 
     # @classmethod
     # def from_viewobject(cls, v : ViewObject):
@@ -264,12 +269,14 @@ class SceneGraphObject:
         color_distances= np.linalg.norm( COLORS-v.color, axis=1 )
         sgo.color=COLOR_NAMES[ np.argmin(color_distances) ]
 
+        corner_distances= np.linalg.norm( CORNERS- (v.center/(IMAGE_WIDHT, IMAGE_HEIGHT)), axis=1 )
+        sgo.corner5= CORNER_NAMES[ np.argmin(corner_distances) ] #Corner w/o fg/bg, only used in SG-SG scoring
+    
         #TODO: score corner (always possible to score as fg/bg or one of the corners?)
         if np.max(v.rect[1])>=2/3*IMAGE_WIDHT:
             sgo.corner='foreground' if v.center[1]>IMAGE_HEIGHT/2 else 'background'
         else:
-            corner_distances= np.linalg.norm( CORNERS- (v.center/(IMAGE_WIDHT, IMAGE_HEIGHT)), axis=1 )
-            sgo.corner= CORNER_NAMES[ np.argmin(corner_distances) ]
+            sgo.corner=sgo.corner5
 
         #sgo.maxdist=v.maxdist
 

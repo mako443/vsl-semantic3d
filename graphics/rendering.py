@@ -22,7 +22,8 @@ def expand_labels(xyz, rgb, lbl, iterations):
 
 #Deprecated? / copy from main, no alpha, no labels
 #Load as rgb, treat label and rgb the same
-def load_files2(base_path, scene_name, max_points=int(28e6)):
+def load_files2(base_path, scene_name, max_points=int(28e6), target='rbg'):
+    assert target in ('rgb','labels','depth')
     p_xyz   =os.path.join(base_path,scene_name+'.xyz.npy')
     p_rgb   =os.path.join(base_path,scene_name+'.rgb.npy')
     p_labels=os.path.join(base_path,scene_name+'.lbl.npy')
@@ -56,6 +57,15 @@ def load_files2(base_path, scene_name, max_points=int(28e6)):
     print(f'Retaining {np.sum(mask) / len(xyz) : 0.3} of points after artifact removal, {len(xyz)} total points')
     xyz, rgb, lbl=xyz[mask,:], rgb[mask,:], lbl[mask]
 
+    if target=='labels':
+        #Remove all non-labelled
+        mask= lbl!=CLASSES_DICT['unlabeled']
+        xyz, rgb, lbl=xyz[mask,:], rgb[mask,:], lbl[mask]
+
+        #Color according to labels
+        for class_name in CLASSES_DICT.keys():
+            rgb[ lbl==CLASSES_DICT[class_name],:]=CLASSES_COLORS[class_name]
+
     #Reduce the points via stepping to prevent memory erros
     xyz, rgb, lbl=reduce_points(xyz, max_points=max_points), reduce_points(rgb, max_points=max_points), reduce_points(lbl, max_points=max_points)
 
@@ -68,16 +78,18 @@ Rendering via 3D clusters
 # def capture_view(visualizer, pose, scene_objects):
 #     set_pose(view_control,pose)
 
-def capture_scene(dirpath,split, scene_name):
+def capture_scene(dirpath,split, scene_name, target='rgb'):
+    assert target in ('rgb','labels','depth')
     filepath_poses=os.path.join(dirpath,split,scene_name,'poses.pkl')
-    dirpath_out=os.path.join(dirpath,split,scene_name,'rgb')
+    #dirpath_out=os.path.join(dirpath,split,scene_name,'rgb')
+    dirpath_out=os.path.join(dirpath,split,scene_name,target)
     assert os.path.isfile(filepath_poses) and os.path.isdir(dirpath_out)
 
     scene_poses=pickle.load( open( filepath_poses, 'rb') )
     poses_rendered={} #Dictionary for the rendered poses, indexed by file name, I,E added
 
     print(f'Capturing {len(scene_poses)} poses for <{split}> <{scene_name}>')
-    xyz, rgba, labels_rgba=load_files2('data/numpy_merged/',scene_name, max_points=int(30e6)) #TODO: use load_files from here / new artifact removal, more points? (Seems to help!!)
+    xyz, rgba, labels_rgba=load_files2('data/numpy_merged/',scene_name, max_points=int(30e6), target=target) #TODO: use load_files from here / new artifact removal, more points? (Seems to help!!)
     labels_rgba=None
     rgb=rgba[:,0:3].copy()
     rgba=None
@@ -100,7 +112,15 @@ def capture_scene(dirpath,split, scene_name):
         time.sleep(0.5)
 
         file_name=f'{i_pose:03d}.png'
-        vis.capture_screen_image(os.path.join(dirpath_out,file_name),do_render=True)
+        if target in ('rgb','labels'):
+            vis.capture_screen_image(os.path.join(dirpath_out,file_name),do_render=True)
+        else: #As saving the depth as raw arrays leads to too big files, we compress it to uint8-pngs (scenes are smaller than 255 meters)
+            depth= np.asarray(vis.capture_depth_float_buffer(do_render=True))
+            depth= np.round(depth)
+            #print('depth o-o-r:',np.sum(depth>255))
+            depth[depth>255]=255
+            depth= np.uint8(depth)
+            cv2.imwrite( os.path.join(dirpath_out,file_name), depth)
 
         #Add I,E to the pose, add to dictionary
         pose.I,pose.E=I,E
@@ -141,13 +161,37 @@ if __name__ == "__main__":
     '''
     Data creation: Open3D rendering for clusters, read poses -> render images
     '''
+    xyz, rgba, labels_rgba=load_files2('data/numpy_merged/','bildstein_station1_xyz_intensity_rgb', max_points=int(10e6), target='depth')
+    labels_rgba=None
+    rgb=rgba[:,0:3].copy()
+    rgba=None
+
+    point_cloud=open3d.geometry.PointCloud()
+    point_cloud.points=open3d.utility.Vector3dVector(xyz)
+    point_cloud.colors=open3d.utility.Vector3dVector(rgb/255.0)
+
+    vis = open3d.visualization.Visualizer()
+    vis.create_window(width=1620, height=1080)
+
+    view_control=vis.get_view_control()
+    vis.get_render_option().background_color = np.asarray([0, 0, 0])    
+
+    vis.add_geometry(point_cloud)
+    vis.run()
+
+    quit()
+
+
     #for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
     #for scene_name in enumerate(COMBINED_SCENE_NAMES):
     #for split in ('train','test',):
     for split in ('test',):
-        for scene_name in COMBINED_SCENE_NAMES:
+        #for scene_name in COMBINED_SCENE_NAMES:
+        for scene_name in ('bildstein_station1_xyz_intensity_rgb',):
             print(f'\n\n Rendering Scene {scene_name} split {split}')
-            capture_scene('data/pointcloud_images_o3d_merged/',split,scene_name)
+            #capture_scene('data/pointcloud_images_o3d_merged/',split,scene_name,target='rgb')
+            capture_scene('data/pointcloud_images_o3d_merged/',split,scene_name,target='labels')
+            #capture_scene('data/pointcloud_images_o3d_merged/',split,scene_name,target='depth')
     quit()
 
     ### Project & bbox verify 

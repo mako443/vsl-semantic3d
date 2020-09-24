@@ -83,6 +83,7 @@ class VisualSemanticEmbedding(torch.nn.Module):
     def is_cuda(self):
         return next(self.parameters()).is_cuda
 
+#TODO: Source!
 class PairwiseRankingLoss(torch.nn.Module):
     def __init__(self, margin=1.0):
         super(PairwiseRankingLoss, self).__init__()
@@ -95,6 +96,7 @@ class PairwiseRankingLoss(torch.nn.Module):
         margin = self.margin
         # compute image-sentence score matrix
         scores = torch.mm(im, s.transpose(1, 0))
+        print(scores)
         diagonal = scores.diag()
 
         # compare every diagonal score to scores in its column (i.e, all contrastive images for each sentence)
@@ -106,4 +108,65 @@ class PairwiseRankingLoss(torch.nn.Module):
             cost_s[i, i] = 0
             cost_im[i, i] = 0
 
-        return (cost_s.sum() + cost_im.sum()) / len(im) #Take mean for batch-size stability        
+        return (cost_s.sum() + cost_im.sum()) / len(im) #Take mean for batch-size stability     
+
+#My implementation, sanity check done ✓
+class HardestRankingLoss(torch.nn.Module):
+    def __init__(self, margin=1.0):
+        super(HardestRankingLoss, self).__init__()
+        self.margin=margin
+        self.relu=nn.ReLU()
+
+    def forward(self, images, captions):
+        assert images.shape==captions.shape
+        images=images/torch.norm(images,dim=1,keepdim=True)
+        captions=captions/torch.norm(captions,dim=1,keepdim=True)        
+        num_samples=len(images)
+
+        similarity_scores = torch.mm( images, captions.transpose(1,0) ) # [I x C]
+        print('sim')
+        print(similarity_scores)
+
+        cost_images= self.margin + similarity_scores - similarity_scores.diag().view((num_samples,1))
+        cost_images.fill_diagonal_(0)
+        cost_images=self.relu(cost_images)
+        #cost_images,_=torch.max(cost_images, dim=1)
+        cost_images=torch.mean(cost_images)
+
+        cost_captions= self.margin + similarity_scores.transpose(1,0) - similarity_scores.diag().view((num_samples,1))
+        cost_captions.fill_diagonal_(0)
+        cost_captions=self.relu(cost_captions)
+        cost_captions,_=torch.max(cost_captions, dim=1)
+        cost_captions=torch.mean(cost_captions)        
+
+        cost= cost_images#+cost_captions
+        return cost
+        
+
+if __name__=='__main__':
+    images=Variable(torch.tensor([
+        1,1,1,
+        -1,-1,1,
+        1,1,1,
+    ],dtype=torch.float32).reshape(3,3))
+
+    captions=Variable(torch.tensor([
+        1,1,1,
+        -1,-1,1,
+        1,1,1,
+    ],dtype=torch.float32).reshape(3,3))    
+
+    images.requires_grad_(True)
+    captions.requires_grad_(True)
+
+    hrl=HardestRankingLoss(margin=2)
+
+    #loss=hrl(images.cuda(),captions.cuda())
+    loss=hrl(images,captions)
+    print(loss)
+    loss.backward()
+
+    print('grad im')
+    print(images.grad)
+    print('grad cap')
+    print(captions.grad)
