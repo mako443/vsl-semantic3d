@@ -48,7 +48,7 @@ class VisualGraphEmbedding(torch.nn.Module):
         self.conv3 = GCNConv(self.embedding_dim, self.embedding_dim)
 
         self.node_embedding=torch.nn.Embedding(30, self.embedding_dim) #30 should be enough
-        self.node_embedding.requires_grad_(False) #TODO: train embedding?
+        self.node_embedding.requires_grad_(False) # Performance proved better w/o training the Embedding ✓
 
         self.image_model=image_model
         self.image_model.requires_grad_(False)
@@ -173,7 +173,7 @@ class VisualGraphEmbeddingCombined(torch.nn.Module):
         self.conv3 = GCNConv(self.embedding_dim, self.embedding_dim)
 
         self.node_embedding=torch.nn.Embedding(30, self.embedding_dim) #30 should be enough
-        self.node_embedding.requires_grad_(False) #TODO: train embedding?
+        self.node_embedding.requires_grad_(False) # Performance proved better w/o training the Embedding ✓
 
         self.image_model=image_model
         self.image_model.requires_grad_(False)

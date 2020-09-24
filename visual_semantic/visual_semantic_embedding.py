@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
+import torch.nn.functional as F
 
 import numpy as np
 import os
@@ -25,7 +26,7 @@ class VisualSemanticEmbedding(torch.nn.Module):
 
         #Contrary to the paper, we use initialize the word-embedding from PyTorch
         self.word_embedding=nn.Embedding(len(known_words)+1, self.embedding_dim, padding_idx=self.padding_idx) 
-        self.word_embedding.weight.requires_grad_(False) #TODO: train the embedding?
+        self.word_embedding.weight.requires_grad_(False) # Performance proved better w/o training the Embedding ✓
 
         self.lstm=nn.LSTM(self.embedding_dim,self.embedding_dim)
 
@@ -38,6 +39,7 @@ class VisualSemanticEmbedding(torch.nn.Module):
         assert self.image_dim==4096
 
         self.W_i=nn.Linear(self.image_dim,self.embedding_dim,bias=True)        
+        self.W_t=nn.Linear(self.embedding_dim,self.embedding_dim,bias=True)
 
     def forward(self,images,captions):
         if len(images.shape)==3: images=torch.unsqueeze(images,0)
@@ -46,12 +48,15 @@ class VisualSemanticEmbedding(torch.nn.Module):
         assert len(images)==len(captions)
         x=self.encode_images(images)
         v=self.encode_captions(captions)
+        assert x.shape==v.shape
+
         return x,v        
 
     def encode_images(self,images):
         assert len(images.shape)==4 #Expect a batch of images
         q=self.image_model(images)
         x=self.W_i(q)
+        x=x/torch.norm(x, dim=1, keepdim=True)
         return x
 
     def encode_captions(self,captions):
@@ -78,7 +83,15 @@ class VisualSemanticEmbedding(torch.nn.Module):
             c=torch.zeros(1,batch_size,self.word_embedding.embedding_dim)
 
         _,(h,c)=self.lstm(x,(h,c))
-        return torch.squeeze(h)
+
+        h=torch.squeeze(h)
+
+        h=F.relu(h)
+
+        h=self.W_t(h)
+
+        h=h/torch.norm(h, dim=1, keepdim=True)
+        return h        
 
     def is_cuda(self):
         return next(self.parameters()).is_cuda

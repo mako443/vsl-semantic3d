@@ -30,8 +30,7 @@ class SemanticEmbedding(torch.nn.Module):
 
         self.lstm=nn.LSTM(self.embedding_dim,self.embedding_dim)
 
-        #TODO: add a linear layer? (VSE paper does not, VSE++ paper does), GE did not have one
-        #TODO: also add ReLU? (GE has ReLUs inside)
+        #Add ReLU and Linear layer: much stronger ✓
         self.linear=nn.Linear(self.embedding_dim,self.embedding_dim)
 
     def forward(self,captions):

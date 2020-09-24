@@ -8,6 +8,7 @@ import torchvision.models
 import string
 import random
 import os
+import sys
 import numpy as np
 import cv2
 import psutil
@@ -38,23 +39,23 @@ TODO:
 10 scenes, m1.0, e100, w/ shuffle: {1: 44.84, 3: 38.2, 5: 36.53, 10: 36.53} {1: 1.775, 3: 1.652, 5: 1.616, 10: 1.605} {1: 0.23, 3: 0.3018, 5: 0.335, 10: 0.294}
 '''
 
-IMAGE_LIMIT=3000
-BATCH_SIZE=2 #12 gives memory error, 8 had more loss than 6?
+IMAGE_LIMIT=420
+BATCH_SIZE=8 #12 gives memory error, 8 had more loss than 6?
 LR_GAMMA=0.75
-TEST_SPLIT=4
-EMBED_DIM=100
+EMBED_DIM=1024
 SHUFFLE=True
-MARGIN=1.0 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
+MARGIN=0.5 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
 
-print(f'image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} test-split: {TEST_SPLIT} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN}')
+#Capture arguments
+LR=float(sys.argv[-1])
+
+print(f'VSE-UE training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN} lr:{LR}')
 
 transform=transforms.Compose([
     #transforms.Resize((950,1000)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
-
-train_indices, test_indices=get_split_indices(TEST_SPLIT, 3000)
 
 data_set=Semantic3dDataset('data/pointcloud_images_o3d_merged','train', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True, return_captions=True)
 data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=SHUFFLE) #Option: shuffle, Care: pin_memory!
@@ -63,24 +64,20 @@ loss_dict={}
 best_loss=np.inf
 best_model=None
 
-for lr in (7.5e-1, 5e-1, 1e-1):
+for lr in (5e-4,1e-4,5e-5):
     print('\n\nlr: ',lr)
 
     vgg=torchvision.models.vgg11(pretrained=True)
     for i in [4,5,6]: vgg.classifier[i]=nn.Identity()     #Remove layers after the 4096 features Linear layer
 
-    model=VisualSemanticEmbedding(vgg, data_set.get_known_words(), EMBED_DIM)
-    model.cuda()
-    batch=next(iter(data_loader))
-    x,v=model(batch['images'].cuda(),batch['captions'])   
-    quit()
+    model=VisualSemanticEmbedding(vgg, data_set.get_known_words(), EMBED_DIM).cuda()
 
     criterion=PairwiseRankingLoss(margin=MARGIN)
     optimizer=optim.SGD(model.parameters(), lr=lr) #Using SGD for packed Embedding
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)    
 
     loss_dict[lr]=[]
-    for epoch in range(8):
+    for epoch in range(5):
         epoch_loss_sum=0.0
         for i_batch, batch in enumerate(data_loader):
             optimizer.zero_grad()
@@ -107,7 +104,7 @@ for lr in (7.5e-1, 5e-1, 1e-1):
         best_model=model
 
 print('\n----')           
-model_name=f'model_vse_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_split{TEST_SPLIT}.pth'
+model_name=f'model_VSE-UE_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_l{LOSS}_lr{LR}.pth'
 print('Saving best model',model_name)
 torch.save(best_model.state_dict(),model_name)
 
@@ -115,6 +112,7 @@ for k in loss_dict.keys():
     l=loss_dict[k]
     line, = plt.plot(l)
     line.set_label(k)
+plt.gca().set_ylim(bottom=0.0) #Set the bottom to 0.0
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_vse_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_split{TEST_SPLIT}.png')    
+plt.savefig(f'loss_VSE-UE_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_l{LOSS}_lr{LR}.png')    
