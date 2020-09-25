@@ -87,10 +87,10 @@ def is_object_occluded_projection(view_object : ViewObject, label_image, depth_i
     #return np.mean(mask)<0.3
 
     if np.mean(mask)>0.3: #More than 30% of the object are verified -> not occluded
-        return False
+        return False, mask
     if np.mean(mask_label)>0.5 and np.mean(mask_depth)>0.2: #CARE: more than 50% label-verified and more than 20% depth-verified | for depth-wise "self-occluding" objects
-        return False
-    return True
+        return False, mask
+    return True, mask
 
     #TODO: return combined mask, set mask for object, compare for Triplet-pairs
 
@@ -104,48 +104,64 @@ def create_view_objects(scene_objects, view_pose : Pose, label_image, depth_imag
     for o in scene_objects:
         o.project(I,E)
 
+    ### Old version
+    #Reduce to the objects that are in FoV
     fov_objects=[ obj for obj in scene_objects if obj.rect_i is not None and is_object_in_fov(obj) ]
     #print(f'Scene but not fov objects: {len(scene_objects) - len(fov_objects)}')
+    visible_objects=[ obj for obj in fov_objects if not is_object_occluded(obj, fov_objects) ]
+    #Create the View-Objects
+    view_objects=[ ViewObject.from_clustered_object(obj) for obj in visible_objects ]
+    return view_objects
 
-    #visible_objects=[ obj for obj in fov_objects if not is_object_occluded(obj, fov_objects) ]
+    ### Old version
 
-    #view_objects=[ ViewObject.from_clustered_object(obj) for obj in visible_objects ]
-    view_objects=[ ViewObject.from_clustered_object(obj) for obj in fov_objects ]
+    ### New version
     
-    visible_objects=[ obj for obj in view_objects if not is_object_occluded_projection(obj, label_image, depth_image) ]
-    print(f'FoV but occluded objects: {len(fov_objects) - len(visible_objects)}')
+    # #visible_objects=[ obj for obj in view_objects if not is_object_occluded_projection(obj, label_image, depth_image) ]
+    # #Reduce to visible objects and set their visible points
+    # visible_objects=[]
+    # for obj in view_object:
+    #     is_occluded, mask = is_object_occluded_projection(obj, label_image, depth_image)
+    #     if not is_occluded:
+    #         obj.set_visible_points(mask)
+    #         visible_objects.append(obj)
 
-    return visible_objects, view_objects
+    # print(f'FoV but occluded objects: {len(fov_objects) - len(visible_objects)}')
 
+    # return visible_objects, view_objects
+
+    ### New version
+
+#TODO: re-create, re-check 077, save demo images
 if __name__ == "__main__":
     ### Projection-Occlusion debug
-    scene_name='bildstein_station1_xyz_intensity_rgb'
-    split='test'
+    # scene_name='bildstein_station1_xyz_intensity_rgb'
+    # split='test'
 
-    scene_objects=pickle.load( open('data/numpy_merged/'+scene_name+'.objects.pkl', 'rb'))
-    #scene_objects=[so for so in scene_objects if so.label=='buildings' and ]
-    poses_rendered=pickle.load( open( os.path.join('data','pointcloud_images_o3d_merged',split,scene_name,'poses_rendered.pkl'), 'rb'))
+    # scene_objects=pickle.load( open('data/numpy_merged/'+scene_name+'.objects.pkl', 'rb'))
+    # #scene_objects=[so for so in scene_objects if so.label=='buildings' and ]
+    # poses_rendered=pickle.load( open( os.path.join('data','pointcloud_images_o3d_merged',split,scene_name,'poses_rendered.pkl'), 'rb'))
 
-    file_name=np.random.choice(list(poses_rendered.keys()))
-    file_name='078.png'
-    print('File',file_name)
+    # file_name=np.random.choice(list(poses_rendered.keys()))
+    # file_name='077.png'
+    # print('File',file_name)
 
-    pose=poses_rendered[file_name]
-    img_rgb=cv2.imread( os.path.join('data','pointcloud_images_o3d_merged',split,scene_name,'rgb', file_name) )
-    img_lbl=cv2.imread( os.path.join('data','pointcloud_images_o3d_merged',split,scene_name,'labels', file_name) )
-    img_dep=cv2.imread( os.path.join('data','pointcloud_images_o3d_merged',split,scene_name,'depth', file_name), cv2.IMREAD_GRAYSCALE )
+    # pose=poses_rendered[file_name]
+    # img_rgb=cv2.imread( os.path.join('data','pointcloud_images_o3d_merged',split,scene_name,'rgb', file_name) )
+    # img_lbl=cv2.imread( os.path.join('data','pointcloud_images_o3d_merged',split,scene_name,'labels', file_name) )
+    # img_dep=cv2.imread( os.path.join('data','pointcloud_images_o3d_merged',split,scene_name,'depth', file_name), cv2.IMREAD_GRAYSCALE )
 
-    visible_objects, view_objects=create_view_objects(scene_objects,pose, img_lbl, img_dep)
+    # visible_objects, view_objects=create_view_objects(scene_objects,pose, img_lbl, img_dep)
 
-    for v in visible_objects:
-        v.draw_on_image(img_rgb)
-    cv2.imshow("",img_rgb); cv2.waitKey()
+    # for v in visible_objects:
+    #     v.draw_on_image(img_rgb)
+    # cv2.imshow("",img_rgb); cv2.waitKey()
 
-    for v in view_objects:
-        v.draw_on_image(img_rgb)
-    cv2.imshow("",img_rgb); cv2.waitKey()    
+    # for v in view_objects:
+    #     v.draw_on_image(img_rgb)
+    # cv2.imshow("",img_rgb); cv2.waitKey()    
 
-    quit()
+    # quit()
 
 
     ### Projection-Occlusion debug

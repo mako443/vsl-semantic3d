@@ -60,7 +60,7 @@ def project_points_extrinsic(E,points):
     return p[:,0:3]
 
 class ClusteredObject:
-    def __init__(self, scene_name, label, points_w, total_points, color):
+    def __init__(self, scene_name, label, points_w, total_points, pointIDs, color):
         self.scene_name=scene_name
         self.label=label
         self.points_w=points_w #3D world-coordinate points, possibly reduced | convex-hull not possible because of projection errors
@@ -73,6 +73,10 @@ class ClusteredObject:
         
         self.total_points=total_points #Original number of points (as opposed to hull)
         self.color=color #Color as [r,g,b] in [0,1]
+        
+        self.pointIDs_w=pointIDs
+        self.pointIDs_i=None #Available after self.project()
+
 
     def __str__(self):
         return f'ClusteredObject: {self.label} at {np.mean(self.points_w, axis=0)}, {self.total_points} points'
@@ -91,9 +95,11 @@ class ClusteredObject:
             self.mindist_i, self.maxdist_i = np.min(points_i[:,2]), np.max(points_i[:,2])
             self.points_i=points_i
             self.points_c=points_c
+            self.pointIDs_i=self.pointIDs_w[mask]
         else: #Projection failed, none in FoV
             self.rect_i=None
             self.mindist_i, self.maxdist_i= None, None
+            self.pointIDs_i=None
 
     def get_area(self):
         assert self.rect_i is not None
@@ -110,7 +116,7 @@ class ClusteredObject:
 
 class ViewObject:
     #__slots__ = ['label', 'bbox', 'depth', 'center', 'color']
-    __slots__ = ['scene_name', 'label', 'points','rect', 'mindist', 'maxdist', 'center', 'color','min_z_w','max_z_w','bbox_c','center_c','lengths_c','points_c']
+    __slots__ = ['scene_name', 'label', 'points','rect', 'mindist', 'maxdist', 'center', 'color','min_z_w','max_z_w','bbox_c','center_c','lengths_c','points_c','point_ids','point_ids_visible']
 
     # @classmethod
     # def from_patch(cls, patch):
@@ -142,7 +148,14 @@ class ViewObject:
                    np.max(clustered_object.points_c[:,0]), np.max(clustered_object.points_c[:,1]), np.max(clustered_object.points_c[:,2]) ))
         v.lengths_c=np.array(( v.bbox_c[3]-v.bbox_c[0], v.bbox_c[4]-v.bbox_c[1], v.bbox_c[5]-v.bbox_c[2] ))
         v.center_c=np.array(( v.bbox_c[0]+ 0.5*v.lengths_c[0], v.bbox_c[1]+ 0.5*v.lengths_c[1], v.bbox_c[2]+ 0.5*v.lengths_c[2]))
+        
+        assert clustered_object.pointIDs_i is not None
+        v.point_ids=clustered_object.pointIDs_i
         return v
+
+    def set_visible_points(mask):
+        assert len(mask)==len(self.point_ids)
+        self.point_ids_visible=point_ids[mask]
 
     def draw_on_image(self,img):
         box=np.int0(cv2.boxPoints(self.rect))

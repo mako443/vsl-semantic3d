@@ -100,6 +100,8 @@ def cluster_scene(scene_name, return_visualization=False):
     vis_xyz=np.array([]).reshape((0,3))
     vis_rgb=np.array([]).reshape((0,3))
 
+    current_obj_pointID_max=0
+
     for label in ('man-made terrain','natural terrain','high vegetation','low vegetation','buildings','hard scape','cars'): #Disregard unknowns and artifacts
     #for label in ('buildings',):
         options=CLUSTERING_OPTIONS[label]
@@ -146,7 +148,10 @@ def cluster_scene(scene_name, return_visualization=False):
             #scene_objects.append( ClusteredObject2(label, bbox_points, len(object_xyz)) )
 
             save_xyz=semantic.utils.reduce_points(object_xyz, int(1e4)) #Save max. 10k points per object
-            obj=ClusteredObject(scene_name, label, save_xyz, len(object_xyz), object_color)
+            obj_pointIDs=current_obj_pointID_max + np.arange(len(save_xyz)) + 1
+            current_obj_pointID_max=np.max(obj_pointIDs)
+
+            obj=ClusteredObject(scene_name, label, save_xyz, len(object_xyz), obj_pointIDs, object_color)
             scene_objects.append(obj)
 
             if return_visualization:
