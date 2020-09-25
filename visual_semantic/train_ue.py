@@ -15,9 +15,10 @@ import psutil
 import matplotlib.pyplot as plt
 
 from .visual_semantic_embedding import VisualSemanticEmbedding, PairwiseRankingLoss
+from geometric.visual_graph_embedding import create_image_model_vgg11
+
 from retrieval import networks
 from retrieval.netvlad import NetVLAD, EmbedNet
-from retrieval.utils import get_split_indices
 from dataloading.data_loading import Semantic3dDataset
 
 '''
@@ -27,19 +28,11 @@ TODO:
 -Train big, evaluate -> performance weak ✖
 -Train with other contrastive and/or shuffle? -> shuffle helps! ✓
 
--Verify w/ image limit and no split
--Use other backbone?
--Use other captions?
--Train w/ TripletMarginLoss?
+-Train w/ different word/unify dims
+-Train w/ pre-trained SE
 '''
 
-'''
-10 scenes, m0.2, e300, no shuffle: bad
-10 scenes, m1.0, e300, w/ shuffle: {1: 48.44, 3: 41.7, 5: 39.94, 10: 45.8} {1: 1.824, 3: 1.677, 5: 1.593, 10: 1.58} {1: 0.26, 3: 0.2467, 5: 0.262, 10: 0.289}
-10 scenes, m1.0, e100, w/ shuffle: {1: 44.84, 3: 38.2, 5: 36.53, 10: 36.53} {1: 1.775, 3: 1.652, 5: 1.616, 10: 1.605} {1: 0.23, 3: 0.3018, 5: 0.335, 10: 0.294}
-'''
-
-IMAGE_LIMIT=420
+IMAGE_LIMIT=3000
 BATCH_SIZE=8 #12 gives memory error, 8 had more loss than 6?
 LR_GAMMA=0.75
 EMBED_DIM=1024
@@ -64,20 +57,21 @@ loss_dict={}
 best_loss=np.inf
 best_model=None
 
-for lr in (5e-4,1e-4,5e-5):
+#for lr in (1e-1,7.5e-2, 5e-2, 2.5e-2, 7.5e-3):
+for lr in (LR,):
     print('\n\nlr: ',lr)
 
-    vgg=torchvision.models.vgg11(pretrained=True)
-    for i in [4,5,6]: vgg.classifier[i]=nn.Identity()     #Remove layers after the 4096 features Linear layer
-
+    vgg=create_image_model_vgg11()
     model=VisualSemanticEmbedding(vgg, data_set.get_known_words(), EMBED_DIM).cuda()
 
     criterion=PairwiseRankingLoss(margin=MARGIN)
     optimizer=optim.SGD(model.parameters(), lr=lr) #Using SGD for packed Embedding
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)    
 
+    if type(criterion)==PairwiseRankingLoss: assert SHUFFLE==True 
+
     loss_dict[lr]=[]
-    for epoch in range(5):
+    for epoch in range(10):
         epoch_loss_sum=0.0
         for i_batch, batch in enumerate(data_loader):
             optimizer.zero_grad()
@@ -104,7 +98,7 @@ for lr in (5e-4,1e-4,5e-5):
         best_model=model
 
 print('\n----')           
-model_name=f'model_VSE-UE_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_l{LOSS}_lr{LR}.pth'
+model_name=f'model_VSE-UE_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.pth'
 print('Saving best model',model_name)
 torch.save(best_model.state_dict(),model_name)
 
@@ -115,4 +109,4 @@ for k in loss_dict.keys():
 plt.gca().set_ylim(bottom=0.0) #Set the bottom to 0.0
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_VSE-UE_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_l{LOSS}_lr{LR}.png')    
+plt.savefig(f'loss_VSE-UE_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.png')    

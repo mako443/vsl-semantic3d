@@ -24,6 +24,7 @@ from visual_semantic.visual_semantic_embedding import VisualSemanticEmbedding
 
 from geometric.graph_embedding import GraphEmbedding
 from geometric.visual_graph_embedding import create_image_model_vgg11, VisualGraphEmbeddingNetVLAD, VisualGraphEmbedding, VisualGraphEmbeddingCombined
+from dataloading.data_cambridge import CambridgeDataset
 
 def gather_GE_vectors(dataloader_train, dataloader_test, model):
     #Gather all features
@@ -95,7 +96,30 @@ def gather_VGE_NV_vectors(dataloader_train, dataloader_test, model):
     assert len(embed_vectors_visual_test)==len(embed_vectors_graph_test)==len(dataloader_test.dataset)
 
     pickle.dump((embed_vectors_visual_train, embed_vectors_graph_train, embed_vectors_visual_test, embed_vectors_graph_test), open(f'features_VGE-NV_e{embed_dim}.pkl','wb'))
-    print('Saved VGE-NV_vectors')         
+    print('Saved VGE-NV_vectors')    
+
+def gather_VGE_NV_vectors_cambridge(dataloader_train, dataloader_test, model):
+    #Gather all features
+    print('Building VGE-NV vectors')
+    embed_vectors_visual_train=torch.tensor([]).cuda()
+    embed_vectors_visual_test=torch.tensor([]).cuda()
+    with torch.no_grad():
+        for i_batch, batch in enumerate(dataloader_train):
+            out_visual=model.encode_images(batch.to('cuda'))
+            embed_vectors_visual_train=torch.cat((embed_vectors_visual_train, out_visual)) 
+        for i_batch, batch in enumerate(dataloader_test):
+            out_visual=model.encode_images(batch.to('cuda'))
+            embed_vectors_visual_test=torch.cat((embed_vectors_visual_test, out_visual))
+    embed_vectors_visual_train=embed_vectors_visual_train.cpu().detach().numpy()
+    embed_vectors_visual_test=embed_vectors_visual_test.cpu().detach().numpy()
+    embed_dim=embed_vectors_visual_train.shape[1]
+
+    assert len(embed_vectors_visual_train)==len(dataloader_train.dataset)
+    assert len(embed_vectors_visual_test)==len(dataloader_test.dataset)
+
+    #pickle.dump((embed_vectors_visual_train, embed_vectors_graph_train, embed_vectors_visual_test, embed_vectors_graph_test), open(f'features_VGE-UE_e{embed_dim}.pkl','wb'))
+    #print('Saved VGE-UE_vectors')  
+    return embed_vectors_visual_train, embed_vectors_visual_test         
   
 def gather_VGE_CO_vectors(dataloader_train, dataloader_test, model):
     #Gather all features
@@ -247,86 +271,7 @@ def eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_train, ne
     print('Saving retrieval results...')
     pickle.dump(retrieval_dict, open(f'retrievals_netvlad_graph-embed_{combine}.pkl','wb'))
 
-    return evaluate_topK(pos_results, ori_results, scene_results)          
-
-
-# '''
-# Evaluation between a NetVLAD-model and a model that predicts the NetVLAD vector cross-modal
-# distance-sum: predicts feature vectors separately, sums up the distances (both sides multi-modal)
-# mean-vector-test: uses the mean vector on the test-side, regular NetVLAD vector on the train side (query multi-modal)
-# mean-vector: uses the mean vectors on both sides (both sides multi-modal)
-# cross-modal: uses the predicted vectors on the test side, regular NetVLAD vectors on the train side (one modality per side)
-# embed-only: uses only the graph embeddings (both sides semantic-only, but "anchored" on NetVLAD)
-
-# -> Distance-Sum & Mean-Vector work the same and perform equal to pure-NV, mean-vector-test slightly worse, cross-modal bad, embed-only bad
-# -> VGE-NV does not precisely predict the NetVLAD vectors...
-# TODO: redo with smaller NetVLAD, higher Embed-Dim, combine by linear
-# TODO: remove, right? now all done in func above
-# '''
-# def eval_netvlad__VGE_NV(dataset_train, dataset_test, netvlad_train, netvlad_test, embedding_train, embedding_test ,top_k=(1,3,5,10), combine='distance-sum'):
-#     assert combine in ('distance-sum','mean-vector-test','mean-vector','cross-modal','embed-only')
-#     print('\n evaluate_netvlad_predictions():', combine)
-
-#     image_positions_train, image_orientations_train = dataset_train.image_positions, dataset_train.image_orientations
-#     image_positions_test, image_orientations_test = dataset_test.image_positions, dataset_test.image_orientations
-#     scene_names_train = dataset_train.image_scene_names
-#     scene_names_test  = dataset_test.image_scene_names    
-
-#     retrieval_dict={}
-
-#     pos_results  ={k:[] for k in top_k}
-#     ori_results  ={k:[] for k in top_k}
-#     scene_results={k:[] for k in top_k}   
-
-#     mean_vectors_train=0.5*(netvlad_train+embedding_train)
-#     mean_vectors_test =0.5*(netvlad_test +embedding_test )
-
-#     check_indices=np.arange(len(dataset_test))
-#     for idx in check_indices:
-#         scene_name_gt=scene_names_test[idx]
-
-#         if combine=='distance-sum':
-#             netvlad_distances  = np.linalg.norm( netvlad_train[:]  - netvlad_test[idx] , axis=1 )
-#             embedding_distances= np.linalg.norm( embedding_train[:]-embedding_test[idx], axis=1 )
-#             combined_distances=netvlad_distances+embedding_distances
-#             sorted_indices=np.argsort(combined_distances)
-#         if combine=='mean-vector-test':
-#             combined_distances= np.linalg.norm( netvlad_train[:] - mean_vectors_test[idx], axis=1)
-#             sorted_indices=np.argsort(combined_distances)
-#         if combine=='mean-vector':
-#             combined_distances= np.linalg.norm( mean_vectors_train[:] - mean_vectors_test[idx], axis=1)
-#             sorted_indices=np.argsort(combined_distances)
-#         if combine=='cross-modal':
-#             combined_distances= np.linalg.norm( netvlad_train[:] - embedding_test[idx], axis=1)
-#             sorted_indices=np.argsort(combined_distances)
-#         if combine=='embed-only':
-#             combined_distances=np.linalg.norm( embedding_train[:] - embedding_test[idx], axis=1)
-#             sorted_indices=np.argsort(combined_distances)
-
-#         assert len(sorted_indices)==len(dataset_train)
-
-#         pos_dists=np.linalg.norm(image_positions_train[:]-image_positions_test[idx], axis=1) #CARE: also adds z-distance
-#         ori_dists=np.abs(image_orientations_train[:]-image_orientations_test[idx])
-#         ori_dists=np.minimum(ori_dists, 2*np.pi-ori_dists)
-
-#         retrieval_dict[idx]=sorted_indices[0:np.max(top_k)]
-
-#         for k in top_k:
-#             scene_correct=np.array([scene_name_gt == scene_names_train[retrieved_index] for retrieved_index in sorted_indices[0:k]])
-#             topk_pos_dists=pos_dists[sorted_indices[0:k]]
-#             topk_ori_dists=ori_dists[sorted_indices[0:k]]    
-
-#             #Append the average pos&ori. errors *for the cases that the scene was hit*
-#             pos_results[k].append( np.mean( topk_pos_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
-#             ori_results[k].append( np.mean( topk_ori_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
-#             scene_results[k].append( np.mean(scene_correct) ) #Always append the scene-scores
-    
-#     assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==len(check_indices)  
-
-#     print('Saving retrieval results...')
-#     pickle.dump(retrieval_dict, open(f'retrievals_VGE_NV_{combine}.pkl','wb'))
-
-#     return evaluate_topK(pos_results, ori_results, scene_results)          
+    return evaluate_topK(pos_results, ori_results, scene_results)            
 
 if __name__ == "__main__":
     IMAGE_LIMIT=3000
@@ -455,7 +400,7 @@ if __name__ == "__main__":
         pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vge_vectors_visual_train, vge_vectors_graph_test ,top_k=(1,3,5,10), combine='distance-sum')
         print(pos_results, ori_results, scene_results,'\n')
         pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vge_vectors_visual_train, vge_vectors_graph_test ,top_k=(1,3,5,10), combine='scene-voting->netvlad')
-        print(pos_results, ori_results, scene_results,'\n')   
+        print(pos_results, ori_results, scene_results,'\n')         
 
     if 'VGE-NV-match' in sys.argv:
         vge_vectors_filename='features_VGE-NV_e1024.pkl'
@@ -484,13 +429,42 @@ if __name__ == "__main__":
         pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vge_vectors_visual_train, vge_vectors_graph_test ,top_k=(1,3,5,10), combine='distance-sum')
         print(pos_results, ori_results, scene_results,'\n')
         pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vge_vectors_visual_train, vge_vectors_graph_test ,top_k=(1,3,5,10), combine='scene-voting->netvlad')
-        print(pos_results, ori_results, scene_results,'\n')   
+        print(pos_results, ori_results, scene_results,'\n')  
+
+    if 'VGE-UE-match-cambridge' in sys.argv:
+        print('Eval VGE-UE (trained on S3D) on Cambridge (image-image)')
+        #Build dataset
+        data_set_train_cambridge=CambridgeDataset('data_cambridge','train',transform=transform)
+        data_set_test_cambridge =CambridgeDataset('data_cambridge','test', transform=transform)
+
+        data_loader_train_cambridge=DataLoader(data_set_train_cambridge, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #CARE: put shuffle off
+        data_loader_test_cambridge =DataLoader(data_set_test_cambridge , batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)           
+
+        #Gather vectors
+        EMBED_DIM_GEOMETRIC=1024
+        netvlad_model_name='model_netvlad_l3000_b6_g0.75_c8_a10.0.mdl'
+        print('NetVLAD Model:',netvlad_model_name)
+        netvlad_model=torch.load('models/'+netvlad_model_name)
+
+        vge_nv_model=VisualGraphEmbeddingNetVLAD(netvlad_model, EMBED_DIM_GEOMETRIC)
+        vge_nv_model_name='model_VGE-NV_l3000_b8_g0.75_e1024_sTrue_m0.5_lr0.0001.pth'
+        vge_nv_model.load_state_dict(torch.load('models/'+vge_nv_model_name)); print('Model:',vge_nv_model_name)
+        vge_nv_model.eval()
+        vge_nv_model.cuda()
+        embed_vectors_train, embed_vectors_test=gather_VGE_NV_vectors_cambridge(data_loader_train_cambridge, data_loader_test_cambridge, vge_nv_model)           
+
+        #Perform evaluation
+        print('Eval VGE-NV image-image on Cambridge')
+        pos_results, ori_results, scene_results=eval_GE_scoring(data_set_train_cambridge, data_set_test_cambridge, embed_vectors_train, embed_vectors_test, 'cosine' ,top_k=(1,3,5,10))
+        print(pos_results, ori_results, scene_results,'\n')       
+        pos_results, ori_results, scene_results=eval_GE_scoring(data_set_train_cambridge, data_set_test_cambridge, embed_vectors_train, embed_vectors_test, 'l2' ,top_k=(1,3,5,10))
+        print(pos_results, ori_results, scene_results,'\n')       
 
     if 'VGE-CO-match' in sys.argv:
         vge_vectors_filename='features_VGE-CO_e1024.pkl'
         vge_vectors_train, vge_vectors_test=pickle.load(open('evaluation_res/'+vge_vectors_filename,'rb')); print('Using vectors',vge_vectors_filename)
         pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices=None)
-        print(pos_results, ori_results, scene_results,'\n') )   
+        print(pos_results, ori_results, scene_results,'\n')  
         pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices='scene-voting')
         print(pos_results, ori_results, scene_results,'\n')               
                    

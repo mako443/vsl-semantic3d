@@ -18,8 +18,9 @@ from retrieval.netvlad import NetVLAD, EmbedNet
 from evaluation.utils import evaluate_topK, generate_sanity_check_dataset
 import evaluation.utils
 
-from visual_semantic.visual_semantic_embedding import VisualSemanticEmbedding
+from visual_semantic.visual_semantic_embedding import VisualSemanticEmbedding, VisualSemanticEmbeddingNetVLAD
 from visual_semantic.semantic_embedding import SemanticEmbedding
+from geometric.visual_graph_embedding import create_image_model_vgg11
 
 def gather_SE_vectors(dataloader_train, dataloader_test, model):
     #Gather all features
@@ -40,6 +41,33 @@ def gather_SE_vectors(dataloader_train, dataloader_test, model):
 
     pickle.dump((embed_vectors_train, embed_vectors_test), open(f'features_SE_e{embed_dim}.pkl','wb'))
     print('Saved SE-vectors')
+
+def gather_VSE_vectors(dataloader_train, dataloader_test, model, model_name):
+    assert model_name in ('VSE-UE','VSE-NV','VSE-CO')
+    #Gather all features
+    print(f'Building {model_name} vectors')
+    embed_vectors_visual_train, embed_vectors_semantic_train=torch.tensor([]).cuda(), torch.tensor([]).cuda()
+    embed_vectors_visual_test, embed_vectors_semantic_test=torch.tensor([]).cuda(), torch.tensor([]).cuda()
+    with torch.no_grad():
+        for i_batch, batch in enumerate(dataloader_train):
+            out_visual, out_semantic=model(batch['images'].to('cuda'), batch['captions'])
+            embed_vectors_visual_train=torch.cat((embed_vectors_visual_train, out_visual))
+            embed_vectors_semantic_train=torch.cat((embed_vectors_semantic_train, out_semantic))  
+        for i_batch, batch in enumerate(dataloader_test):
+            out_visual, out_semantic=model(batch['images'].to('cuda'), batch['captions'])
+            embed_vectors_visual_test=torch.cat((embed_vectors_visual_test, out_visual))
+            embed_vectors_semantic_test=torch.cat((embed_vectors_semantic_test, out_semantic))  
+    embed_vectors_visual_train=embed_vectors_visual_train.cpu().detach().numpy()
+    embed_vectors_semantic_train =embed_vectors_semantic_train.cpu().detach().numpy()
+    embed_vectors_visual_test=embed_vectors_visual_test.cpu().detach().numpy()
+    embed_vectors_semantic_test =embed_vectors_semantic_test.cpu().detach().numpy()    
+    embed_dim=embed_vectors_semantic_train.shape[1]
+
+    assert len(embed_vectors_visual_train)==len(embed_vectors_semantic_train)==len(dataloader_train.dataset)
+    assert len(embed_vectors_visual_test)==len(embed_vectors_semantic_test)==len(dataloader_test.dataset)
+
+    pickle.dump((embed_vectors_visual_train, embed_vectors_semantic_train, embed_vectors_visual_test, embed_vectors_semantic_test), open(f'features_{model_name}_e{embed_dim}.pkl','wb'))
+    print(f'Saved {model_name}_vectors')       
 
 '''
 Goes from query-side embed-vectors to db-side embed vectors
@@ -167,7 +195,7 @@ def eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_train, ne
     assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==len(test_indices)  
 
     print('Saving retrieval results...')
-    pickle.dump(retrieval_dict, open(f'retrievals_netvlad_graph-embed_{combine}.pkl','wb'))
+    pickle.dump(retrieval_dict, open(f'retrievals_netvlad_semantic-embed_{combine}.pkl','wb'))
 
     return evaluate_topK(pos_results, ori_results, scene_results)       
 
@@ -193,12 +221,34 @@ if __name__ == "__main__":
         #Gather SE
         EMBED_DIM_SEMANTIC=512
         semantic_embedding=SemanticEmbedding(dataset_train.get_known_words(),EMBED_DIM_SEMANTIC)
-        semantic_embedding_model_name='model_SemanticEmbed2_l3000_b12_g0.75_e512_sTrue_m1.0_lr0.0005.pth'
-        print('Model:',semantic_embedding_model_name)
-        semantic_embedding.load_state_dict(torch.load('models/'+semantic_embedding_model_name))
+        semantic_embedding_model_name='model_SemanticEmbed2_l3000_b12_g0.75_e512_sTrue_m0.5_lr0.0005.pth'
+        semantic_embedding.load_state_dict(torch.load('models/'+semantic_embedding_model_name)); print('Model:',semantic_embedding_model_name)
         semantic_embedding.eval()
         semantic_embedding.cuda()         
         gather_SE_vectors(dataloader_train, dataloader_test, semantic_embedding)
+
+        #Gather VSE-UE
+        EMBED_DIM_SEMANTIC=1024
+        vgg=create_image_model_vgg11()
+        vse_ue_model=VisualSemanticEmbedding(vgg, dataset_train.get_known_words(), EMBED_DIM_SEMANTIC).cuda()
+        vse_ue_model_name='model_VSE-UE_l3000_b8_g0.75_e1024_sTrue_m0.5_lr0.05.pth'
+        vse_ue_model.load_state_dict(torch.load('models/'+vse_ue_model_name)); print('Model:',vse_ue_model_name)
+        vse_ue_model.eval()
+        vse_ue_model.cuda()
+        gather_VSE_vectors(dataloader_train, dataloader_test, vse_ue_model, 'VSE-UE')        
+
+        #Gather VSE-NV
+        EMBED_DIM_SEMANTIC=1024
+        netvlad_model_name='model_netvlad_l3000_b6_g0.75_c8_a10.0.mdl'
+        print('NetVLAD Model:',netvlad_model_name)
+        netvlad_model=torch.load('models/'+netvlad_model_name)
+
+        vse_nv_model=VisualSemanticEmbeddingNetVLAD(netvlad_model, dataset_train.get_known_words(), EMBED_DIM_SEMANTIC).cuda()
+        vse_nv_model_name='model_VSE-NV_l3000_b8_g0.75_e1024_sTrue_m0.5_lr0.075.pth'
+        vse_nv_model.load_state_dict(torch.load('models/'+vse_nv_model_name)); print('Model:',vse_nv_model_name)
+        vse_nv_model.eval()
+        vse_nv_model.cuda()
+        gather_VSE_vectors(dataloader_train, dataloader_test, vse_nv_model, 'VSE-NV')         
 
     if 'SE-match' in sys.argv:
         se_vectors_filename='features_SE_e512.pkl'
@@ -218,6 +268,63 @@ if __name__ == "__main__":
         pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, se_vectors_train, se_vectors_test ,top_k=(1,3,5,10), combine='distance-sum')
         print(pos_results, ori_results, scene_results,'\n')
         pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, se_vectors_train, se_vectors_test ,top_k=(1,3,5,10), combine='scene-voting->netvlad')
-        print(pos_results, ori_results, scene_results,'\n')        
+        print(pos_results, ori_results, scene_results,'\n')     
+
+    if 'VSE-UE-match' in sys.argv:
+        vse_vectors_filename='features_VSE-UE_e1024.pkl'
+        vse_vectors_visual_train, vse_vectors_caption_train, vse_vectors_visual_test, vse_vectors_caption_test=pickle.load(open('evaluation_res/'+vse_vectors_filename,'rb')); print('Using vectors',vse_vectors_filename)        
+
+        print('Eval VSE-UE image-image')
+        pos_results, ori_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_visual_train, vse_vectors_visual_test, 'l2', top_k=(1,3,5,10))
+        print(pos_results, ori_results, scene_results,'\n')
+
+        print('Eval VSE-UE caption-caption')
+        pos_results, ori_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_caption_train, vse_vectors_caption_test, 'l2', top_k=(1,3,5,10)) 
+        print(pos_results, ori_results, scene_results,'\n')
+
+        print('Eval VSE-UE caption-image')
+        pos_results, ori_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_visual_train, vse_vectors_caption_test, 'l2', top_k=(1,3,5,10))                
+        print(pos_results, ori_results, scene_results,'\n')  
+
+    if 'NetVLAD+VSE-UE-match' in sys.argv:
+        netvlad_vectors_filename='features_netvlad-S3D.pkl'
+        netvlad_vectors_train,netvlad_vectors_test=pickle.load(open('evaluation_res/'+netvlad_vectors_filename,'rb')); print('Using vectors:', netvlad_vectors_filename)
+
+        vse_vectors_filename='features_VSE-UE_e1024.pkl'
+        vse_vectors_visual_train, vse_vectors_caption_train, vse_vectors_visual_test, vse_vectors_caption_test=pickle.load(open('evaluation_res/'+vse_vectors_filename,'rb')); print('Using vectors',vse_vectors_filename)        
+
+        print('Eval NetVLAD + VSE-UE (captions->image)')
+        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vse_vectors_visual_train, vse_vectors_caption_test ,top_k=(1,3,5,10), combine='distance-sum')
+        print(pos_results, ori_results, scene_results,'\n')
+        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vse_vectors_visual_train, vse_vectors_caption_test ,top_k=(1,3,5,10), combine='scene-voting->netvlad')
+        print(pos_results, ori_results, scene_results,'\n')                
               
+    if 'VSE-NV-match' in sys.argv:
+        vse_vectors_filename='features_VSE-NV_e1024.pkl'
+        vse_vectors_visual_train, vse_vectors_caption_train, vse_vectors_visual_test, vse_vectors_caption_test=pickle.load(open('evaluation_res/'+vse_vectors_filename,'rb')); print('Using vectors',vse_vectors_filename)        
+
+        print('Eval VSE-NV image-image')
+        pos_results, ori_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_visual_train, vse_vectors_visual_test, 'l2', top_k=(1,3,5,10))
+        print(pos_results, ori_results, scene_results,'\n')
+
+        print('Eval VSE-NV caption-caption')
+        pos_results, ori_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_caption_train, vse_vectors_caption_test, 'l2', top_k=(1,3,5,10)) 
+        print(pos_results, ori_results, scene_results,'\n')
+
+        print('Eval VSE-NV caption-image')
+        pos_results, ori_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_visual_train, vse_vectors_caption_test, 'l2', top_k=(1,3,5,10))                
+        print(pos_results, ori_results, scene_results,'\n')  
+
+    if 'NetVLAD+VSE-NV-match' in sys.argv:
+        netvlad_vectors_filename='features_netvlad-S3D.pkl'
+        netvlad_vectors_train,netvlad_vectors_test=pickle.load(open('evaluation_res/'+netvlad_vectors_filename,'rb')); print('Using vectors:', netvlad_vectors_filename)
+
+        vse_vectors_filename='features_VSE-NV_e1024.pkl'
+        vse_vectors_visual_train, vse_vectors_caption_train, vse_vectors_visual_test, vse_vectors_caption_test=pickle.load(open('evaluation_res/'+vse_vectors_filename,'rb')); print('Using vectors',vse_vectors_filename)        
+
+        print('Eval NetVLAD + VSE-NV (captions->image)')
+        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vse_vectors_visual_train, vse_vectors_caption_test ,top_k=(1,3,5,10), combine='distance-sum')
+        print(pos_results, ori_results, scene_results,'\n')
+        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vse_vectors_visual_train, vse_vectors_caption_test ,top_k=(1,3,5,10), combine='scene-voting->netvlad')
+        print(pos_results, ori_results, scene_results,'\n')                
        
