@@ -153,19 +153,19 @@ class ViewObject:
         v.point_ids=clustered_object.pointIDs_i
         return v
 
-    def set_visible_points(mask):
+    def set_visible_points(self,mask):
         assert len(mask)==len(self.point_ids)
-        self.point_ids_visible=point_ids[mask]
+        self.point_ids_visible=self.point_ids[mask]
 
-    def draw_on_image(self,img):
+    def draw_on_image(self,img,draw_red=None):
         box=np.int0(cv2.boxPoints(self.rect))
-        color=CLASSES_COLORS[self.label]
+        color=CLASSES_COLORS[self.label] if draw_red is None else (0,0,255)
         cv2.drawContours(img,[box],0,color,thickness=2)
         #cv2.circle(img, (int(self.center[0]), int(self.center[1])), 8, color, thickness=4)
         cv2.putText(img, self.label, (int(self.center[0] - 50), int(self.center[1])), cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, thickness=2)
         
-        #color=CLASSES_COLORS[self.label]
-        #for p in self.points[::100]:
+        # color=CLASSES_COLORS[self.label]
+        # for p in self.points[::100]:
         #     _=cv2.circle(img, (int(p[0]), int(p[1])), 2, color=(color[2],color[1],color[0]), thickness=2)
         #     cv2.putText(img, str(p[2]), (int(p[0])+2, int(p[1])), cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, thickness=1)
 

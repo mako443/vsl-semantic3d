@@ -148,8 +148,8 @@ def cluster_scene(scene_name, return_visualization=False):
             #scene_objects.append( ClusteredObject2(label, bbox_points, len(object_xyz)) )
 
             save_xyz=semantic.utils.reduce_points(object_xyz, int(1e4)) #Save max. 10k points per object
-            obj_pointIDs=current_obj_pointID_max + np.arange(len(save_xyz)) + 1
-            current_obj_pointID_max=np.max(obj_pointIDs)
+            obj_pointIDs=current_obj_pointID_max + np.arange(len(save_xyz)) 
+            current_obj_pointID_max=np.max(obj_pointIDs) + 1
 
             obj=ClusteredObject(scene_name, label, save_xyz, len(object_xyz), obj_pointIDs, object_color)
             scene_objects.append(obj)
@@ -184,13 +184,13 @@ TODO
 -Unstable projection error: Chance (not always) when some points are out of FoV, cv2.projectPoints same&no z -> use mine, norm-restriction didn't work, FoV restriction works
 '''
 if __name__ == "__main__":
-    scene_name='bildstein_station1_xyz_intensity_rgb'
-    #label='buildings'
-    scene_objects, vis_xyz, vis_rgb=cluster_scene(scene_name, return_visualization=True)
-    v=pptk.viewer(vis_xyz)
-    v.attributes(vis_rgb)
-    v.set(point_size=0.025)
-    quit()
+    # scene_name='bildstein_station1_xyz_intensity_rgb'
+    # #label='buildings'
+    # scene_objects, vis_xyz, vis_rgb=cluster_scene(scene_name, return_visualization=True)
+    # v=pptk.viewer(vis_xyz)
+    # v.attributes(vis_rgb)
+    # v.set(point_size=0.025)
+    # quit()
 
     #CARE WHAT HAS BEEN RE-CREATED AND WHAT HASN'T!
     '''

@@ -104,38 +104,41 @@ def create_view_objects(scene_objects, view_pose : Pose, label_image, depth_imag
     for o in scene_objects:
         o.project(I,E)
 
+    fov_objects=[ obj for obj in scene_objects if obj.rect_i is not None and is_object_in_fov(obj) ]
+
     ### Old version
     #Reduce to the objects that are in FoV
-    fov_objects=[ obj for obj in scene_objects if obj.rect_i is not None and is_object_in_fov(obj) ]
-    #print(f'Scene but not fov objects: {len(scene_objects) - len(fov_objects)}')
-    visible_objects=[ obj for obj in fov_objects if not is_object_occluded(obj, fov_objects) ]
-    #Create the View-Objects
-    view_objects=[ ViewObject.from_clustered_object(obj) for obj in visible_objects ]
-    return view_objects
+    # #print(f'Scene but not fov objects: {len(scene_objects) - len(fov_objects)}')
+    # visible_objects=[ obj for obj in fov_objects if not is_object_occluded(obj, fov_objects) ]
+    # #Create the View-Objects
+    # view_objects=[ ViewObject.from_clustered_object(obj) for obj in visible_objects ]
+    # return view_objects
 
     ### Old version
 
     ### New version
-    
-    # #visible_objects=[ obj for obj in view_objects if not is_object_occluded_projection(obj, label_image, depth_image) ]
-    # #Reduce to visible objects and set their visible points
-    # visible_objects=[]
-    # for obj in view_object:
-    #     is_occluded, mask = is_object_occluded_projection(obj, label_image, depth_image)
-    #     if not is_occluded:
-    #         obj.set_visible_points(mask)
-    #         visible_objects.append(obj)
+    view_objects=[ ViewObject.from_clustered_object(obj) for obj in fov_objects ]
 
-    # print(f'FoV but occluded objects: {len(fov_objects) - len(visible_objects)}')
+    #Reduce to visible objects and set their visible points
+    visible_objects=[]
+    for obj in view_objects:
+        is_occluded, mask = is_object_occluded_projection(obj, label_image, depth_image)
+        if not is_occluded:
+            obj.set_visible_points(mask)
+            visible_objects.append(obj)
 
-    # return visible_objects, view_objects
+    #print(f'FoV but occluded objects: {len(fov_objects) - len(visible_objects)}')
+
+    return visible_objects#, view_objects
 
     ### New version
 
-#TODO: re-create, re-check 077, save demo images
+#TODO: re-create, re-check 077, save demo images ✓
+#TODO: re-create all test (+ dependencies), sanity check, then train: sanity (View-object count comare) seems ok (slightly less) ✓
+#TODO/CARE: check projection on pointy images! Seems ok! ✓
 if __name__ == "__main__":
     ### Projection-Occlusion debug
-    # scene_name='bildstein_station1_xyz_intensity_rgb'
+    # scene_name='untermaederbrunnen_station1_xyz_intensity_rgb'
     # split='test'
 
     # scene_objects=pickle.load( open('data/numpy_merged/'+scene_name+'.objects.pkl', 'rb'))
@@ -143,7 +146,7 @@ if __name__ == "__main__":
     # poses_rendered=pickle.load( open( os.path.join('data','pointcloud_images_o3d_merged',split,scene_name,'poses_rendered.pkl'), 'rb'))
 
     # file_name=np.random.choice(list(poses_rendered.keys()))
-    # file_name='077.png'
+    # #file_name='028.png'
     # print('File',file_name)
 
     # pose=poses_rendered[file_name]
@@ -156,14 +159,16 @@ if __name__ == "__main__":
     # for v in visible_objects:
     #     v.draw_on_image(img_rgb)
     # cv2.imshow("",img_rgb); cv2.waitKey()
+    # cv2.imwrite('occlusion0.png',img_rgb)
 
     # for v in view_objects:
-    #     v.draw_on_image(img_rgb)
+    #     v.draw_on_image(img_rgb,'red')
+    # for v in visible_objects:
+    #     v.draw_on_image(img_rgb)        
     # cv2.imshow("",img_rgb); cv2.waitKey()    
+    # cv2.imwrite('occlusion1.png',img_rgb)
 
     # quit()
-
-
     ### Projection-Occlusion debug
 
 
@@ -205,7 +210,10 @@ if __name__ == "__main__":
             total_view_objects=0
             for i_file,file_name in enumerate(poses_rendered.keys()):
                 pose=poses_rendered[file_name]
-                view_objects=create_view_objects(scene_objects,pose)
+                label_image=cv2.imread( os.path.join(base_dir,split,scene_name,'labels',file_name) )
+                depth_image=cv2.imread( os.path.join(base_dir,split,scene_name,'depth',file_name), cv2.IMREAD_GRAYSCALE )
+
+                view_objects=create_view_objects(scene_objects,pose, label_image, depth_image)
                 total_view_objects+=len(view_objects)
                 scene_view_objects[file_name]=view_objects
                 #print(f'\r file {i_file} of {len(poses_rendered)}',end='')
