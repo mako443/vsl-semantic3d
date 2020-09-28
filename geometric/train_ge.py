@@ -25,10 +25,10 @@ Module to train a simple Graph-Embedding model to score the similarity of graphs
 IMAGE_LIMIT=3000
 BATCH_SIZE=12
 LR_GAMMA=0.75
-EMBED_DIM_GEOMETRIC=1024
+EMBED_DIM_GEOMETRIC=100
 SHUFFLE=True
 DECAY=None #Tested, no decay here
-MARGIN=1.0 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
+MARGIN=0.5 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
 
 #Capture arguments
 LR=float(sys.argv[-1])
@@ -49,8 +49,8 @@ loss_dict={}
 best_loss=np.inf
 best_model=None
 
-#for lr in (1e-2,5e-3):
-for lr in (LR,):
+for lr in (5e-4*8, 5e-4*4, 5e-4, 5e-4/4, 5e-4/8):
+#for lr in (LR,):
     print('\n\nlr: ',lr)
 
     model=GraphEmbedding(EMBED_DIM_GEOMETRIC)
@@ -61,7 +61,7 @@ for lr in (LR,):
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)   
 
     loss_dict[lr]=[]
-    for epoch in range(10):
+    for epoch in range(6):
         epoch_loss_sum=0.0
         for i_batch, batch in enumerate(data_loader):
             

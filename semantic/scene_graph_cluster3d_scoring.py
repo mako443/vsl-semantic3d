@@ -229,7 +229,8 @@ As above, but also scores how much the grounded object is the closest one to the
 -Tested: unused 0.5, use_nn_score=False best
 => For SG matching
 '''
-def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_factor=0.5, use_nn_score=False):
+def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_factor=0.5, use_nn_score=False, ablation=None):
+    assert ablation in (None, 'colors', 'relationships')
     MIN_SCORE=0.1 #OPTION: hardest penalty for relationship not found
     best_groundings=[None for i in range(len(scene_graph.relationships))]
     best_scores=[MIN_SCORE for i in range(len(scene_graph.relationships))] 
@@ -253,7 +254,12 @@ def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_fac
                 color_score_sub= score_color(sub, subject_color)
                 color_score_obj= score_color(obj, object_color)
                 nn_score= sub_min_dist / np.linalg.norm(sub.get_center_c_world() - obj.get_center_c_world()) #Score whether Obj is Sub's nearest neighbor
-                #TODO/CARE: use nn_score?!?!?!
+                
+                if ablation=='colors':
+                    color_score_sub=1.0
+                    color_score_obj=1.0
+                if ablation=='relationships':
+                    relationship_score=1.0
 
                 if use_nn_score:
                     score=relationship_score*color_score_sub*color_score_obj*nn_score

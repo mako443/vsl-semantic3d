@@ -119,7 +119,7 @@ def gather_VGE_NV_vectors_cambridge(dataloader_train, dataloader_test, model):
 
     #pickle.dump((embed_vectors_visual_train, embed_vectors_graph_train, embed_vectors_visual_test, embed_vectors_graph_test), open(f'features_VGE-UE_e{embed_dim}.pkl','wb'))
     #print('Saved VGE-UE_vectors')  
-    return embed_vectors_visual_train, embed_vectors_visual_test         
+    return embed_vectors_visual_train, embed_vectors_visual_test     
   
 def gather_VGE_CO_vectors(dataloader_train, dataloader_test, model):
     #Gather all features
@@ -141,7 +141,32 @@ def gather_VGE_CO_vectors(dataloader_train, dataloader_test, model):
     assert len(embed_vectors_test)==len(dataloader_test.dataset)
 
     pickle.dump((embed_vectors_train, embed_vectors_test), open(f'features_VGE-CO_e{embed_dim}.pkl','wb'))
-    print('Saved VGE-CO_vectors')      
+    print('Saved VGE-CO_vectors')   
+
+def gather_VGE_NV_ImageOnly_vectors(dataloader_train, dataloader_test, model):
+    #Gather all features
+    print('Building VGE-NV-ImageOnly vectors')
+    embed_vectors_train, embed_vectors_test=torch.tensor([]).cuda(), torch.tensor([]).cuda()
+    with torch.no_grad():
+        for i_batch, batch in enumerate(dataloader_train):
+            if type(batch)==dict: batch=batch['images'] #CARE: this ok?!
+            out=model.encode_images(batch.cuda())
+            embed_vectors_train=torch.cat((embed_vectors_train, out))
+        for i_batch, batch in enumerate(dataloader_test):
+            if type(batch)==dict: batch=batch['images']
+            out=model.encode_images(batch.cuda())
+            embed_vectors_test=torch.cat((embed_vectors_test, out)) 
+
+    embed_vectors_train=embed_vectors_train.cpu().detach().numpy()
+    embed_vectors_test =embed_vectors_test.cpu().detach().numpy()
+    embed_dim=embed_vectors_train.shape[1]
+
+    assert len(embed_vectors_train)==len(dataloader_train.dataset)
+    assert len(embed_vectors_test)==len(dataloader_test.dataset)
+
+    pickle.dump((embed_vectors_train, embed_vectors_test), open(f'features_VGE-NV-ImageOnly_e{embed_dim}.pkl','wb'))
+    print('Saved VGE-NV-ImageOnly_vectors')   
+    return embed_vectors_train, embed_vectors_test
 
 '''
 Goes from query-side embed-vectors to db-side embed vectors
@@ -294,73 +319,86 @@ if __name__ == "__main__":
 
 
     if 'gather' in sys.argv:
-        #Gather Ge
-        EMBED_DIM_GEOMETRIC=100
-        geometric_embedding=GraphEmbedding(EMBED_DIM_GEOMETRIC)
-        geometric_embedding_model_name='model_GraphEmbed_l3000_b12_g0.75_e100_sTrue_m1.0.pth'
-        print('Model:',geometric_embedding_model_name)
-        geometric_embedding.load_state_dict(torch.load('models/'+geometric_embedding_model_name))
-        geometric_embedding.eval()
-        geometric_embedding.cuda()         
-        gather_GE_vectors(dataloader_train, dataloader_test, geometric_embedding)
+        # #Gather Ge
+        # EMBED_DIM_GEOMETRIC=100
+        # geometric_embedding=GraphEmbedding(EMBED_DIM_GEOMETRIC)
+        # geometric_embedding_model_name='model_GraphEmbed_l3000_b12_g0.75_e100_sTrue_m0.5_lr0.0005.pth'
+        # print('Model:',geometric_embedding_model_name)
+        # geometric_embedding.load_state_dict(torch.load('models/'+geometric_embedding_model_name))
+        # geometric_embedding.eval()
+        # geometric_embedding.cuda()         
+        # gather_GE_vectors(dataloader_train, dataloader_test, geometric_embedding)
 
-        EMBED_DIM_GEOMETRIC=1024
-        geometric_embedding=GraphEmbedding(EMBED_DIM_GEOMETRIC)
-        geometric_embedding_model_name='model_GraphEmbed_l3000_b12_g0.75_e1024_sTrue_m1.0_lr0.005.pth'
-        print('Model:',geometric_embedding_model_name)
-        geometric_embedding.load_state_dict(torch.load('models/'+geometric_embedding_model_name))
-        geometric_embedding.eval()
-        geometric_embedding.cuda()         
-        gather_GE_vectors(dataloader_train, dataloader_test, geometric_embedding)        
+        # EMBED_DIM_GEOMETRIC=300
+        # geometric_embedding=GraphEmbedding(EMBED_DIM_GEOMETRIC)
+        # geometric_embedding_model_name='model_GraphEmbed_l3000_b12_g0.75_e300_sTrue_m0.5_lr0.001.pth'
+        # print('Model:',geometric_embedding_model_name)
+        # geometric_embedding.load_state_dict(torch.load('models/'+geometric_embedding_model_name))
+        # geometric_embedding.eval()
+        # geometric_embedding.cuda()         
+        # gather_GE_vectors(dataloader_train, dataloader_test, geometric_embedding)                      
 
-        #Gather VGE-UE
-        EMBED_DIM_GEOMETRIC=1024
-        vgg=create_image_model_vgg11()
-        vge_ue_model=VisualGraphEmbedding(vgg, EMBED_DIM_GEOMETRIC).cuda()
-        vge_ue_model_name='model_VGE-UE_l3000_b8_g0.75_e1024_sTrue_m0.5_lr0.0001.pth'
-        vge_ue_model.load_state_dict(torch.load('models/'+vge_ue_model_name)); print('Model:',vge_ue_model_name)
-        vge_ue_model.eval()
-        vge_ue_model.cuda()
-        gather_VGE_UE_vectors(dataloader_train, dataloader_test, vge_ue_model)
+        # #Gather VGE-UE
+        # EMBED_DIM_GEOMETRIC=1024
+        # vgg=create_image_model_vgg11()
+        # vge_ue_model=VisualGraphEmbedding(vgg, EMBED_DIM_GEOMETRIC).cuda()
+        # vge_ue_model_name='model_VGE-UE_l3000_b8_g0.75_e1024_sTrue_m0.5_lr0.0001.pth'
+        # vge_ue_model.load_state_dict(torch.load('models/'+vge_ue_model_name)); print('Model:',vge_ue_model_name)
+        # vge_ue_model.eval()
+        # vge_ue_model.cuda()
+        # gather_VGE_UE_vectors(dataloader_train, dataloader_test, vge_ue_model)
 
-        #Gather VGE-NV
+        # #Gather VGE-NV
+        # EMBED_DIM_GEOMETRIC=1024
+        # netvlad_model_name='model_netvlad_l3000_b6_g0.75_c8_a10.0.mdl'
+        # print('NetVLAD Model:',netvlad_model_name)
+        # netvlad_model=torch.load('models/'+netvlad_model_name)
+
+        # vge_nv_model=VisualGraphEmbeddingNetVLAD(netvlad_model, EMBED_DIM_GEOMETRIC)
+        # vge_nv_model_name='model_VGE-NV_l3000_b8_g0.75_e1024_sTrue_m0.5_lr0.0001.pth'
+        # vge_nv_model.load_state_dict(torch.load('models/'+vge_nv_model_name)); print('Model:',vge_nv_model_name)
+        # vge_nv_model.eval()
+        # vge_nv_model.cuda()
+        # gather_VGE_NV_vectors(dataloader_train, dataloader_test, vge_nv_model) 
+
+        # #Gather VGE-CO
+        # EMBED_DIM_GEOMETRIC=1024               
+        # vgg=create_image_model_vgg11()
+        # vge_co_model=VisualGraphEmbeddingCombined(vgg, EMBED_DIM_GEOMETRIC).cuda()
+        # vge_co_model_name='model_VGE-CO_l3000_b12_g0.75_e1024_sTrue_m0.5_lr5e-05.pth'
+        # vge_co_model.load_state_dict(torch.load('models/'+vge_co_model_name)); print('Model:',vge_co_model_name)
+        # vge_co_model.eval()
+        # vge_co_model.cuda()
+        # gather_VGE_CO_vectors(dataloader_train, dataloader_test, vge_co_model)
+
+        #Gather VGE-NV-ImageOnly
         EMBED_DIM_GEOMETRIC=1024
         netvlad_model_name='model_netvlad_l3000_b6_g0.75_c8_a10.0.mdl'
         print('NetVLAD Model:',netvlad_model_name)
         netvlad_model=torch.load('models/'+netvlad_model_name)
 
         vge_nv_model=VisualGraphEmbeddingNetVLAD(netvlad_model, EMBED_DIM_GEOMETRIC)
-        vge_nv_model_name='model_VGE-NV_l3000_b8_g0.75_e1024_sTrue_m0.5_lr0.0001.pth'
+        vge_nv_model_name='model_VGE-NV-ImageOnly_l3000_b8_g0.75_e1024_sTrue_m1.0_lr0.0001_PRL.pth'
         vge_nv_model.load_state_dict(torch.load('models/'+vge_nv_model_name)); print('Model:',vge_nv_model_name)
         vge_nv_model.eval()
         vge_nv_model.cuda()
-        gather_VGE_NV_vectors(dataloader_train, dataloader_test, vge_nv_model) 
-
-        #Gather VGE-CO
-        EMBED_DIM_GEOMETRIC=1024               
-        vgg=create_image_model_vgg11()
-        vge_co_model=VisualGraphEmbeddingCombined(vgg, EMBED_DIM_GEOMETRIC).cuda()
-        vge_co_model_name='model_VGE-CO_l3000_b12_g0.75_e1024_sTrue_m0.5_lr5e-05.pth'
-        vge_co_model.load_state_dict(torch.load('models/'+vge_co_model_name)); print('Model:',vge_co_model_name)
-        vge_co_model.eval()
-        vge_co_model.cuda()
-        gather_VGE_CO_vectors(dataloader_train, dataloader_test, vge_co_model)
+        gather_VGE_NV_ImageOnly_vectors(dataloader_train, dataloader_test, vge_nv_model)         
 
 
     if 'GE-match' in sys.argv:
         ge_vectors_filename='features_GE_e100.pkl'
         ge_vectors_train, ge_vectors_test=pickle.load(open('evaluation_res/'+ge_vectors_filename,'rb')); print('Using vectors',ge_vectors_filename)
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices=None)
+        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2',top_k=(1,3,5,10), reduce_indices=None)
         print(pos_results, ori_results, scene_results,'\n') 
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2'    ,top_k=(1,3,5,10), reduce_indices=None)
-        print(pos_results, ori_results, scene_results,'\n')         
-        # pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test ,top_k=(1,3,5,10), reduce_indices='scene-voting')
-        # print(pos_results, ori_results, scene_results,'\n')         
+        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2'    ,top_k=(1,3,5,10), reduce_indices='scene-voting')
+        print(pos_results, ori_results, scene_results,'\n')      
 
-        # ge_vectors_filename='features_GE_e1024.pkl'
-        # ge_vectors_train, ge_vectors_test=pickle.load(open('evaluation_res/'+ge_vectors_filename,'rb')); print('Using vectors',ge_vectors_filename)
-        # pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test ,top_k=(1,3,5,10))
-        # print(pos_results, ori_results, scene_results,'\n')         
+        ge_vectors_filename='features_GE_e300.pkl'
+        ge_vectors_train, ge_vectors_test=pickle.load(open('evaluation_res/'+ge_vectors_filename,'rb')); print('Using vectors',ge_vectors_filename)
+        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2',top_k=(1,3,5,10), reduce_indices=None)
+        print(pos_results, ori_results, scene_results,'\n') 
+        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2'    ,top_k=(1,3,5,10), reduce_indices='scene-voting')
+        print(pos_results, ori_results, scene_results,'\n')                 
 
     if 'NetVLAD+GE-match' in sys.argv:
         netvlad_vectors_filename='features_netvlad-S3D.pkl'
@@ -467,6 +505,43 @@ if __name__ == "__main__":
         pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices=None)
         print(pos_results, ori_results, scene_results,'\n')  
         pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices='scene-voting')
-        print(pos_results, ori_results, scene_results,'\n')               
+        print(pos_results, ori_results, scene_results,'\n')  
+
+    if 'VGE-NV-ImageOnly-match' in sys.argv:
+        vge_vectors_filename='features_VGE-NV-ImageOnly_e1024_m1.0_PRL.pkl'
+        vge_vectors_visual_train, vge_vectors_visual_test=pickle.load(open('evaluation_res/'+vge_vectors_filename,'rb')); print('Using vectors',vge_vectors_filename)        
+
+        print('Eval VGE-NV image-image')
+        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_visual_train, vge_vectors_visual_test, 'l2', top_k=(1,3,5,10))
+        print(pos_results, ori_results, scene_results,'\n')      
+
+    if 'VGE-NV-ImageOnly-match-cambridge' in sys.argv:
+        print('Eval VGE-UE (trained on S3D) on Cambridge (image-image)')
+        #Build dataset
+        data_set_train_cambridge=CambridgeDataset('data_cambridge','train',transform=transform)
+        data_set_test_cambridge =CambridgeDataset('data_cambridge','test', transform=transform)
+
+        data_loader_train_cambridge=DataLoader(data_set_train_cambridge, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #CARE: put shuffle off
+        data_loader_test_cambridge =DataLoader(data_set_test_cambridge , batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)           
+
+        #Gather vectors
+        EMBED_DIM_GEOMETRIC=1024
+        netvlad_model_name='model_netvlad_l3000_b6_g0.75_c8_a10.0.mdl'
+        print('NetVLAD Model:',netvlad_model_name)
+        netvlad_model=torch.load('models/'+netvlad_model_name)
+
+        vge_nv_model=VisualGraphEmbeddingNetVLAD(netvlad_model, EMBED_DIM_GEOMETRIC)
+        vge_nv_model_name='model_VGE-NV-ImageOnly_l3000_b8_g0.75_e1024_sTrue_m1.0_lr0.0001_PRL.pth'
+        vge_nv_model.load_state_dict(torch.load('models/'+vge_nv_model_name)); print('Model:',vge_nv_model_name)
+        vge_nv_model.eval()
+        vge_nv_model.cuda()
+        embed_vectors_train, embed_vectors_test=gather_VGE_NV_ImageOnly_vectors(data_loader_train_cambridge, data_loader_test_cambridge, vge_nv_model)                                 
+
+        #Perform evaluation
+        print('Eval VGE-NV image-image on Cambridge')
+        pos_results, ori_results, scene_results=eval_GE_scoring(data_set_train_cambridge, data_set_test_cambridge, embed_vectors_train, embed_vectors_test, 'cosine' ,top_k=(1,3,5,10))
+        print(pos_results, ori_results, scene_results,'\n')       
+        pos_results, ori_results, scene_results=eval_GE_scoring(data_set_train_cambridge, data_set_test_cambridge, embed_vectors_train, embed_vectors_test, 'l2' ,top_k=(1,3,5,10))
+        print(pos_results, ori_results, scene_results,'\n')          
                    
 
