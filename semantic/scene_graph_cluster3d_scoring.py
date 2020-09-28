@@ -165,7 +165,7 @@ def score_sceneGraph_to_viewObjects_7corners(scene_graph, view_objects):
                     best_scores[i_relation]=score
 
     print("best scores",best_scores)
-    return np.prod(best_scores), best_groundings  
+    return np.prod(best_scores), best_groundings 
 
 '''
 As above, but also scores how much the grounded object is the closest one to the subject
@@ -210,6 +210,29 @@ def scenegraph_similarity(source,target):
     return np.prod(best_scores)
 
 def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_factor=0.5):
+    return np.prod(best_scores) 
+
+def extract_scenegraph_objects(sg):
+    unique_objects=[]
+    for candidate in [rel[0] for rel in sg.relationships] + [rel[2] for rel in sg.relationships]:
+        obj_already_added=False
+        for added_obj in unique_objects:
+            if candidate.label==added_obj.label and candidate.color==added_obj.color and candidate.corner==added_obj.corner:
+                obj_already_added=True
+                break
+
+        if not obj_already_added or True:
+            unique_objects.append(candidate)
+
+    return unique_objects        
+
+'''
+As above, but also scores how much the grounded object is the closest one to the subject
+-works ✓, scores perfectly to self, now also groundings equal
+-Tested: unused 0.5, use_nn_score=False best
+=> For SG matching
+'''
+def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_factor=0.5, use_nn_score=False):
     MIN_SCORE=0.1 #OPTION: hardest penalty for relationship not found
     best_groundings=[None for i in range(len(scene_graph.relationships))]
     best_scores=[MIN_SCORE for i in range(len(scene_graph.relationships))] 
@@ -233,8 +256,12 @@ def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_fac
                 color_score_sub= score_color(sub, subject_color)
                 color_score_obj= score_color(obj, object_color)
                 nn_score= sub_min_dist / np.linalg.norm(sub.get_center_c_world() - obj.get_center_c_world()) #Score whether Obj is Sub's nearest neighbor
+                #TODO/CARE: use nn_score?!?!?!
 
-                score=relationship_score*color_score_sub*color_score_obj
+                if use_nn_score:
+                    score=relationship_score*color_score_sub*color_score_obj*nn_score
+                else:
+                    score=relationship_score*color_score_sub*color_score_obj
 
                 if score>best_scores[i_relation]:
                     best_groundings[i_relation]=(sub,rel_type,obj)
@@ -308,5 +335,6 @@ def extract_scenegraph_objects(sg):
 # def score_sceneGraph_to_sceneGraph_nnRels(sg0,sg1,penalty_factor=0.5,unused_factor=0.5):
 #     if sg0.is_empty or sg1.is_empty():
 #         return 0.0
+
 
 

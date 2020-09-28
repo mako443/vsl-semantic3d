@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-#from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader
 from torchvision import transforms
 import torchvision
 import torchvision.models
@@ -10,25 +10,26 @@ import random
 import os
 import sys
 import numpy as np
+import cv2
+import psutil
 import matplotlib.pyplot as plt
 
-from torch_geometric.data import DataLoader #Use the PyG DataLoader
+from .visual_semantic_embedding import VisualSemanticEmbeddingNetVLAD, PairwiseRankingLoss
+from geometric.visual_graph_embedding import create_image_model_vgg11
 
-from retrieval.utils import get_split_indices
+from retrieval import networks
+from retrieval.netvlad import NetVLAD, EmbedNet
 from dataloading.data_loading import Semantic3dDataset
-from visual_semantic.visual_semantic_embedding import PairwiseRankingLoss
-from .visual_graph_embedding import VisualGraphEmbedding,VisualGraphEmbeddingNetVLAD, create_image_model_vgg11, create_image_model_netvlad
 
 '''
-Visual Graph Embedding training (NetVLAD backbone)
+Visual Semantic Embedding training
 
 TODO:
--Weight decay ✓
--Sanity: NV-vectors from encode_image() and pure NetVLAD are same ✓
--Sanity: Can the model predict NV-outputs?! -> No! ✖
+-Train big, evaluate -> performance weak ✖
+-Train with other contrastive and/or shuffle? -> shuffle helps! ✓
 
--Train embedding: 
--PWR vs. PWR++ vs. TripletMargin (bessere Triplets?)
+-Train w/ different word/unify dims
+-Train w/ pre-trained SE
 '''
 
 IMAGE_LIMIT=3000
@@ -41,7 +42,7 @@ MARGIN=0.5 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
 #Capture arguments
 LR=float(sys.argv[-1])
 
-print(f'VGE-NV training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN} lr:{LR}')
+print(f'VSE-NV training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN} lr:{LR}')
 
 transform=transforms.Compose([
     #transforms.Resize((950,1000)),
@@ -49,15 +50,14 @@ transform=transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
-data_set=Semantic3dDataset('data/pointcloud_images_o3d_merged','train', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True, return_graph_data=True)
-#Option: shuffle, pin_memory crashes on my system, CARE: shuffle for PairWiseRankingLoss(!)
-data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=False, shuffle=SHUFFLE) 
+data_set=Semantic3dDataset('data/pointcloud_images_o3d_merged','train', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True, return_captions=True)
+data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=SHUFFLE) #Option: shuffle, Care: pin_memory!
 
 loss_dict={}
 best_loss=np.inf
 best_model=None
 
-#for lr in (1e-4,7.5e-5,5e-5):
+#for lr in (7.5e-2,5e-2,2.5e-2):
 for lr in (LR,):
     print('\n\nlr: ',lr)
 
@@ -65,13 +65,13 @@ for lr in (LR,):
     print('Model:',netvlad_model_name)
     netvlad_model=torch.load('models/'+netvlad_model_name)
 
-    model=VisualGraphEmbeddingNetVLAD(netvlad_model, EMBED_DIM)
+    model=VisualSemanticEmbeddingNetVLAD(netvlad_model,data_set.get_known_words(), EMBED_DIM)
     model.train()
     model.cuda()
 
     criterion=PairwiseRankingLoss(margin=MARGIN)
-    optimizer=optim.Adam(model.parameters(), lr=lr) #Adam is ok for PyG
-    scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)   
+    optimizer=optim.SGD(model.parameters(), lr=lr) #Using SGD for packed Embedding
+    scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)    
 
     if type(criterion)==PairwiseRankingLoss: assert SHUFFLE==True 
 
@@ -79,13 +79,11 @@ for lr in (LR,):
     for epoch in range(10):
         epoch_loss_sum=0.0
         for i_batch, batch in enumerate(data_loader):
-            
             optimizer.zero_grad()
-            #print(batch)
-            
-            out_visual, out_graph=model(batch['images'].cuda(), batch['graphs'].to('cuda'))
+            x,v=model(batch['images'].cuda(),batch['captions'])            
 
-            loss=criterion(out_visual, out_graph)
+            loss=criterion(x, v)
+            #TODO: clip grad norm?
             loss.backward()
             optimizer.step()
 
@@ -105,7 +103,7 @@ for lr in (LR,):
         best_model=model
 
 print('\n----')           
-model_name=f'model_VGE-NV_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.pth'
+model_name=f'model_VSE-NV_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.pth'
 print('Saving best model',model_name)
 torch.save(best_model.state_dict(),model_name)
 
@@ -116,4 +114,4 @@ for k in loss_dict.keys():
 plt.gca().set_ylim(bottom=0.0) #Set the bottom to 0.0
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_VGE-NV_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.png')    
+plt.savefig(f'loss_VSE-NV_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.png')    

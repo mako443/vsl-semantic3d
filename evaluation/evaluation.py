@@ -46,19 +46,17 @@ Matching SGs analytically to the View-Objects from 3D-Clustering
 -check top-hits ✓
 -Handle empty Scene Graphs strategies compare: 1.0 doesn't work, Try to potentiate the unused_factor?
 '''
-def scenegraph_to_viewObjects(data_loader_train, data_loader_test, top_k=(1,3,5,10), unused_factor=None, check_count='all'):
-    print(f'#Check: {check_count}, # training: {len(data_loader_train.dataset)}, # test: {len(data_loader_test.dataset)}')
+def scenegraph_to_viewObjects(dataset_train, dataset_test, top_k=(1,3,5,10), unused_factor=None, check_count='all', use_nn_score=True):
+    print(f'#Check: {check_count}, # training: {len(dataset_train)}, # test: {len(dataset_test)}')
     print('unused-factor:',unused_factor)
+    print('use nn score::',use_nn_score)
 
     retrieval_dict={}
 
-    dataset_train=data_loader_train.dataset
-    dataset_test=data_loader_test.dataset
-
-    image_positions_train, image_orientations_train = data_loader_train.dataset.image_positions, data_loader_train.dataset.image_orientations
-    image_positions_test, image_orientations_test = data_loader_test.dataset.image_positions, data_loader_test.dataset.image_orientations
-    scene_names_train = data_loader_train.dataset.image_scene_names
-    scene_names_test  = data_loader_test.dataset.image_scene_names
+    image_positions_train, image_orientations_train = dataset_train.image_positions, dataset_train.image_orientations
+    image_positions_test, image_orientations_test = dataset_test.image_positions, dataset_test.image_orientations
+    scene_names_train = dataset_train.image_scene_names
+    scene_names_test  = dataset_test.image_scene_names
 
     pos_results  ={k:[] for k in top_k}
     ori_results  ={k:[] for k in top_k}
@@ -66,10 +64,10 @@ def scenegraph_to_viewObjects(data_loader_train, data_loader_test, top_k=(1,3,5,
 
     if check_count=='all':
         print('evaluating all indices...')
-        check_indices=np.arange(len(data_loader_test.dataset))
+        check_indices=np.arange(len(dataset_test))
     else:
         print('evaluating random indices...')
-        check_indices=np.random.randint(len(data_loader_test.dataset), size=check_count)
+        check_indices=np.random.randint(len(dataset_test), size=check_count)
 
     for i_idx,idx in enumerate(check_indices):
         scene_name_gt=scene_names_test[idx]
@@ -78,7 +76,7 @@ def scenegraph_to_viewObjects(data_loader_train, data_loader_test, top_k=(1,3,5,
         scene_graph=dataset_test.view_scenegraphs[idx]
         scores=np.zeros(len(dataset_train))
         for i in range(len(dataset_train)):
-            score,_=score_sceneGraph_to_viewObjects_nnRels(scene_graph, dataset_train.view_objects[i], unused_factor=unused_factor)
+            score,_=score_sceneGraph_to_viewObjects_nnRels(scene_graph, dataset_train.view_objects[i], unused_factor=unused_factor, use_nn_score=use_nn_score)
             scores[i]=score
         #scores=np.random.rand(len(dataset))
         
@@ -494,8 +492,14 @@ if __name__ == "__main__":
     '''
     if "scenegraphs" in sys.argv:
         print('## Evaluation: pure Scene Graph scoring')  
-        pos_results, ori_results, scene_results=scenegraph_to_viewObjects(data_loader_train, data_loader_test, unused_factor=0.5)
-        print(pos_results, ori_results, scene_results)                
+        pos_results, ori_results, scene_results=scenegraph_to_viewObjects(data_set_train, data_set_test, unused_factor=0.5, use_nn_score=True, check_count='all')
+        print(pos_results, ori_results, scene_results)   
+        pos_results, ori_results, scene_results=scenegraph_to_viewObjects(data_set_train, data_set_test, unused_factor=0.2, use_nn_score=True, check_count='all')
+        print(pos_results, ori_results, scene_results)  
+        pos_results, ori_results, scene_results=scenegraph_to_viewObjects(data_set_train, data_set_test, unused_factor=0.5, use_nn_score=False, check_count='all')
+        print(pos_results, ori_results, scene_results)   
+        pos_results, ori_results, scene_results=scenegraph_to_viewObjects(data_set_train, data_set_test, unused_factor=0.2, use_nn_score=False, check_count='all')
+        print(pos_results, ori_results, scene_results)                                   
 
     '''
     Evaluation: Combined NetVLAD + SG scoring

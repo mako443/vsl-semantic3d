@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
+import torch.nn.functional as F
 
 import numpy as np
 import os
@@ -9,6 +10,8 @@ import pickle
 
 '''
 Network for a purely semantic (text-based) Embedding (normalized to 1), can be used to score the similarity of captions.
+
+-LSTM-classify sanity check done ✓
 '''
 class SemanticEmbedding(torch.nn.Module):
     def __init__(self,known_words, embedding_dim):
@@ -22,16 +25,18 @@ class SemanticEmbedding(torch.nn.Module):
             self.word_dictionary[word]=i_word+1 #Index 0 is the padding/unknown index
 
         #Contrary to the paper, we initialize the word-embedding from PyTorch
-        self.word_embedding=nn.Embedding(len(self.word_dictionary), self.embedding_dim, padding_idx=self.padding_idx) 
+        self.word_embedding=nn.Embedding(len(self.word_dictionary)+1, self.embedding_dim, padding_idx=self.padding_idx) 
         self.word_embedding.weight.requires_grad_(False) #TODO: train the embedding?
 
         self.lstm=nn.LSTM(self.embedding_dim,self.embedding_dim)
 
-        #TODO: add a linear layer? (VSE paper does not, VSE++ paper does)
-        self.linear=nn.Linear(self.embedding_dim,2)
+        #Add ReLU and Linear layer: much stronger ✓
+        self.linear=nn.Linear(self.embedding_dim,self.embedding_dim)
 
     def forward(self,captions):
         word_indices=[ [self.word_dictionary.get(word,self.padding_idx) for word in caption.split()] for caption in captions]
+
+        #word_indices=[ [ 0 for word in caption.split()] for caption in captions]
         caption_lengths=[len(w) for w in word_indices]
         batch_size,max_length=len(word_indices), max(caption_lengths)
         padded_indices=np.ones((batch_size,max_length),np.int)*self.padding_idx
@@ -54,7 +59,15 @@ class SemanticEmbedding(torch.nn.Module):
             c=torch.zeros(1,batch_size,self.word_embedding.embedding_dim)
 
         _,(h,c)=self.lstm(x,(h,c))
-        return torch.squeeze(h)
+
+        h=torch.squeeze(h)
+
+        h=F.relu(h)
+
+        h=self.linear(h)
+
+        h=h/torch.norm(h, dim=1, keepdim=True)
+        return h
 
     def is_cuda(self):
         return next(self.parameters()).is_cuda        

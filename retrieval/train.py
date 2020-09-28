@@ -83,6 +83,13 @@ for lr in (1e-2,):
     netvlad_layer=NetVLAD(num_clusters=NUM_CLUSTERS, dim=512, alpha=ALPHA)
 
     model=EmbedNet(encoder, netvlad_layer).cuda()
+
+    model_name='model_netvlad_l3000_b6_g0.75_c8_a10.0.pth'
+    model.load_state_dict(torch.load('models/'+model_name))
+    model.eval()
+    model.cuda()
+    print('Model:',model_name)
+    torch.save(model,'model_netvlad_l3000_b6_g0.75_c8_a10.0.mdl')    
     quit()
 
     criterion=nn.TripletMarginLoss(margin=1.0)

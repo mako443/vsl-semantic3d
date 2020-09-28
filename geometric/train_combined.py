@@ -10,26 +10,27 @@ import random
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
 
 from torch_geometric.data import DataLoader #Use the PyG DataLoader
 
-from dataloading.data_loading import Semantic3dDatasetTriplet
+from dataloading.data_loading import Semantic3dDataset, Semantic3dDatasetTriplet
+from .visual_graph_embedding import VisualGraphEmbedding, create_image_model_vgg11
+from .visual_graph_embedding import VisualGraphEmbeddingCombined, create_image_model_vgg11
 
-from .graph_embedding import GraphEmbedding
-
-'''
-Module to train a simple Graph-Embedding model to score the similarity of graphs (using no visual information)
-'''
+print('Device:',torch.cuda.get_device_name())
 
 IMAGE_LIMIT=3000
-BATCH_SIZE=12
+BATCH_SIZE=12 #12 gives memory error, 8 had more loss than 6?
 LR_GAMMA=0.75
-EMBED_DIM=100
+EMBED_DIM=1024
 SHUFFLE=True
-DECAY=None #Tested, no decay here
-MARGIN=1.0 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
+MARGIN=0.5 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
 
-print(f'Graph Embedding training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN}')
+#CAPTURE arg values
+LR=float(sys.argv[-1])
+
+print(f'VGE-CO training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN} lr: {LR}')
 
 transform=transforms.Compose([
     #transforms.Resize((950,1000)),
@@ -45,14 +46,15 @@ loss_dict={}
 best_loss=np.inf
 best_model=None
 
-#for lr in (5e-3,1e-3,5e-4):
-for lr in (5e-3,1e-3):
+#for lr in (1e-4,5e-5):
+for lr in (LR,):
     print('\n\nlr: ',lr)
 
-    model=GraphEmbedding(EMBED_DIM)
-    model.cuda()
+    vgg=create_image_model_vgg11()
+    model=VisualGraphEmbeddingCombined(vgg, EMBED_DIM).cuda()
 
     criterion=nn.TripletMarginLoss(margin=MARGIN)
+
     optimizer=optim.Adam(model.parameters(), lr=lr) #Adam is ok for PyG
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)   
 
@@ -64,9 +66,9 @@ for lr in (5e-3,1e-3):
             optimizer.zero_grad()
             #print(batch)
             
-            a_out=model(batch['graphs_anchor'].to('cuda'))
-            p_out=model(batch['graphs_positive'].to('cuda'))
-            n_out=model(batch['graphs_negative'].to('cuda'))
+            a_out=model(batch['images_anchor'].to('cuda'), batch['graphs_anchor'].to('cuda'))
+            p_out=model(batch['images_positive'].to('cuda'), batch['graphs_positive'].to('cuda'))
+            n_out=model(batch['images_negative'].to('cuda'), batch['graphs_negative'].to('cuda'))
 
             loss=criterion(a_out,p_out,n_out)
             loss.backward()
@@ -88,7 +90,7 @@ for lr in (5e-3,1e-3):
         best_model=model
 
 print('\n----')           
-model_name=f'model_GraphEmbed_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}.pth'
+model_name=f'model_VGE-CO_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.pth'
 print('Saving best model',model_name)
 torch.save(best_model.state_dict(),model_name)
 
@@ -99,4 +101,4 @@ for k in loss_dict.keys():
 plt.gca().set_ylim(bottom=0.0) #Set the bottom to 0.0
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_GraphEmbed_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}.png')    
+plt.savefig(f'loss_VGE-CO_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.png')    
