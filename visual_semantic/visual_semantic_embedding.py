@@ -273,6 +273,7 @@ class PairwiseRankingLoss(torch.nn.Module):
         margin = self.margin
         # compute image-sentence score matrix
         scores = torch.mm(im, s.transpose(1, 0))
+        print(scores)
         diagonal = scores.diag()
 
         # compare every diagonal score to scores in its column (i.e, all contrastive images for each sentence)

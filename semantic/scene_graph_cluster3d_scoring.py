@@ -1,6 +1,6 @@
 import numpy as np
 from graphics.imports import CLASSES_DICT, CLASSES_COLORS, IMAGE_WIDHT, IMAGE_HEIGHT
-from .imports import SceneGraph,SceneGraphObject, ViewObject, COLORS, COLOR_NAMES, CORNERS, CORNER_NAMES, RELATIONSHIP_TYPES
+from .imports import SceneGraph,SceneGraphObject, ViewObject, COLORS, COLOR_NAMES, CORNERS, CORNER_NAMES, RELATIONSHIP_TYPES, INVERSE_RELATIONSHIP_TYPES
 
 '''
 Create & Score Strategies
@@ -207,6 +207,9 @@ def scenegraph_similarity(source,target):
                 if score>best_scores[i_relation]:
                     best_scores[i_relation]=score
 
+    return np.prod(best_scores)
+
+def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_factor=0.5):
     return np.prod(best_scores) 
 
 def extract_scenegraph_objects(sg):
@@ -280,6 +283,64 @@ def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_fac
         return np.prod(best_scores) * unused_factor**(len(unused_view_objects)), best_groundings #, unused_view_objects
     else:
         return np.prod(best_scores), best_groundings  
+
+def extract_scenegraph_objects(sg):
+    unique_objects=[]
+    for candidate in [rel[0] for rel in sg.relationships] + [rel[2] for rel in sg.relationships]:
+        obj_already_added=False
+        for added_obj in unique_objects:
+            if candidate.label==added_obj.label and candidate.color==added_obj.color and candidate.corner==added_obj.corner:
+                obj_already_added=True
+                break
+
+        if not obj_already_added or True:
+            unique_objects.append(candidate)
+
+    return unique_objects
+
+
+#DEPRECATED: CAN'T ASSUME COMPLETNESS
+# '''
+# TODO
+# -try harder factor for rel-type
+# -unused rels
+# -other strategy: re-create abstract objects from sg1-rels, apply same logic as above
+# '''
+# def scenegraph_similarity(sg0,sg1,penalty_factor=0.5,unused_factor=0.5):
+#     MIN_SCORE=0.05 # smaller than 0.5**4
+#     assert not sg0.is_empty() and not sg1.is_empty()
+#     best_scores=[MIN_SCORE for i in range(len(sg0.relationships))]
+
+#     #unused_rels=[] # Rels of sg1 that were not used | try to use unused rel first if perfect
+
+#     for i_sub_rel, sub_rel in enumerate(sg0.relationships):
+#         sub_features=np.array([sub_rel[0].label, sub_rel[0].color, sub_rel[0].corner, sub_rel[2].label, sub_rel[2].color, sub_rel[2].corner])
+#         for obj_rel in sg1.relationships:
+#             obj_features=np.array([obj_rel[0].label, obj_rel[0].color, obj_rel[0].corner, obj_rel[2].label, obj_rel[2].color, obj_rel[2].corner])
+#             obj_rel_type=obj_rel[1]
+#             num_differences=np.sum(sub_features!=obj_features)
+#             rel_type_difference=0 if sub_rel[1]==obj_rel_type[1] else 1
+            
+#             score=penalty_factor**num_differences * penalty_factor**rel_type_difference #TODO: other type-difference
+#             if score>best_scores[i_sub_rel]:
+#                 best_scores[i_sub_rel]=score
+
+#         #Apply the same but with flipped object-relationships
+#         for obj_rel in sg1.relationships:
+#             obj_features=np.array([obj_rel[2].label, obj_rel[2].color, obj_rel[2].corner, obj_rel[0].label, obj_rel[0].color, obj_rel[0].corner]) #Flip the order
+#             obj_rel_type=INVERSE_RELATIONSHIP_TYPES[obj_rel[1]] #Flip the rel-type
+#             num_differences=np.sum(sub_features!=obj_features)
+#             rel_type_difference=0 if sub_rel[1]==obj_rel_type[1] else 1
+            
+#             score=penalty_factor**num_differences * penalty_factor**rel_type_difference #TODO: other type-difference
+#             if score>best_scores[i_sub_rel]:
+#                 best_scores[i_sub_rel]=score                
+
+#     return np.prod(best_scores)
+
+# def score_sceneGraph_to_sceneGraph_nnRels(sg0,sg1,penalty_factor=0.5,unused_factor=0.5):
+#     if sg0.is_empty or sg1.is_empty():
+#         return 0.0
 
 
 

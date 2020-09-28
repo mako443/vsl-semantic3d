@@ -63,22 +63,115 @@ def is_object_occluded(obj : ClusteredObject, visible_objects):
 
     #return occlusion_area>=obj.get_area()
 
-def create_view_objects(scene_objects, view_pose : Pose):
+def verify_point_depth(view_object : ViewObject, depth_image):
+    points_integer= np.int0(np.round(view_object.points))
+
+    points_mask=np.isclose( points_integer[:,2], depth_image[points_integer[:,1],points_integer[:,0]], rtol=0.0, atol=3.0 ) #OPTION: depth-tolerance
+    return points_mask
+
+
+def verify_point_labels(view_object : ViewObject, label_image):
+    label_color=CLASSES_COLORS[view_object.label]
+    image_mask= label_image== (label_color[2],label_color[1],label_color[0])
+    image_mask= image_mask[:,:,0]&image_mask[:,:,1]&image_mask[:,:,2]
+    points_integer= np.int0(np.round(view_object.points))
+    points_mask= image_mask[points_integer[:,1],points_integer[:,0]] #Axes are swapped
+
+    return points_mask
+
+def is_object_occluded_projection(view_object : ViewObject, label_image, depth_image):
+    mask_label=verify_point_labels(view_object,label_image)
+    mask_depth=verify_point_depth(view_object, depth_image)
+    mask= mask_label & mask_depth
+
+    #return np.mean(mask)<0.3
+
+    if np.mean(mask)>0.3: #More than 30% of the object are verified -> not occluded
+        return False, mask
+    if np.mean(mask_label)>0.5 and np.mean(mask_depth)>0.2: #CARE: more than 50% label-verified and more than 20% depth-verified | for depth-wise "self-occluding" objects
+        return False, mask
+    return True, mask
+
+    #TODO: return combined mask, set mask for object, compare for Triplet-pairs
+
+    # if np.mean(mask)<0.3:
+    #     print(np.mean(mask_label), np.mean(mask_depth), np.mean(mask))
+
+    #return np.mean(mask)<0.3
+
+def create_view_objects(scene_objects, view_pose : Pose, label_image, depth_image):
     I,E=view_pose.I, view_pose.E
     for o in scene_objects:
         o.project(I,E)
 
     fov_objects=[ obj for obj in scene_objects if obj.rect_i is not None and is_object_in_fov(obj) ]
-    #print(f'Scene but not fov objects: {len(scene_objects) - len(fov_objects)}')
 
-    visible_objects=[ obj for obj in fov_objects if not is_object_occluded(obj, fov_objects) ]
+    ### Old version
+    #Reduce to the objects that are in FoV
+    # #print(f'Scene but not fov objects: {len(scene_objects) - len(fov_objects)}')
+    # visible_objects=[ obj for obj in fov_objects if not is_object_occluded(obj, fov_objects) ]
+    # #Create the View-Objects
+    # view_objects=[ ViewObject.from_clustered_object(obj) for obj in visible_objects ]
+    # return view_objects
+
+    ### Old version
+
+    ### New version
+    view_objects=[ ViewObject.from_clustered_object(obj) for obj in fov_objects ]
+
+    #Reduce to visible objects and set their visible points
+    visible_objects=[]
+    for obj in view_objects:
+        is_occluded, mask = is_object_occluded_projection(obj, label_image, depth_image)
+        if not is_occluded:
+            obj.set_visible_points(mask)
+            visible_objects.append(obj)
+
     #print(f'FoV but occluded objects: {len(fov_objects) - len(visible_objects)}')
 
-    view_objects=[ ViewObject.from_clustered_object(obj) for obj in visible_objects ]
+    return visible_objects#, view_objects
 
-    return view_objects
+    ### New version
 
+#TODO: re-create, re-check 077, save demo images ✓
+#TODO: re-create all test (+ dependencies), sanity check, then train: sanity (View-object count comare) seems ok (slightly less) ✓
+#TODO/CARE: check projection on pointy images! Seems ok! ✓
 if __name__ == "__main__":
+    ### Projection-Occlusion debug
+    # scene_name='untermaederbrunnen_station1_xyz_intensity_rgb'
+    # split='test'
+
+    # scene_objects=pickle.load( open('data/numpy_merged/'+scene_name+'.objects.pkl', 'rb'))
+    # #scene_objects=[so for so in scene_objects if so.label=='buildings' and ]
+    # poses_rendered=pickle.load( open( os.path.join('data','pointcloud_images_o3d_merged',split,scene_name,'poses_rendered.pkl'), 'rb'))
+
+    # file_name=np.random.choice(list(poses_rendered.keys()))
+    # #file_name='028.png'
+    # print('File',file_name)
+
+    # pose=poses_rendered[file_name]
+    # img_rgb=cv2.imread( os.path.join('data','pointcloud_images_o3d_merged',split,scene_name,'rgb', file_name) )
+    # img_lbl=cv2.imread( os.path.join('data','pointcloud_images_o3d_merged',split,scene_name,'labels', file_name) )
+    # img_dep=cv2.imread( os.path.join('data','pointcloud_images_o3d_merged',split,scene_name,'depth', file_name), cv2.IMREAD_GRAYSCALE )
+
+    # visible_objects, view_objects=create_view_objects(scene_objects,pose, img_lbl, img_dep)
+
+    # for v in visible_objects:
+    #     v.draw_on_image(img_rgb)
+    # cv2.imshow("",img_rgb); cv2.waitKey()
+    # cv2.imwrite('occlusion0.png',img_rgb)
+
+    # for v in view_objects:
+    #     v.draw_on_image(img_rgb,'red')
+    # for v in visible_objects:
+    #     v.draw_on_image(img_rgb)        
+    # cv2.imshow("",img_rgb); cv2.waitKey()    
+    # cv2.imwrite('occlusion1.png',img_rgb)
+
+    # quit()
+    ### Projection-Occlusion debug
+
+
     # scene_name='bildstein_station1_xyz_intensity_rgb'
     # scene_objects=pickle.load( open('data/numpy_merged/'+scene_name+'.objects.pkl', 'rb'))
     # poses_rendered=pickle.load( open( os.path.join('data','pointcloud_images_o3d_merged',scene_name,'poses_rendered.pkl'), 'rb'))
@@ -117,7 +210,10 @@ if __name__ == "__main__":
             total_view_objects=0
             for i_file,file_name in enumerate(poses_rendered.keys()):
                 pose=poses_rendered[file_name]
-                view_objects=create_view_objects(scene_objects,pose)
+                label_image=cv2.imread( os.path.join(base_dir,split,scene_name,'labels',file_name) )
+                depth_image=cv2.imread( os.path.join(base_dir,split,scene_name,'depth',file_name), cv2.IMREAD_GRAYSCALE )
+
+                view_objects=create_view_objects(scene_objects,pose, label_image, depth_image)
                 total_view_objects+=len(view_objects)
                 scene_view_objects[file_name]=view_objects
                 #print(f'\r file {i_file} of {len(poses_rendered)}',end='')
