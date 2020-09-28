@@ -150,6 +150,7 @@ Used for vectors from GE, VGE-UE and VGE-NV
 def eval_GE_scoring(dataset_train, dataset_test, embedding_train, embedding_test, similarity_measure, top_k=(1,3,5,10), reduce_indices=None):
     assert len(embedding_train)==len(dataset_train) and len(embedding_test)==len(dataset_test)
     assert similarity_measure in ('cosine','l2')
+    assert reduce_indices in (None, 'scene-voting')
     print(f'eval_GE_scoring(): # training: {len(dataset_train)}, # test: {len(dataset_test)}')
     print('Similarity measure:',similarity_measure,'Reduce indices:',reduce_indices)    
 
