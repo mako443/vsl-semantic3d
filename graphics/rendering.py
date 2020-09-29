@@ -88,7 +88,7 @@ def capture_scene(dirpath,split, scene_name, target='rgb'):
     scene_poses=pickle.load( open( filepath_poses, 'rb') )
     poses_rendered={} #Dictionary for the rendered poses, indexed by file name, I,E added
 
-    print(f'Capturing {len(scene_poses)} poses for <{split}> <{scene_name}>')
+    print(f'Capturing {len(scene_poses)} poses for <{split}> <{scene_name}> <{target}>')
     xyz, rgba, labels_rgba=load_files2('data/numpy_merged/',scene_name, max_points=int(30e6), target=target) #TODO: use load_files from here / new artifact removal, more points? (Seems to help!!)
     labels_rgba=None
     rgb=rgba[:,0:3].copy()
@@ -161,37 +161,15 @@ if __name__ == "__main__":
     '''
     Data creation: Open3D rendering for clusters, read poses -> render images
     '''
-    # xyz, rgba, labels_rgba=load_files2('data/numpy_merged/','bildstein_station1_xyz_intensity_rgb', max_points=int(10e6), target='depth')
-    # labels_rgba=None
-    # rgb=rgba[:,0:3].copy()
-    # rgba=None
-
-    # point_cloud=open3d.geometry.PointCloud()
-    # point_cloud.points=open3d.utility.Vector3dVector(xyz)
-    # point_cloud.colors=open3d.utility.Vector3dVector(rgb/255.0)
-
-    # vis = open3d.visualization.Visualizer()
-    # vis.create_window(width=1620, height=1080)
-
-    # view_control=vis.get_view_control()
-    # vis.get_render_option().background_color = np.asarray([0, 0, 0])    
-
-    # vis.add_geometry(point_cloud)
-    # vis.run()
-
-    # quit()
-
-
     #for scene_name in ('domfountain_station1_xyz_intensity_rgb','sg27_station2_intensity_rgb','untermaederbrunnen_station1_xyz_intensity_rgb','neugasse_station1_xyz_intensity_rgb'):
     #for scene_name in enumerate(COMBINED_SCENE_NAMES):
-    #for split in ('train','test',):
-    for split in ('test',):
+    for split in ('train','test',):
         for scene_name in COMBINED_SCENE_NAMES:
         #for scene_name in ('bildstein_station1_xyz_intensity_rgb',):
             print(f'\n\n Rendering Scene {scene_name} split {split}')
-            capture_scene('data/pointcloud_images_o3d_merged/',split,scene_name,target='rgb')
-            capture_scene('data/pointcloud_images_o3d_merged/',split,scene_name,target='labels')
-            capture_scene('data/pointcloud_images_o3d_merged/',split,scene_name,target='depth')
+            capture_scene('data/pointcloud_images_o3d_merged_occ/',split,scene_name,target='rgb')
+            capture_scene('data/pointcloud_images_o3d_merged_occ/',split,scene_name,target='labels')
+            capture_scene('data/pointcloud_images_o3d_merged_occ/',split,scene_name,target='depth')
     quit()
 
     ### Project & bbox verify 

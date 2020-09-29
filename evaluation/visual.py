@@ -46,6 +46,7 @@ def gather_netvlad_vectors(dataloader_train, dataloader_test, model):
 #Sanity-check top-3 combine ✓
 #Evaluate scene-voting ✓ works!
 def eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices=None):
+    assert reduce_indices in (None,'scene-voting','scene-voting-double-k')
     print(f'eval_netvlad_retrieval(): # training: {len(dataset_train)}, # test: {len(dataset_test)}')
     print('Reduce indices:',reduce_indices)
 
@@ -80,6 +81,11 @@ def eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, n
             if reduce_indices =='scene-voting':
                 sorted_indices=np.argsort(netvlad_diffs)[0:k]
                 sorted_indices=evaluation.utils.reduceIndices_sceneVoting(scene_names_train, sorted_indices)
+            if reduce_indices =='scene-voting-double-k':
+                sorted_indices=np.argsort(netvlad_diffs)[0:k]
+                sorted_indices_voting=np.argsort(netvlad_diffs)[ k : 2*k ] # Take another k top retrievals just for scene-voting to compare to combined models
+                sorted_indices_topK,sorted_indices_doubleK=evaluation.utils.reduceIndices_sceneVoting(scene_names_train, sorted_indices, sorted_indices_voting)
+                sorted_indices = sorted_indices_topK if len(sorted_indices_topK)>0 else sorted_indices_doubleK #Same logic as in visual_geometric, trust next indices if they are "united" enough to over-rule top-k
 
             if k==np.max(top_k): retrieval_dict[test_index]=sorted_indices                
 
@@ -135,6 +141,8 @@ if __name__ == "__main__":
         print(pos_results, ori_results, scene_results)
         pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices='scene-voting')
         print(pos_results, ori_results, scene_results)
+        pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices='scene-voting-double-k')
+        print(pos_results, ori_results, scene_results)        
 
     if 'netvlad-cambridge' in sys.argv:
         IMAGE_LIMIT=3000

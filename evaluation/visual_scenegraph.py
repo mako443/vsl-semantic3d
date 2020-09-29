@@ -178,6 +178,13 @@ if __name__ == "__main__":
         gather_sceneGraph2viewObjects(dataset_train, dataset_test, ablation='relationships')
         #gather_sceneGraph2sceneGraph(dataset_train, dataset_test)
 
+    if 'gather-occ' in sys.argv:
+        IMAGE_LIMIT=3000
+        dataset_train=Semantic3dDataset('data/pointcloud_images_o3d_merged_occ','train',transform=None, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True)
+        dataset_test =Semantic3dDataset('data/pointcloud_images_o3d_merged_occ','test', transform=None, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True)    
+        gather_sceneGraph2viewObjects(dataset_train, dataset_test, ablation=None)
+
+
     #scenegraph_scores=pickle.load(open('scenegraph_scores.pkl','rb'))
 
     if 'SG-match' in sys.argv:
@@ -190,6 +197,23 @@ if __name__ == "__main__":
         scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
         pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
         print(pos_results, ori_results, scene_results,'\n')        
+
+    if 'SG-match-ablation' in sys.argv:
+        scores_filename='scores_sceneGraph2viewObjects_None.pkl'
+        scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
+        pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
+        print(pos_results, ori_results, scene_results,'\n') 
+
+        scores_filename='scores_sceneGraph2viewObjects_colors.pkl'
+        scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
+        pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
+        print(pos_results, ori_results, scene_results,'\n') 
+
+        scores_filename='scores_sceneGraph2viewObjects_relationships.pkl'
+        scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
+        pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
+        print(pos_results, ori_results, scene_results,'\n')                 
+
 
     if 'NetVLAD+SG-match' in sys.argv:
         netvlad_vectors_filename='features_netvlad-S3D.pkl'

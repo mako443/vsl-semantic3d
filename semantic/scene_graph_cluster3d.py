@@ -197,9 +197,9 @@ if __name__ == "__main__":
     '''
     Data creation: View objects from clustered objects
     '''
-    base_dir='data/pointcloud_images_o3d_merged/'
-    #for split in ('train','test',):
-    for split in ('test',):
+    base_dir='data/pointcloud_images_o3d_merged_occ/'
+    for split in ('train','test',):
+    #for split in ('test',):
         for i_scene_name,scene_name in enumerate(COMBINED_SCENE_NAMES):
         #for scene_name in ('sg27_station5_intensity_rgb',)
             print(f'\n\n View-Objects for scene <{scene_name}> split <{split}>')
@@ -212,6 +212,7 @@ if __name__ == "__main__":
                 pose=poses_rendered[file_name]
                 label_image=cv2.imread( os.path.join(base_dir,split,scene_name,'labels',file_name) )
                 depth_image=cv2.imread( os.path.join(base_dir,split,scene_name,'depth',file_name), cv2.IMREAD_GRAYSCALE )
+                assert label_image is not None and depth_image is not None
 
                 view_objects=create_view_objects(scene_objects,pose, label_image, depth_image)
                 total_view_objects+=len(view_objects)
