@@ -20,8 +20,10 @@ from semantic.scene_graph_cluster3d_scoring import score_sceneGraph_to_viewObjec
 from evaluation.utils import evaluate_topK, generate_sanity_check_dataset
 import evaluation.utils
 
-def gather_sceneGraph2viewObjects(dataset_train, dataset_test):
+def gather_sceneGraph2viewObjects(dataset_train, dataset_test, ablation=None):
+    assert ablation in (None, 'colors', 'relationships')
     print(f'gather_sceneGraph2viewObjects(): # training: {len(dataset_train)}, # test: {len(dataset_test)}')
+    print(f'ablation: {ablation}')
 
     score_dict={} # {test-idx: {train_idx: score} }
 
@@ -29,14 +31,14 @@ def gather_sceneGraph2viewObjects(dataset_train, dataset_test):
         score_dict[test_idx]={}
         scene_graph=dataset_test.view_scenegraphs[test_idx]
         for train_idx in range(len(dataset_train)):
-            score,_=score_sceneGraph_to_viewObjects_nnRels(scene_graph, dataset_train.view_objects[train_idx], unused_factor=0.5)
+            score,_=score_sceneGraph_to_viewObjects_nnRels(scene_graph, dataset_train.view_objects[train_idx], unused_factor=0.5, ablation=ablation)
             score_dict[test_idx][train_idx]=score  
 
         assert len(score_dict[test_idx])==len(dataset_train)
     assert len(score_dict)==len(dataset_test)
 
     print('Saving SG-scores...')
-    pickle.dump(score_dict, open('scores_sceneGraph2viewObjects.pkl','wb'))
+    pickle.dump(score_dict, open(f'scores_sceneGraph2viewObjects_{ablation}.pkl','wb'))
 
 def gather_sceneGraph2sceneGraph(dataset_train, dataset_test):
     print(f'gather_sceneGraph2sceneGraph(): # training: {len(dataset_train)}, # test: {len(dataset_test)}')
@@ -171,8 +173,17 @@ if __name__ == "__main__":
     dataset_test =Semantic3dDataset('data/pointcloud_images_o3d_merged','test', transform=None, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True)    
 
     if 'gather' in sys.argv:
-        #gather_sceneGraph2viewObjects(dataset_train, dataset_test)
-        gather_sceneGraph2sceneGraph(dataset_train, dataset_test)
+        gather_sceneGraph2viewObjects(dataset_train, dataset_test, ablation=None)
+        gather_sceneGraph2viewObjects(dataset_train, dataset_test, ablation='colors')
+        gather_sceneGraph2viewObjects(dataset_train, dataset_test, ablation='relationships')
+        #gather_sceneGraph2sceneGraph(dataset_train, dataset_test)
+
+    if 'gather-occ' in sys.argv:
+        IMAGE_LIMIT=3000
+        dataset_train=Semantic3dDataset('data/pointcloud_images_o3d_merged_occ','train',transform=None, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True)
+        dataset_test =Semantic3dDataset('data/pointcloud_images_o3d_merged_occ','test', transform=None, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True)    
+        gather_sceneGraph2viewObjects(dataset_train, dataset_test, ablation=None)
+
 
     #scenegraph_scores=pickle.load(open('scenegraph_scores.pkl','rb'))
 
@@ -185,7 +196,29 @@ if __name__ == "__main__":
         scores_filename='scores_sceneGraph2sceneGraph.pkl'
         scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
         pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
-        print(pos_results, ori_results, scene_results,'\n')        
+        print(pos_results, ori_results, scene_results,'\n')  
+
+        scores_filename='scores_sceneGraph2viewObjects_Occ.pkl'
+        scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
+        pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
+        print(pos_results, ori_results, scene_results,'\n')              
+
+    if 'SG-match-ablation' in sys.argv:
+        scores_filename='scores_sceneGraph2viewObjects_None.pkl'
+        scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
+        pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
+        print(pos_results, ori_results, scene_results,'\n') 
+
+        scores_filename='scores_sceneGraph2viewObjects_colors.pkl'
+        scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
+        pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
+        print(pos_results, ori_results, scene_results,'\n') 
+
+        scores_filename='scores_sceneGraph2viewObjects_relationships.pkl'
+        scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
+        pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
+        print(pos_results, ori_results, scene_results,'\n')                 
+
 
     if 'NetVLAD+SG-match' in sys.argv:
         netvlad_vectors_filename='features_netvlad-S3D.pkl'

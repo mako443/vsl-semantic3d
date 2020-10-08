@@ -29,10 +29,9 @@ LR_GAMMA=0.75
 EMBED_DIM=512 # 100 performed worse than GE (which had )
 SHUFFLE=True
 #DECAY=None #Tested, no decay here
-#MARGIN=1.0 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
+MARGIN=0.5 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
 
 #CAPTURE arg values
-MARGIN=float(sys.argv[-2])
 LR=float(sys.argv[-1])
 
 print(f'Semantic Embedding training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN} LR: {LR}')
@@ -51,8 +50,8 @@ loss_dict={}
 best_loss=np.inf
 best_model=None
 
-#for lr in (5e-3,1e-3,5e-4,1e-4):
-for lr in (LR,):
+for lr in (5e-4*8, 5e-4*4, 5e-4, 5e-4/4, 5e-4/8):
+#for lr in (LR,):
     print('\n\nlr: ',lr)
 
     model=SemanticEmbedding(data_set.get_known_words(),EMBED_DIM)
@@ -63,7 +62,7 @@ for lr in (LR,):
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)   
 
     loss_dict[lr]=[]
-    for epoch in range(10):
+    for epoch in range(6):
         epoch_loss_sum=0.0
         for i_batch, batch in enumerate(data_loader):
             

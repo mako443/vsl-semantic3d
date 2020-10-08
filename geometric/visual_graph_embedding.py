@@ -227,3 +227,70 @@ class VisualGraphEmbeddingCombined(torch.nn.Module):
         #x=x/torch.norm(x, dim=1, keepdim=True)
         
         return x        
+
+class VisualGraphEmbeddingAsymetric(torch.nn.Module):
+    def __init__(self,image_model, embedding_dim):
+        super(VisualGraphEmbeddingAsymetric, self).__init__()
+
+        self.embedding_dim=embedding_dim
+
+        #Graph layers
+        self.conv1 = GCNConv(self.embedding_dim, self.embedding_dim)
+        self.conv2 = GCNConv(self.embedding_dim, self.embedding_dim)
+        self.conv3 = GCNConv(self.embedding_dim, self.embedding_dim)
+
+        self.node_embedding=torch.nn.Embedding(30, self.embedding_dim) #30 should be enough
+        self.node_embedding.requires_grad_(False) # Performance proved better w/o training the Embedding ✓
+
+        #Image model
+        self.image_model=image_model
+        self.image_model.requires_grad_(False)
+        self.image_model.eval()
+        #self.image_dim=image_model.dim*image_model.num_clusters #Output gets flattened during NetVLAD
+        self.image_dim=list(image_model.parameters())[-1].shape[0] #For VGG
+        assert self.image_dim==4096        
+        
+        #Linear layers
+        self.W_i=torch.nn.Linear(self.image_dim,self.embedding_dim,bias=True) #Only for the visual path
+        self.W_combine=torch.nn.Linear(self.image_dim+self.embedding_dim,self.embedding_dim,bias=True) #Only for the visual-geometric path
+
+    def forward(self, images, graphs):
+        #assert len(graphs)==len(images)
+
+        out_images=self.encode_images(images)
+        out_images_with_graphs=self.encode_images_with_graphs(images, graphs)
+        assert out_images.shape==out_images_with_graphs.shape
+
+        return out_images, out_images_with_graphs
+        
+    #Purely visual path
+    #Care: don't use this in asymetric path
+    def encode_images(self, images):
+        assert len(images.shape)==4 #Expect a batch of images
+        x=self.image_model(images)
+        x=self.W_i(x)
+        x=x/torch.norm(x, dim=1, keepdim=True)
+
+        return x
+
+    #Visual-geometric path
+    def encode_images_with_graphs(self, images, graphs):
+        xg = self.node_embedding(graphs.x)
+        
+        edges=graphs.edge_index
+        edge_attr=graphs.edge_attr
+        batch=graphs.batch
+
+        xg = self.conv1(xg, edges, edge_attr)
+        xg = F.relu(xg)
+        xg = self.conv2(xg, edges, edge_attr)
+        xg = F.relu(xg)
+        xg = self.conv3(xg, edges, edge_attr)
+        xg = global_mean_pool(xg, batch)  # [batch_size, hidden_channels]
+
+        xi=self.image_model(images)
+        
+        x=self.W_combine( torch.cat((xi, xg), dim=1) )
+        x=x/torch.norm(x, dim=1, keepdim=True)
+        
+        return x                

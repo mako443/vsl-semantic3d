@@ -252,48 +252,48 @@ def create_captions_nnRels(base_path,split, scene):
 
 if __name__ == "__main__":
     ## Scene graph debugging for Cluster3d
-    base_path='data/pointcloud_images_o3d_merged/'
-    scene_name='bildstein_station1_xyz_intensity_rgb'
-    split='test'
-    scene_view_objects=pickle.load( open(os.path.join(base_path,split,scene_name,'view_objects.pkl'), 'rb') )
+    # base_path='data/pointcloud_images_o3d_merged/'
+    # scene_name='bildstein_station1_xyz_intensity_rgb'
+    # split='test'
+    # scene_view_objects=pickle.load( open(os.path.join(base_path,split,scene_name,'view_objects.pkl'), 'rb') )
 
-    file_name='003.png'
-    view_objects=scene_view_objects[file_name]
-    print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
-    sg0=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, flip_relations=False)
-    sg0_debug=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=True, flip_relations=False)
-    img=cv2.imread(os.path.join(base_path,split, scene_name,'rgb', file_name))
-    draw_scenegraph(img,sg0_debug)
-    #draw_view_objects(img, view_objects, [o.label for o in view_objects])
-    #cv2.imshow(file_name,img)
-    objs=semantic.scene_graph_cluster3d_scoring.extract_scenegraph_objects(sg0)
-    for o in objs: print(o)
-
-    file_name='009.png'
-    view_objects=scene_view_objects[file_name]
-    print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
-    sg1=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, flip_relations=False)
-    sg1_debug=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=True, flip_relations=False)
-    img=cv2.imread(os.path.join(base_path,split, scene_name,'rgb', file_name))
-    draw_scenegraph(img,sg1_debug)
-    cv2.imshow(file_name,img)
-
-    print(semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_sceneGraph_nnRels(sg0,sg0))
-    print(semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_sceneGraph_nnRels(sg1,sg1))
-    print()
-    print(semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_sceneGraph_nnRels(sg0,sg1))
-    print(semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_sceneGraph_nnRels(sg1,sg0))
-    
-    #cv2.waitKey()    
-
-    # print(sg.get_text())
-    # score= semantic.scene_graph_cluster3d_scoring.scenegraph_similarity(sg,sg)
-    # print('SG-Score:',score)
-
+    # file_name='003.png'
+    # view_objects=scene_view_objects[file_name]
+    # print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
+    # sg0=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, flip_relations=False)
+    # sg0_debug=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=True, flip_relations=False)
     # img=cv2.imread(os.path.join(base_path,split, scene_name,'rgb', file_name))
-    # draw_scenegraph(img,sg_debug)
-    # cv2.imshow("",img); cv2.waitKey()
-    quit()
+    # draw_scenegraph(img,sg0_debug)
+    # #draw_view_objects(img, view_objects, [o.label for o in view_objects])
+    # #cv2.imshow(file_name,img)
+    # objs=semantic.scene_graph_cluster3d_scoring.extract_scenegraph_objects(sg0)
+    # for o in objs: print(o)
+
+    # file_name='009.png'
+    # view_objects=scene_view_objects[file_name]
+    # print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
+    # sg1=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, flip_relations=False)
+    # sg1_debug=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=True, flip_relations=False)
+    # img=cv2.imread(os.path.join(base_path,split, scene_name,'rgb', file_name))
+    # draw_scenegraph(img,sg1_debug)
+    # cv2.imshow(file_name,img)
+
+    # print(semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_sceneGraph_nnRels(sg0,sg0))
+    # print(semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_sceneGraph_nnRels(sg1,sg1))
+    # print()
+    # print(semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_sceneGraph_nnRels(sg0,sg1))
+    # print(semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_sceneGraph_nnRels(sg1,sg0))
+    
+    # #cv2.waitKey()    
+
+    # # print(sg.get_text())
+    # # score= semantic.scene_graph_cluster3d_scoring.scenegraph_similarity(sg,sg)
+    # # print('SG-Score:',score)
+
+    # # img=cv2.imread(os.path.join(base_path,split, scene_name,'rgb', file_name))
+    # # draw_scenegraph(img,sg_debug)
+    # # cv2.imshow("",img); cv2.waitKey()
+    # quit()
     ## Scene graph debugging for Cluster3d
 
     ### Scene graph nnRels debugging
@@ -398,7 +398,7 @@ if __name__ == "__main__":
     '''
     Data creation: Scene-Graphs and Captions from view-objects (separate SG strategies)
     '''
-    base_path='data/pointcloud_images_o3d_merged'   
+    base_path='data/pointcloud_images_o3d_merged_occ'   
     for split in ('train','test',):  
         for scene_name in COMBINED_SCENE_NAMES:
             print(f'\n\n Scene-Graphs and Captions for scene <{scene_name}> split <{split}>')
