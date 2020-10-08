@@ -28,11 +28,12 @@ LR_GAMMA=0.75
 EMBED_DIM=1024
 SHUFFLE=True
 MARGIN=0.5 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
+EMPTY_SCENEGRAPHS=True
 
 #CAPTURE arg values
 LR=float(sys.argv[-1])
 
-print(f'VGE-AS training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN} LR: {LR}')
+print(f'VGE-AS training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN} LR: {LR} Empty SG: {EMPTY_SCENEGRAPHS}')
 
 transform=transforms.Compose([
     #transforms.Resize((950,1000)),
@@ -40,7 +41,7 @@ transform=transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
-data_set=Semantic3dDataset('data/pointcloud_images_o3d_merged','train', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True, return_graph_data=True)
+data_set=Semantic3dDataset('data/pointcloud_images_o3d_merged','train', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True, return_graph_data=True, make_graphs_empty=EMPTY_SCENEGRAPHS)
 #Option: shuffle, pin_memory crashes on my system, CARE: shuffle for PairWiseRankingLoss(!)
 data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=False, shuffle=SHUFFLE) 
 
@@ -98,7 +99,7 @@ for lr in (LR,):
         best_model=model
 
 print('\n----')           
-model_name=f'model_VGE-AS_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.pth'
+model_name=f'model_VGE-AS_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}_empty{EMPTY_SCENEGRAPHS}.pth'
 print('Saving best model',model_name)
 torch.save(best_model.state_dict(),model_name)
 
@@ -109,4 +110,4 @@ for k in loss_dict.keys():
 plt.gca().set_ylim(bottom=0.0) #Set the bottom to 0.0
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_VGE-AS_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.png')    
+plt.savefig(f'loss_VGE-AS_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}_empty{EMPTY_SCENEGRAPHS}.png')    

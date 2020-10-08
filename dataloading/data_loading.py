@@ -137,7 +137,7 @@ class Semantic3dDataset(Dataset):
             if make_graphs_empty:
                 print('CARE: using empty graphs!')
                 for i in range(len(self.view_scenegraphs)):
-                    self.view_scenegraphs.relationships=[]
+                    self.view_scenegraphs[i].relationships=[]
 
             self.view_scenegraph_data=[ create_scenegraph_data(sg, self.node_embeddings, self.edge_embeddings) for sg in self.view_scenegraphs ]
             assert len(self.view_scenegraph_data)==len(self.image_poses)
