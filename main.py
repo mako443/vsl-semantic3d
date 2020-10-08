@@ -7,7 +7,7 @@ import open3d
 import capturing
 import cv2
 from semantic.imports import ClusteredObject
-from graphics.imports import Pose, CLASSES_DICT, CLASSES_COLORS#, load_files2
+from graphics.imports import Pose, CLASSES_DICT, CLASSES_COLORS, COMBINED_SCENE_NAMES
 
 import semantic.geometry
 import semantic.utils
@@ -177,8 +177,9 @@ def resize_window():
 
 #Diam größer -> weniger Punkte
 if __name__ == "__main__":
-    scene_name='sg27_station9_intensity_rgb'
-    viewer=view_pptk('data/numpy_merged/'+scene_name, remove_unlabeled=False)
+
+    scene_name='bildstein_station1_xyz_intensity_rgb'
+    viewer=view_pptk('data/numpy_merged/'+scene_name, remove_unlabeled=False, max_points=int(10e6))
     #poses_rendered=pickle.load( open('data/pointcloud_images_o3d_merged/bildstein_station1_xyz_intensity_rgb/poses_rendered.pkl','rb'))
 
     quit()
