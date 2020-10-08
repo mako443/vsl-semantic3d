@@ -24,7 +24,7 @@ TODO
 '''
 #Dataset is used for all loading during all training and evaluation, but never during data creation!
 class Semantic3dDataset(Dataset):
-    def __init__(self, dirpath_main,split, transform=None, image_limit=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=False, return_graph_data=False):
+    def __init__(self, dirpath_main,split, transform=None, image_limit=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=False, return_graph_data=False, make_graphs_empty=False):
         assert split in ('train','test')
         dirpath_main=os.path.join(dirpath_main,split)
 
@@ -39,6 +39,7 @@ class Semantic3dDataset(Dataset):
 
         if return_captions: assert return_graph_data==False
         if return_graph_data: assert return_captions==False
+        if make_graphs_empty: assert return_graph_data==True
 
         '''
         Data is structured in directories and unordered dictionaries
@@ -47,7 +48,7 @@ class Semantic3dDataset(Dataset):
         self.scene_names=sorted([folder_name for folder_name in os.listdir(dirpath_main) if os.path.isdir(os.path.join(dirpath_main,folder_name))]) #Sorting scene-names
         #self.scene_names=('sg27_station5_intensity_rgb',)
         #print('CARE / DEBUG ONE SCENE')
-        print(f'Semantic3dData split <{split}> with {len(self.scene_names)} total scenes: {self.scene_names}')
+        print(f'Semantic3dData split <{split}> from {self.dirpath_main} with {len(self.scene_names)} total scenes: {self.scene_names}')
 
         #CARE: these have to match for splitting below!!
         self.image_paths=[]
@@ -133,6 +134,11 @@ class Semantic3dDataset(Dataset):
         #Create Scene-Graph data
         if self.load_sceneGraphs:
             self.node_embeddings, self.edge_embeddings=pickle.load(open(os.path.join(dirpath_main,'..','graph_embeddings.pkl'), 'rb')) #Graph embeddings are in the top dir
+            if make_graphs_empty:
+                print('CARE: using empty graphs!')
+                for i in range(len(self.view_scenegraphs)):
+                    self.view_scenegraphs.relationships=[]
+
             self.view_scenegraph_data=[ create_scenegraph_data(sg, self.node_embeddings, self.edge_embeddings) for sg in self.view_scenegraphs ]
             assert len(self.view_scenegraph_data)==len(self.image_poses)
             empty_graphs=[1 for sg in self.view_scenegraphs if sg.is_empty()]

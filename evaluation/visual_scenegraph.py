@@ -196,7 +196,12 @@ if __name__ == "__main__":
         scores_filename='scores_sceneGraph2sceneGraph.pkl'
         scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
         pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
-        print(pos_results, ori_results, scene_results,'\n')        
+        print(pos_results, ori_results, scene_results,'\n')  
+
+        scores_filename='scores_sceneGraph2viewObjects_Occ.pkl'
+        scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
+        pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
+        print(pos_results, ori_results, scene_results,'\n')              
 
     if 'SG-match-ablation' in sys.argv:
         scores_filename='scores_sceneGraph2viewObjects_None.pkl'

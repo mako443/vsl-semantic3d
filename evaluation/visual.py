@@ -28,11 +28,11 @@ def gather_netvlad_vectors(dataloader_train, dataloader_test, model):
     netvlad_vectors_train, netvlad_vectors_test=torch.tensor([]).cuda(), torch.tensor([]).cuda()
     with torch.no_grad():
         for i_batch, batch in enumerate(dataloader_test):
-            a=batch['images']
+            a=batch
             a_out=netvlad_model(a.cuda())
             netvlad_vectors_test=torch.cat((netvlad_vectors_test,a_out))
         for i_batch, batch in enumerate(dataloader_train):
-            a=batch['images']
+            a=batch
             a_out=netvlad_model(a.cuda())
             netvlad_vectors_train=torch.cat((netvlad_vectors_train,a_out))   
     netvlad_vectors_train=netvlad_vectors_train.cpu().detach().numpy()
@@ -135,14 +135,43 @@ if __name__ == "__main__":
         netvlad_model.cuda()
         gather_netvlad_vectors(dataloader_train, dataloader_test, netvlad_model)
 
+    if 'gather-occ' in sys.argv:
+        dataset_train=Semantic3dDataset('data/pointcloud_images_o3d_merged_occ','train',transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True)
+        dataset_test =Semantic3dDataset('data/pointcloud_images_o3d_merged_occ','test', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True)
+
+        dataloader_train=DataLoader(dataset_train, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #CARE: put shuffle off
+        dataloader_test =DataLoader(dataset_test , batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)     
+
+        image_encoder=networks.get_encoder_resnet18()
+        image_encoder.requires_grad_(False) #Don't train encoder
+        netvlad_layer=NetVLAD(num_clusters=NUM_CLUSTERS, dim=512, alpha=ALPHA)
+        netvlad_model=EmbedNet(image_encoder, netvlad_layer)
+
+        netvlad_model_name='model_netvlad_l3000_b6_g0.75_c8_a10.0.pth'
+        print('Model:',netvlad_model_name)
+        netvlad_model.load_state_dict(torch.load('models/'+netvlad_model_name))
+        netvlad_model.eval()
+        netvlad_model.cuda()
+        gather_netvlad_vectors(dataloader_train, dataloader_test, netvlad_model)        
+
     if 'netvlad' in sys.argv:
-        netvlad_vectors_train,netvlad_vectors_test=pickle.load(open('evaluation_res/features_netvlad-S3D.pkl','rb'))
+        features_name='features_netvlad-S3D.pkl'
+        netvlad_vectors_train,netvlad_vectors_test=pickle.load(open('evaluation_res/'+features_name,'rb')); print(f'Using features {features_name}')
         pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices=None)
         print(pos_results, ori_results, scene_results)
         pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices='scene-voting')
         print(pos_results, ori_results, scene_results)
         pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices='scene-voting-double-k')
-        print(pos_results, ori_results, scene_results)        
+        print(pos_results, ori_results, scene_results)    
+
+        features_name='features_netvlad_Base-Occ.pkl'
+        netvlad_vectors_train,netvlad_vectors_test=pickle.load(open('evaluation_res/'+features_name,'rb')); print(f'Using features {features_name}')        
+        pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices=None)
+        print(pos_results, ori_results, scene_results)
+        pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices='scene-voting')
+        print(pos_results, ori_results, scene_results)
+        pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices='scene-voting-double-k')
+        print(pos_results, ori_results, scene_results)             
 
     if 'netvlad-cambridge' in sys.argv:
         IMAGE_LIMIT=3000

@@ -230,7 +230,7 @@ class VisualGraphEmbeddingCombined(torch.nn.Module):
 
 class VisualGraphEmbeddingAsymetric(torch.nn.Module):
     def __init__(self,image_model, embedding_dim):
-        super(VisualGraphEmbeddingCombined, self).__init__()
+        super(VisualGraphEmbeddingAsymetric, self).__init__()
 
         self.embedding_dim=embedding_dim
 
@@ -268,15 +268,16 @@ class VisualGraphEmbeddingAsymetric(torch.nn.Module):
     def encode_images(self, images):
         assert len(images.shape)==4 #Expect a batch of images
         x=self.image_model(images)
-        x=self.W_i(q)
+        x=self.W_i(x)
         x=x/torch.norm(x, dim=1, keepdim=True)
 
         return x
 
     #Visual-geometric path
     def encode_images_with_graphs(self, images, graphs):
-        xg = self.node_embedding(graphs.xg)
-        edges=graphs.edge_indexg
+        xg = self.node_embedding(graphs.x)
+        
+        edges=graphs.edge_index
         edge_attr=graphs.edge_attr
         batch=graphs.batch
 

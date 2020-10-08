@@ -9,4 +9,4 @@
 #SBATCH --output=slurm-%j.out
 #SBATCH --error=slurm-%j.out
 
-srun python3 -m evaluation.visual_scenegraph gather-occ
+srun python3 -m evaluation.visual_scenegraph SG-match

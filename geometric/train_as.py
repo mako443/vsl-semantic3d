@@ -15,14 +15,14 @@ import sys
 from torch_geometric.data import DataLoader #Use the PyG DataLoader
 
 from dataloading.data_loading import Semantic3dDataset
-from visual_semantic.visual_semantic_embedding import PairwiseRankingLoss, HardestRankingLoss, HardestRankingLoss2
+from visual_semantic.visual_semantic_embedding import PairwiseRankingLoss
 from .visual_graph_embedding import VisualGraphEmbeddingAsymetric, create_image_model_vgg11
 
 '''
 Visual Graph Embedding (Asymetric) training
 '''
 
-IMAGE_LIMIT=480
+IMAGE_LIMIT=3000
 BATCH_SIZE=10 #12 gives memory error, 8 had more loss than 6?
 LR_GAMMA=0.75
 EMBED_DIM=1024
@@ -32,7 +32,7 @@ MARGIN=0.5 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
 #CAPTURE arg values
 LR=float(sys.argv[-1])
 
-print(f'VGE-AS training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN} loss: {LOSS} LR: {LR}')
+print(f'VGE-AS training: image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} embed-dim: {EMBED_DIM} shuffle: {SHUFFLE} margin: {MARGIN} LR: {LR}')
 
 transform=transforms.Compose([
     #transforms.Resize((950,1000)),
@@ -48,22 +48,22 @@ loss_dict={}
 best_loss=np.inf
 best_model=None
 
-for lr in (5e-3,1e-3,5e-4,1e-4,5e-5):
-#for lr in (5e-4,):
+#for lr in (1e-4,5e-5,1e-5):
+for lr in (LR,):
     print('\n\nlr: ',lr)
 
     vgg=create_image_model_vgg11()
-    model=VisualGraphEmbedding(vgg, EMBED_DIM).cuda()
+    model=VisualGraphEmbeddingAsymetric(vgg, EMBED_DIM).cuda()
 
     criterion=PairwiseRankingLoss(margin=MARGIN)
 
     optimizer=optim.Adam(model.parameters(), lr=lr) #Adam is ok for PyG
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)   
 
-    if type(criterion) in (PairwiseRankingLoss,HardestRankingLoss): assert SHUFFLE==True 
+    if type(criterion) == PairwiseRankingLoss: assert SHUFFLE==True 
 
     loss_dict[lr]=[]
-    for epoch in range(5):
+    for epoch in range(10):
         epoch_loss_sum=0.0
         
         grad0_sum=0
@@ -98,7 +98,7 @@ for lr in (5e-3,1e-3,5e-4,1e-4,5e-5):
         best_model=model
 
 print('\n----')           
-model_name=f'model_VGE-AS_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_l{LOSS}_lr{LR}.pth'
+model_name=f'model_VGE-AS_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.pth'
 print('Saving best model',model_name)
 torch.save(best_model.state_dict(),model_name)
 
@@ -109,4 +109,4 @@ for k in loss_dict.keys():
 plt.gca().set_ylim(bottom=0.0) #Set the bottom to 0.0
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_VGE-AS_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_l{LOSS}_lr{LR}.png')    
+plt.savefig(f'loss_VGE-AS_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.png')    
