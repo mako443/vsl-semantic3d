@@ -96,6 +96,7 @@ def view_together(xyz0, rgb0, xyz1, rgb1, z_degrees, shift):
     v=pptk.viewer(xyz)
     v.attributes(rgb/255.0)
     v.set(point_size=0.04)
+    return v
 
 def view_separate(xyz0, rgb0, xyz1, rgb1):
     v=pptk.viewer(xyz0)

@@ -22,7 +22,7 @@ def expand_labels(xyz, rgb, lbl, iterations):
 
 #Deprecated? / copy from main, no alpha, no labels
 #Load as rgb, treat label and rgb the same
-def load_files2(base_path, scene_name, max_points=int(28e6), target='rbg'):
+def load_files2(base_path, scene_name, max_points=int(28e6), target='rgb'):
     assert target in ('rgb','labels','depth')
     p_xyz   =os.path.join(base_path,scene_name+'.xyz.npy')
     p_rgb   =os.path.join(base_path,scene_name+'.rgb.npy')
@@ -156,8 +156,27 @@ def set_pose(view_control, pose : Pose):
     I,E=params_new.intrinsic.intrinsic_matrix, params_new.extrinsic
     return I,E
 
+# def calculate_scene_size(xyz):
+#     num_points=len(xyz)
+#     reject_fraction=0.001
+#     reject_points=int(reject_fraction*num_points)
+
+#     x_lower_bound=np.min( np.flip(np.sort(xyz[:,0]))[0:num_points-reject_points] )
+#     x_upper_bound=np.max( np.sort(xyz[:,0])         [0:num_points-reject_points] )
+#     y_lower_bound=np.min( np.flip(np.sort(xyz[:,1]))[0:num_points-reject_points] )
+#     y_upper_bound=np.max( np.sort(xyz[:,1])         [0:num_points-reject_points] )
+#     z_lower_bound=np.min( np.flip(np.sort(xyz[:,2]))[0:num_points-reject_points] )
+#     z_upper_bound=np.max( np.sort(xyz[:,2])         [0:num_points-reject_points] )     
+#     return x_upper_bound-x_lower_bound, y_upper_bound-y_lower_bound, z_upper_bound-z_lower_bound
+    
+
 
 if __name__ == "__main__":
+    # for scene_name in COMBINED_SCENE_NAMES:
+    #     xyz,_,_=load_files('data/numpy_merged/'+scene_name, max_points=int(20e6), remove_artifacts=False, remove_unlabeled=False, expand_artifacts=False)
+    #     print(scene_name,calculate_scene_size(xyz))
+
+    # quit()
     '''
     Data creation: Open3D rendering for clusters, read poses -> render images
     '''
@@ -282,6 +301,4 @@ plotter=pyvista.Plotter(off_screen=True)
 _=plotter.add_mesh(mesh)
 res=plotter.show(screenshot='pyvista.png', interactive=False)
 '''
-
-
 

@@ -6,7 +6,7 @@ import time
 import os
 import pickle
 from torchvision import transforms
-from graphics.imports import Pose
+from graphics.imports import Pose, COMBINED_SCENE_NAMES
 from semantic.patches import Patch
 from semantic.imports import SceneGraph, SceneGraphObject, ViewObject
 from geometric.utils import create_scenegraph_data
@@ -187,7 +187,6 @@ class Semantic3dDataset(Dataset):
                 
 
 #Subclass to load the images as trainig triplets
-#Also load SG/text triplets?
 class Semantic3dDatasetTriplet(Semantic3dDataset):
     def __init__(self, dirpath_main,split, transform=None, image_limit=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=False, return_graph_data=False):
         super().__init__(dirpath_main,split, transform=transform, image_limit=image_limit, load_viewObjects=load_viewObjects, load_sceneGraphs=load_sceneGraphs, return_captions=return_captions, return_graph_data=return_graph_data)
@@ -245,12 +244,100 @@ class Semantic3dDatasetTriplet(Semantic3dDataset):
         else:
             return anchor, positive, negative 
 
+#Subclass to load the images as trainig triplets
+class Semantic3dDatasetIdTriplets(Semantic3dDataset):
+    def __init__(self, dirpath_main,split, positive_overlap=0.3, negative_overlap=0.05, transform=None, image_limit=None, return_captions=False, return_graph_data=False):
+        super().__init__(dirpath_main,split, transform=transform, image_limit=image_limit, load_viewObjects=True, load_sceneGraphs=True, return_captions=return_captions, return_graph_data=return_graph_data)
+
+        self.positive_overlap=positive_overlap #At least this much IoU of visible points for positive samples
+        self.negative_overlap=negative_overlap #At most  this much IoU of visible points for negative samples
+
+        self.view_pointIDs=[]
+        for i in range(len(self.view_objects)):
+            ids=[]
+            for vo in self.view_objects[i]:
+                ids+= list(vo.point_ids)
+            self.view_pointIDs.append(set(ids))
+        assert len(self.view_pointIDs)==len(self.image_paths)
+
+    def __getitem__(self, anchor_index):
+        scene_name=self.image_scene_names[anchor_index]  
+        anchor_set=set(self.view_pointIDs[anchor_index])
+
+        #Find positive index with enough point overlaps
+        #Reduce to same scene
+        indices= np.core.defchararray.find(self.image_paths, scene_name)!=-1 #indices from same scene
+        indices[anchor_index]=False #Remove anchor index
+        assert np.sum(indices)>0
+
+        #Check the indices from the same scene for enough IoU overlap
+        for i in range(len(indices)):
+            if not indices[i]: continue
+            iou= len( anchor_set.intersection( self.view_pointIDs[i] ) ) / len( anchor_set.union( self.view_pointIDs[i] ) )
+            indices[i]=iou>=self.positive_overlap
+
+        #assert np.sum(indices)>0
+        assert len(indices)==len(self.image_paths)
+
+        if not np.sum(indices)>0:
+            print(f'No positive indices for anchor {anchor_index}, using left or right') #TODO: investigate
+            if anchor_index>0: indices[ anchor_index-1 ]=True
+            if anchor_index<len(self)-1: indices[anchor_index+1]=True        
+
+        indices=np.argwhere(indices==True).flatten()
+        positive_index=np.random.choice(indices)
+
+        #OPTION: Negative selection
+        if np.random.choice([True,False]): #Pick an index of the same scene
+            indices= np.core.defchararray.find(self.image_paths, scene_name)!=-1 #indices from same scene
+            indices[anchor_index]=False
+            assert np.sum(indices)>0
+
+            for i in range(len(indices)):
+                if not indices[i]: continue
+                iou= len( anchor_set.intersection( self.view_pointIDs[i] ) ) / len( anchor_set.union( self.view_pointIDs[i] ) )
+                indices[i]=iou<=self.negative_overlap   
+
+            assert np.sum(indices)>0
+            assert len(indices)==len(self.image_paths)                
+
+            indices=np.argwhere(indices==True).flatten()
+            negative_index=np.random.choice(indices)                      
+        else: #Pick from other scene
+            indices=np.flatnonzero(np.core.defchararray.find(self.image_paths, scene_name)==-1)
+            negative_index=np.random.choice(indices)
+
+        anchor  =  Image.open(self.image_paths[anchor_index]).convert('RGB')
+        positive = Image.open(self.image_paths[positive_index]).convert('RGB')
+        negative = Image.open(self.image_paths[negative_index]).convert('RGB')    
+
+        if self.transform:
+            anchor, positive, negative = self.transform(anchor),self.transform(positive),self.transform(negative)
+
+        if self.return_captions:
+            return {'images_anchor':anchor, 'images_positive':positive, 'images_negative':negative,
+                    'captions_anchor':self.view_captions[anchor_index], 'captions_positive':self.view_captions[positive_index], 'captions_negative':self.view_captions[negative_index]}
+        elif self.return_graph_data:
+            return {'images_anchor':anchor, 'images_positive':positive, 'images_negative':negative,
+                    'graphs_anchor':self.view_scenegraph_data[anchor_index], 'graphs_positive':self.view_scenegraph_data[positive_index], 'graphs_negative':self.view_scenegraph_data[negative_index]}
+        else:
+            return anchor, positive, negative             
+
 
 if __name__ == "__main__":
-    dataset_train=Semantic3dDataset('data/pointcloud_images_o3d_merged','train',transform=transforms.ToTensor(), load_viewObjects=True, load_sceneGraphs=True, return_graph_data=False)
-    dataset_test =Semantic3dDataset('data/pointcloud_images_o3d_merged','test' ,transform=transforms.ToTensor(), load_viewObjects=True, load_sceneGraphs=True, return_graph_data=False)
+    dataset=Semantic3dDatasetIdTriplets('data/pointcloud_images_o3d_merged','test',transform=None, positive_overlap=0.5, negative_overlap=0.05)
 
-    image_positions_train, image_orientations_train = dataset_train.image_positions, dataset_train.image_orientations
-    image_positions_test, image_orientations_test = dataset_test.image_positions, dataset_test.image_orientations    
+    a,p,n=dataset[np.random.randint(len(dataset))]
+    a.show(); p.show(); n.show();
 
 
+    #dataset_test =Semantic3dDataset('data/pointcloud_images_o3d_merged','test' ,transform=transforms.ToTensor(), load_viewObjects=True, load_sceneGraphs=True, return_graph_data=True)
+
+    #image_positions_train, image_orientations_train = dataset_train.image_positions, dataset_train.image_orientations
+    #image_positions_test, image_orientations_test = dataset_test.image_positions, dataset_test.image_orientations    
+
+    # for scene_name in COMBINED_SCENE_NAMES:
+    #     assert scene_name in dataset_train.image_scene_names
+    #     indices= dataset_train.image_scene_names==scene_name
+    #     positions=dataset_train.image_positions[indices]
+    #     print(scene_name, np.max(positions,axis=0) - np.min(positions,axis=0))
