@@ -133,9 +133,6 @@ def create_view_objects(scene_objects, view_pose : Pose, label_image, depth_imag
 
     ### New version
 
-#TODO: re-create, re-check 077, save demo images ✓
-#TODO: re-create all test (+ dependencies), sanity check, then train: sanity (View-object count comare) seems ok (slightly less) ✓
-#TODO/CARE: check projection on pointy images! Seems ok! ✓
 if __name__ == "__main__":
     ### Projection-Occlusion debug
     # scene_name='untermaederbrunnen_station1_xyz_intensity_rgb'

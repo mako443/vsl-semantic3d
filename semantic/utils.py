@@ -5,6 +5,8 @@ import time
 import semantic.clustering
 from graphics.imports import CLASSES_DICT, CLASSES_COLORS
 import cv2
+import networkx as nx
+import matplotlib.pyplot as plt
 
 # #CARE: Only define here, import everywhere else
 # #FOV estimated "by hand"
@@ -63,11 +65,63 @@ def draw_scenegraph(img, scene_graph):
         for p in (rel[0], rel[2]):
             #cv2.rectangle(img, (p.bbox[0], p.bbox[1]), (p.bbox[0]+p.bbox[2], p.bbox[1]+p.bbox[3]), (0,0,255), thickness=2)
             bbox=p.get_bbox()
-            cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0,0,255), thickness=2)
+            color=CLASSES_COLORS[p.label]
+            cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (color[2], color[1], color[0]), thickness=4)
 
         p0,p1= np.int0(np.array(rel[0].center)), np.int0(np.array(rel[2].center))
         cv2.arrowedLine(img, (p0[0],p0[1]), (p1[0],p1[1]), (0,0,255), thickness=3)
-        cv2.putText(img,rel[1]+" of",(p0[0],p0[1]),cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), thickness=2)        
+        cv2.putText(img,rel[1]+" of",(p0[0],p0[1]),cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), thickness=4)   
+
+#Corresponds to geometric.utils.create_scenegraph_data
+def draw_scenegraph_data(scene_graph):
+
+    for i_rel,rel in enumerate(scene_graph.relationships):
+        graph = nx.DiGraph()
+        sub, rel_type, obj=rel
+
+        #Node for the subject
+        sub_idx=graph.number_of_nodes()
+        graph.add_node(sub_idx, descr=sub.label)
+
+        #Node for the object
+        obj_idx=graph.number_of_nodes()
+        graph.add_node(obj_idx, descr=obj.label)
+
+        #The relationship edge
+        graph.add_edge(sub_idx,obj_idx, descr=rel_type)
+
+        # Color and Corner for subject
+        sub_color_idx=graph.number_of_nodes()
+        graph.add_node(sub_color_idx, descr=sub.color)
+        graph.add_edge(sub_color_idx, sub_idx, descr='attr')
+
+        sub_corner_idx=graph.number_of_nodes()
+        graph.add_node(sub_corner_idx, descr=sub.corner)
+        graph.add_edge(sub_corner_idx, sub_idx, descr='attr')        
+
+        # Color and Corner for object
+        obj_color_idx=graph.number_of_nodes()
+        graph.add_node(obj_color_idx, descr=obj.color)
+        graph.add_edge(obj_color_idx, obj_idx, descr='attr')
+
+        obj_corner_idx=graph.number_of_nodes()
+        graph.add_node(obj_corner_idx, descr=obj.corner)
+        graph.add_edge(obj_corner_idx, obj_idx, descr='attr')  
+
+        #Draw
+        plt.subplot(f'22{i_rel+1}')
+        node_labels = nx.get_node_attributes(graph, 'descr') 
+        edge_labels = nx.get_edge_attributes(graph, 'descr') 
+        #pos = nx.spring_layout(graph)
+        pos={sub_idx:(0,0.25), sub_color_idx:(-1,0), sub_corner_idx:(1,0), obj_idx:(0,0.75), obj_color_idx:(-1,1), obj_corner_idx:(1,1)}
+        nx.draw(graph,pos,labels=node_labels, node_size=1200, arrowsize=30, font_size=24)
+        nx.draw_networkx_edge_labels(graph,pos,edge_labels=edge_labels, font_size=24)
+
+    fig = plt.gcf()
+    fig.set_size_inches(20, 15)
+    fig.savefig('tmp.png')
+    img=cv2.imread('tmp.png')
+    return img
 
 
 def draw_view_objects(img, view_objects, object_texts=None):
@@ -78,11 +132,12 @@ def draw_view_objects(img, view_objects, object_texts=None):
 
     #From cluster3d
     for i,o in enumerate(view_objects):
+        color=CLASSES_COLORS[o.label]
         bbox=o.get_bbox()
-        cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0,0,255), thickness=2)
-        cv2.circle(img, (int(o.center[0]), int(o.center[1])), 6,(0,0,255), thickness=4)
+        cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (color[2], color[1], color[0]), thickness=4)
+        if object_texts is not None: cv2.circle(img, (int(o.center[0]), int(o.center[1])), 6,(color[2], color[1], color[0]), thickness=4)
         if object_texts is not None:
-            cv2.putText(img,object_texts[i],(int(o.center[0]-100), int(o.center[1])),cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0,0,255),thickness=2)    
+            cv2.putText(img,object_texts[i],(int(o.center[0]-15*len(object_texts[i])), int(o.center[1])),cv2.FONT_HERSHEY_SIMPLEX, 2.0, (color[2], color[1], color[0]),thickness=4)    
     
 
 #Assuming a pinhole-model

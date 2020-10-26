@@ -45,7 +45,6 @@ def create_embedding_dictionaries(base_dir):
 
     return vertex_embedding_dict, edge_embedding_dict
 
-#TODO: co-references?
 def create_scenegraph_data(scene_graph, node_dict, edge_dict):
     node_features=[]
     edges=[]
@@ -103,6 +102,92 @@ def create_scenegraph_data(scene_graph, node_dict, edge_dict):
     return torch_geometric.data.Data(x=torch.from_numpy(node_features.astype(np.int64)),
                                      edge_index=torch.from_numpy(edges.astype(np.int64)),
                                      edge_attr= torch.from_numpy(edge_features.astype(np.float32)))
+
+def create_scenegraph_data_co_reference(scene_graph, node_dict, edge_dict):
+    node_features=[]
+    edges=[]
+    edge_features=[]
+
+    #Encode empty SG as: Empty ---attribute---> Empty
+    if scene_graph.is_empty():
+        node_features.append(node_dict['empty'])
+        node_features.append(node_dict['empty'])
+        edges.append((0,1))
+        edge_features.append(edge_dict['attribute'])
+        edges=np.array(edges).reshape((2,1))
+        return torch_geometric.data.Data(x=torch.from_numpy(np.array(node_features,dtype=np.int64)),
+                                        edge_index=torch.from_numpy(np.array(edges,dtype=np.int64)),
+                                        edge_attr= torch.from_numpy(np.array(edge_features,dtype=np.float32)))
+
+    node_objects={} # {SG-Object: node-index}
+    num_coref=0
+
+    for rel in scene_graph.relationships:
+        sub, rel_type, obj=rel
+
+        #Node for the subject
+        new_sub_node=True
+        for n in node_objects.keys():
+            if np.all(n.center_hash == sub.center_hash):
+                sub_idx=node_objects[n]
+                new_sub_node=False
+                num_coref+=1
+                break
+
+        if new_sub_node:
+            node_features.append(node_dict[sub.label])
+            sub_idx=len(node_features)-1
+            node_objects[sub]=sub_idx
+
+        #Node for the object
+        new_obj_node=True
+        for n in node_objects.keys():
+            if np.all(n.center_hash == obj.center_hash):
+                obj_idx=node_objects[n]
+                new_obj_node=False
+                num_coref+=1
+                break        
+
+        if new_obj_node:
+            node_features.append(node_dict[obj.label])
+            obj_idx=len(node_features)-1
+            node_objects[obj]=obj_idx
+
+        #The relationship edge
+        edges.append( (sub_idx,obj_idx) ) 
+        edge_features.append( edge_dict[rel_type] )
+
+        # Color and Corner for subject
+        if new_sub_node:
+            node_features.append(node_dict[sub.color])
+            edges.append( (len(node_features)-1, sub_idx) )
+            edge_features.append(edge_dict['attribute'])
+            node_features.append(node_dict[sub.corner])
+            edges.append( (len(node_features)-1, sub_idx) )
+            edge_features.append(edge_dict['attribute'])
+
+        # Color and Corner for object
+        if new_obj_node:
+            node_features.append(node_dict[obj.color])
+            edges.append( (len(node_features)-1, obj_idx) )
+            edge_features.append(edge_dict['attribute'])
+            node_features.append(node_dict[obj.corner])
+            edges.append( (len(node_features)-1, obj_idx) )
+            edge_features.append(edge_dict['attribute'])        
+
+    node_features=np.array(node_features)
+    edges=np.array(edges).T #Transpose for PyG-format
+    edge_features=np.array(edge_features)
+
+    assert len(edge_features)==edges.shape[1]== (2*len(scene_graph.relationships) - num_coref)*2 + len(scene_graph.relationships)
+    assert len(node_features)== ( 2*len(scene_graph.relationships) - num_coref) * 3
+
+    #return np.array(node_features), np.array(edges), np.array(edge_features)
+    data= torch_geometric.data.Data(x=torch.from_numpy(node_features.astype(np.int64)),
+                                     edge_index=torch.from_numpy(edges.astype(np.int64)),
+                                     edge_attr= torch.from_numpy(edge_features.astype(np.float32)))    
+
+    return data, num_coref    
 
 
 def draw_graph(scene_graph):

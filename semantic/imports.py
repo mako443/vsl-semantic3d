@@ -258,7 +258,7 @@ class SceneGraph:
 
 #TODO: attributes here or in graph? Should be possible to convert to graph
 class SceneGraphObject:
-    __slots__ = ['label', 'color', 'corner','maxdist','corner5']
+    __slots__ = ['label', 'color', 'corner','maxdist','corner5','center_hash']
 
     # @classmethod
     # def from_viewobject(cls, v : ViewObject):
@@ -292,6 +292,7 @@ class SceneGraphObject:
             sgo.corner=sgo.corner5
 
         #sgo.maxdist=v.maxdist
+        sgo.center_hash=v.center #Center of View-Object, only used to compare identities in co-reference ablation study
 
         return sgo
     

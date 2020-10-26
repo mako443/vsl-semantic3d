@@ -186,7 +186,7 @@ class Semantic3dDataset(Dataset):
         return known_words
                 
 
-#Subclass to load the images as trainig triplets
+#Subclass to load the images as trainig triplets (naively via positional and orientational differences)
 class Semantic3dDatasetTriplet(Semantic3dDataset):
     def __init__(self, dirpath_main,split, transform=None, image_limit=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=False, return_graph_data=False):
         super().__init__(dirpath_main,split, transform=transform, image_limit=image_limit, load_viewObjects=load_viewObjects, load_sceneGraphs=load_sceneGraphs, return_captions=return_captions, return_graph_data=return_graph_data)
@@ -244,7 +244,7 @@ class Semantic3dDatasetTriplet(Semantic3dDataset):
         else:
             return anchor, positive, negative 
 
-#Subclass to load the images as trainig triplets
+#Subclass to load the images as trainig triplets (more challenging via detected point overlaps)
 class Semantic3dDatasetIdTriplets(Semantic3dDataset):
     def __init__(self, dirpath_main,split, positive_overlap=0.3, negative_overlap=0.05, transform=None, image_limit=None, return_captions=False, return_graph_data=False):
         super().__init__(dirpath_main,split, transform=transform, image_limit=image_limit, load_viewObjects=True, load_sceneGraphs=True, return_captions=return_captions, return_graph_data=return_graph_data)
