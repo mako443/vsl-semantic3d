@@ -10,11 +10,12 @@ import numpy as np
 import cv2
 import psutil
 import matplotlib.pyplot as plt
+import sys
 
 from retrieval import networks
 from retrieval.netvlad import NetVLAD, EmbedNet
 from retrieval.utils import get_split_indices
-from dataloading.data_loading import Semantic3dDatasetTriplet
+from dataloading.data_loading import Semantic3dDatasetIdTriplets
 
 '''
 TODO:
@@ -53,14 +54,17 @@ resnet18, 10scenes, 3:2, 3-1 split: {1: 7.094, 3: 10.68, 5: 12.875, 10: 16.17} {
 '''
 
 IMAGE_LIMIT=3000
-#IMAGE_LIMIT=200
-BATCH_SIZE=6
+BATCH_SIZE=8
 LR_GAMMA=0.75
 NUM_CLUSTERS=8 #16 clusters has similar loss #TODO: compare retrieval score
-TEST_SPLIT=4
 ALPHA=10.0 #Higher Alpha leads to bigger loss (also worse retrieval?)
+OVERLAP=0.2
+MARGIN=0.5 #Before: m=1.0
 
-print(f'image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} clusters: {NUM_CLUSTERS} alpha: {ALPHA} test-split: {TEST_SPLIT}')
+#Capture arguments
+LR=float(sys.argv[-1])
+
+print(f'image limit: {IMAGE_LIMIT} bs: {BATCH_SIZE} lr gamma: {LR_GAMMA} clusters: {NUM_CLUSTERS} alpha: {ALPHA} margin: {MARGIN} overlap: {OVERLAP} lr: {LR}')
 
 transform=transforms.Compose([
     #transforms.Resize((950,1000)),
@@ -68,15 +72,15 @@ transform=transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
-data_set=Semantic3dDatasetTriplet('data/pointcloud_images_o3d_merged','train', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=False, load_sceneGraphs=False)
-data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #Option: shuffle
+data_set=Semantic3dDatasetIdTriplets('data/pointcloud_images_o3d_merged_occ','train', positive_overlap=OVERLAP, transform=transform, image_limit=IMAGE_LIMIT)
+data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=True) #Option: shuffle
 
 loss_dict={}
 best_loss=np.inf
 best_model=None
 
-#for lr in (2e-2,1e-2,5e-3):
-for lr in (1e-2,):
+#for lr in (2e-2,1e-2,7.5e-3):
+for lr in (2e-2,):
     print('\n\nlr: ',lr)
     encoder=networks.get_encoder_resnet18()
     encoder.requires_grad_(False) #Don't train encoder
@@ -84,20 +88,13 @@ for lr in (1e-2,):
 
     model=EmbedNet(encoder, netvlad_layer).cuda()
 
-    model_name='model_netvlad_l3000_b6_g0.75_c8_a10.0.pth'
-    model.load_state_dict(torch.load('models/'+model_name))
-    model.eval()
-    model.cuda()
-    print('Model:',model_name)
-    torch.save(model,'model_netvlad_l3000_b6_g0.75_c8_a10.0.mdl')    
-    quit()
 
-    criterion=nn.TripletMarginLoss(margin=1.0)
+    criterion=nn.TripletMarginLoss(margin=MARGIN)
     optimizer=optim.Adam(model.parameters(), lr=lr)    
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)    
 
     loss_dict[lr]=[]
-    for epoch in range(8):
+    for epoch in range(10):
         epoch_loss_sum=0.0
         for i_batch, batch in enumerate(data_loader):
             a,p,n=batch        
@@ -127,7 +124,7 @@ for lr in (1e-2,):
         best_model=model
 
 print('\n----')           
-model_name=f'model_netvlad_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_c{NUM_CLUSTERS}_a{ALPHA}.pth'
+model_name=f'model_netvlad_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_c{NUM_CLUSTERS}_a{ALPHA}_m{MARGIN}_o{OVERLAP}_lr{LR}.pth'
 print('Saving best model',model_name)
 torch.save(best_model.state_dict(),model_name)
 
@@ -135,6 +132,7 @@ for k in loss_dict.keys():
     l=loss_dict[k]
     line, = plt.plot(l)
     line.set_label(k)
+plt.gca().set_ylim(bottom=0.0) #Set the bottom to 0.0
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_netvlad_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_c{NUM_CLUSTERS}_a{ALPHA}.png')    
+plt.savefig(f'loss_netvlad_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_c{NUM_CLUSTERS}_a{ALPHA}_m{MARGIN}_o{OVERLAP}_lr{LR}.png')    

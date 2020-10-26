@@ -57,7 +57,8 @@ loss_dict={}
 best_loss=np.inf
 best_model=None
 
-#for lr in (1e-1,7.5e-2, 5e-2, 2.5e-2, 7.5e-3):
+
+#for lr in (2e-4,1e-4,7.5e-5):
 for lr in (LR,):
     print('\n\nlr: ',lr)
 
@@ -65,7 +66,7 @@ for lr in (LR,):
     model=VisualSemanticEmbedding(vgg, data_set.get_known_words(), EMBED_DIM).cuda()
 
     criterion=PairwiseRankingLoss(margin=MARGIN)
-    optimizer=optim.SGD(model.parameters(), lr=lr) #Using SGD for packed Embedding
+    optimizer=optim.Adam(model.parameters(), lr=lr)  #Now with Adam!
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)    
 
     if type(criterion)==PairwiseRankingLoss: assert SHUFFLE==True 

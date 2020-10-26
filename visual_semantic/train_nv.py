@@ -57,7 +57,7 @@ loss_dict={}
 best_loss=np.inf
 best_model=None
 
-#for lr in (7.5e-2,5e-2,2.5e-2):
+#for lr in (2e-3, 1e-3, 5e-4):
 for lr in (LR,):
     print('\n\nlr: ',lr)
 
@@ -70,7 +70,7 @@ for lr in (LR,):
     model.cuda()
 
     criterion=PairwiseRankingLoss(margin=MARGIN)
-    optimizer=optim.SGD(model.parameters(), lr=lr) #Using SGD for packed Embedding
+    optimizer=optim.Adam(model.parameters(), lr=lr) #Now with Adam!
     scheduler=optim.lr_scheduler.ExponentialLR(optimizer,LR_GAMMA)    
 
     if type(criterion)==PairwiseRankingLoss: assert SHUFFLE==True 

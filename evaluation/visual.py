@@ -22,9 +22,9 @@ from retrieval.netvlad import NetVLAD, EmbedNet
 from evaluation.utils import evaluate_topK, generate_sanity_check_dataset
 import evaluation.utils
 
-def gather_netvlad_vectors(dataloader_train, dataloader_test, model):
+def gather_netvlad_vectors(dataloader_train, dataloader_test, model, features_name):
     #Gather all features
-    print('Building NetVLAD vectors')
+    print('Building NetVLAD vectors,',features_name)
     netvlad_vectors_train, netvlad_vectors_test=torch.tensor([]).cuda(), torch.tensor([]).cuda()
     with torch.no_grad():
         for i_batch, batch in enumerate(dataloader_test):
@@ -38,8 +38,8 @@ def gather_netvlad_vectors(dataloader_train, dataloader_test, model):
     netvlad_vectors_train=netvlad_vectors_train.cpu().detach().numpy()
     netvlad_vectors_test=netvlad_vectors_test.cpu().detach().numpy() 
 
-    pickle.dump((netvlad_vectors_train, netvlad_vectors_test), open('netvlad_vectors.pkl','wb'))
-    print('Saved NetVLAD-vectors')
+    pickle.dump((netvlad_vectors_train, netvlad_vectors_test), open(f'features_netvlad_{features_name}.pkl','wb'))
+    print('Saved NetVLAD-vectors,',features_name)
 
 #TODO
 #Sanity-check same performance ✓
@@ -147,12 +147,26 @@ if __name__ == "__main__":
         netvlad_layer=NetVLAD(num_clusters=NUM_CLUSTERS, dim=512, alpha=ALPHA)
         netvlad_model=EmbedNet(image_encoder, netvlad_layer)
 
-        netvlad_model_name='model_netvlad_l3000_b6_g0.75_c8_a10.0.pth'
+        netvlad_model_name='model_netvlad_l3000_b8_g0.75_c8_a10.0_m0.5_o0.3_lr0.02.pth'
         print('Model:',netvlad_model_name)
         netvlad_model.load_state_dict(torch.load('models/'+netvlad_model_name))
         netvlad_model.eval()
         netvlad_model.cuda()
-        gather_netvlad_vectors(dataloader_train, dataloader_test, netvlad_model)        
+        gather_netvlad_vectors(dataloader_train, dataloader_test, netvlad_model,'Occ-Occ_m0.5_o0.3')   
+
+        netvlad_model_name='model_netvlad_l3000_b8_g0.75_c8_a10.0_m0.5_o0.2_lr-1.0.pth'
+        print('Model:',netvlad_model_name)
+        netvlad_model.load_state_dict(torch.load('models/'+netvlad_model_name))
+        netvlad_model.eval()
+        netvlad_model.cuda()
+        gather_netvlad_vectors(dataloader_train, dataloader_test, netvlad_model,'Occ-Occ_m0.5_o0.2')   
+
+        netvlad_model_name='model_netvlad_l3000_b8_g0.75_c8_a10.0_m0.5_o0.4_lr-1.0.pth'
+        print('Model:',netvlad_model_name)
+        netvlad_model.load_state_dict(torch.load('models/'+netvlad_model_name))
+        netvlad_model.eval()
+        netvlad_model.cuda()
+        gather_netvlad_vectors(dataloader_train, dataloader_test, netvlad_model,'Occ-Occ_m0.5_o0.4')                        
 
     if 'netvlad' in sys.argv:
         features_name='features_netvlad-S3D.pkl'
@@ -171,7 +185,28 @@ if __name__ == "__main__":
         pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices='scene-voting')
         print(pos_results, ori_results, scene_results)
         pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices='scene-voting-double-k')
-        print(pos_results, ori_results, scene_results)             
+        print(pos_results, ori_results, scene_results)      
+
+        features_name='features_netvlad_Occ-Occ_m0.5_o0.2.pkl'
+        netvlad_vectors_train,netvlad_vectors_test=pickle.load(open('evaluation_res/'+features_name,'rb')); print(f'Using features {features_name}')        
+        pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices=None)
+        print(pos_results, ori_results, scene_results)
+        pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices='scene-voting')
+        print(pos_results, ori_results, scene_results) 
+
+        features_name='features_netvlad_Occ-Occ_m0.5_o0.3.pkl'
+        netvlad_vectors_train,netvlad_vectors_test=pickle.load(open('evaluation_res/'+features_name,'rb')); print(f'Using features {features_name}')        
+        pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices=None)
+        print(pos_results, ori_results, scene_results)
+        pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices='scene-voting')
+        print(pos_results, ori_results, scene_results) 
+
+        features_name='features_netvlad_Occ-Occ_m0.5_o0.4.pkl'
+        netvlad_vectors_train,netvlad_vectors_test=pickle.load(open('evaluation_res/'+features_name,'rb')); print(f'Using features {features_name}')        
+        pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices=None)
+        print(pos_results, ori_results, scene_results)
+        pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices='scene-voting')
+        print(pos_results, ori_results, scene_results)                              
 
     if 'netvlad-cambridge' in sys.argv:
         IMAGE_LIMIT=3000

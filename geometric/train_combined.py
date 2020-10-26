@@ -14,7 +14,7 @@ import sys
 
 from torch_geometric.data import DataLoader #Use the PyG DataLoader
 
-from dataloading.data_loading import Semantic3dDataset, Semantic3dDatasetTriplet
+from dataloading.data_loading import Semantic3dDataset, Semantic3dDatasetIdTriplets
 from .visual_graph_embedding import VisualGraphEmbedding, create_image_model_vgg11
 from .visual_graph_embedding import VisualGraphEmbeddingCombined, create_image_model_vgg11
 
@@ -38,7 +38,8 @@ transform=transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
-data_set=Semantic3dDatasetTriplet('data/pointcloud_images_o3d_merged','train', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True, return_graph_data=True)
+#data_set=Semantic3dDatasetTriplet('data/pointcloud_images_o3d_merged','train', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True, return_graph_data=True)
+data_set=Semantic3dDatasetIdTriplets('data/pointcloud_images_o3d_merged_occ','train', transform=transform, image_limit=IMAGE_LIMIT, return_graph_data=True)
 #Option: shuffle, pin_memory crashes on my system, 
 data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=False, shuffle=SHUFFLE) 
 
@@ -90,7 +91,7 @@ for lr in (LR,):
         best_model=model
 
 print('\n----')           
-model_name=f'model_VGE-CO_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.pth'
+model_name=f'model_VGE-CO-v2_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.pth'
 print('Saving best model',model_name)
 torch.save(best_model.state_dict(),model_name)
 
@@ -101,4 +102,4 @@ for k in loss_dict.keys():
 plt.gca().set_ylim(bottom=0.0) #Set the bottom to 0.0
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_VGE-CO_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.png')    
+plt.savefig(f'loss_VGE-CO-v2_l{IMAGE_LIMIT}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM}_s{SHUFFLE}_m{MARGIN}_lr{LR}.png')    

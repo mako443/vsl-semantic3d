@@ -29,7 +29,7 @@ BATCH_SIZE=8 #12 gives memory error, 8 had more loss than 6?
 LR_GAMMA=0.75
 EMBED_DIM=1024
 SHUFFLE=True
-MARGIN=1.0 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
+MARGIN=1.0 
 
 #Capture arguments
 LR=float(sys.argv[-1])
@@ -62,7 +62,6 @@ for lr in (LR,):
     model.train()
     model.cuda()
 
-    #TODO: PWR to itself (more margin?!) or Triplet-Loss?
     criterion=PairwiseRankingLoss(margin=MARGIN)
 
     optimizer=optim.Adam(model.parameters(), lr=lr) #Adam is ok for PyG

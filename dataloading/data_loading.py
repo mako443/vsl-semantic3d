@@ -273,6 +273,7 @@ class Semantic3dDatasetIdTriplets(Semantic3dDataset):
         #Check the indices from the same scene for enough IoU overlap
         for i in range(len(indices)):
             if not indices[i]: continue
+            if len(anchor_set)==0 or len(self.view_pointIDs[i])==0: continue
             iou= len( anchor_set.intersection( self.view_pointIDs[i] ) ) / len( anchor_set.union( self.view_pointIDs[i] ) )
             indices[i]=iou>=self.positive_overlap
 
@@ -288,11 +289,12 @@ class Semantic3dDatasetIdTriplets(Semantic3dDataset):
         positive_index=np.random.choice(indices)
 
         #OPTION: Negative selection
-        if np.random.choice([True,False]): #Pick an index of the same scene
+        if np.random.choice([True,False]) and len(anchor_set)>0: #Pick an index of the same scene, only possible when anchor points available
             indices= np.core.defchararray.find(self.image_paths, scene_name)!=-1 #indices from same scene
             indices[anchor_index]=False
             assert np.sum(indices)>0
 
+            #Check the indicices from the same scene for little IoU overlap
             for i in range(len(indices)):
                 if not indices[i]: continue
                 iou= len( anchor_set.intersection( self.view_pointIDs[i] ) ) / len( anchor_set.union( self.view_pointIDs[i] ) )

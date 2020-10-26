@@ -241,24 +241,24 @@ if __name__ == "__main__":
     dataloader_test =DataLoader(dataset_test , batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)        
 
     if 'gather' in sys.argv:
-        #Gather SE
-        EMBED_DIM_SEMANTIC=512
-        semantic_embedding=SemanticEmbedding(dataset_train.get_known_words(),EMBED_DIM_SEMANTIC)
-        semantic_embedding_model_name='model_SemanticEmbed2_l3000_b12_g0.75_e512_sTrue_m0.5_lr0.0005.pth'
-        semantic_embedding.load_state_dict(torch.load('models/'+semantic_embedding_model_name)); print('Model:',semantic_embedding_model_name)
-        semantic_embedding.eval()
-        semantic_embedding.cuda()         
-        gather_SE_vectors(dataloader_train, dataloader_test, semantic_embedding)
+        # #Gather SE
+        # EMBED_DIM_SEMANTIC=512
+        # semantic_embedding=SemanticEmbedding(dataset_train.get_known_words(),EMBED_DIM_SEMANTIC)
+        # semantic_embedding_model_name='model_SemanticEmbed2_l3000_b12_g0.75_e512_sTrue_m0.5_lr0.0005.pth'
+        # semantic_embedding.load_state_dict(torch.load('models/'+semantic_embedding_model_name)); print('Model:',semantic_embedding_model_name)
+        # semantic_embedding.eval()
+        # semantic_embedding.cuda()         
+        # gather_SE_vectors(dataloader_train, dataloader_test, semantic_embedding)
 
-        #Gather VSE-UE
-        EMBED_DIM_SEMANTIC=1024
-        vgg=create_image_model_vgg11()
-        vse_ue_model=VisualSemanticEmbedding(vgg, dataset_train.get_known_words(), EMBED_DIM_SEMANTIC).cuda()
-        vse_ue_model_name='model_VSE-UE_l3000_b8_g0.75_e1024_sTrue_m0.5_lr0.05.pth'
-        vse_ue_model.load_state_dict(torch.load('models/'+vse_ue_model_name)); print('Model:',vse_ue_model_name)
-        vse_ue_model.eval()
-        vse_ue_model.cuda()
-        gather_VSE_vectors(dataloader_train, dataloader_test, vse_ue_model, 'VSE-UE')        
+        # #Gather VSE-UE
+        # EMBED_DIM_SEMANTIC=1024
+        # vgg=create_image_model_vgg11()
+        # vse_ue_model=VisualSemanticEmbedding(vgg, dataset_train.get_known_words(), EMBED_DIM_SEMANTIC).cuda()
+        # vse_ue_model_name='model_VSE-UE_l3000_b8_g0.75_e1024_sTrue_m0.5_lr0.0002.pth'
+        # vse_ue_model.load_state_dict(torch.load('models/'+vse_ue_model_name)); print('Model:',vse_ue_model_name)
+        # vse_ue_model.eval()
+        # vse_ue_model.cuda()
+        # gather_VSE_vectors(dataloader_train, dataloader_test, vse_ue_model, 'VSE-UE')        
 
         #Gather VSE-NV
         EMBED_DIM_SEMANTIC=1024
@@ -267,21 +267,21 @@ if __name__ == "__main__":
         netvlad_model=torch.load('models/'+netvlad_model_name)
 
         vse_nv_model=VisualSemanticEmbeddingNetVLAD(netvlad_model, dataset_train.get_known_words(), EMBED_DIM_SEMANTIC).cuda()
-        vse_nv_model_name='model_VSE-NV_l3000_b8_g0.75_e1024_sTrue_m0.5_lr0.075.pth'
+        vse_nv_model_name='model_VSE-NV_l3000_b8_g0.75_e1024_sTrue_m0.5_lr0.0005.pth'
         vse_nv_model.load_state_dict(torch.load('models/'+vse_nv_model_name)); print('Model:',vse_nv_model_name)
         vse_nv_model.eval()
         vse_nv_model.cuda()
         gather_VSE_vectors(dataloader_train, dataloader_test, vse_nv_model, 'VSE-NV') 
 
-        #Gather VSE-CO
-        EMBED_DIM_SEMANTIC=1024               
-        vgg=create_image_model_vgg11()
-        vse_co_model=VisualSemanticEmbeddingCombined(vgg, dataset_train.get_known_words(), EMBED_DIM_SEMANTIC).cuda()
-        vse_co_model_name='model_VSE-CO_l3000_b12_g0.75_e1024_sTrue_m0.5_lr0.00075.pth'
-        vse_co_model.load_state_dict(torch.load('models/'+vse_co_model_name)); print('Model:',vse_co_model_name)
-        vse_co_model.eval()
-        vse_co_model.cuda()
-        gather_VSE_CO_vectors(dataloader_train, dataloader_test, vse_co_model)                
+        # #Gather VSE-CO
+        # EMBED_DIM_SEMANTIC=1024               
+        # vgg=create_image_model_vgg11()
+        # vse_co_model=VisualSemanticEmbeddingCombined(vgg, dataset_train.get_known_words(), EMBED_DIM_SEMANTIC).cuda()
+        # vse_co_model_name='model_VSE-CO_l3000_b12_g0.75_e1024_sTrue_m0.5_lr0.00075.pth'
+        # vse_co_model.load_state_dict(torch.load('models/'+vse_co_model_name)); print('Model:',vse_co_model_name)
+        # vse_co_model.eval()
+        # vse_co_model.cuda()
+        # gather_VSE_CO_vectors(dataloader_train, dataloader_test, vse_co_model)                
 
     if 'SE-match' in sys.argv:
         se_vectors_filename='features_SE_e512.pkl'
