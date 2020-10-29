@@ -19,7 +19,8 @@ from dataloading.data_loading import Semantic3dDataset
 from retrieval import networks
 from retrieval.netvlad import NetVLAD, EmbedNet
 
-from evaluation.utils import evaluate_topK, reduce_topK, generate_sanity_check_dataset
+#from evaluation.utils import evaluate_topK, reduce_topK, generate_sanity_check_dataset
+from evaluation.utils import reduce_topK, print_topK
 import evaluation.utils
 
 def gather_netvlad_vectors(dataloader_train, dataloader_test, model):
@@ -41,7 +42,7 @@ def gather_netvlad_vectors(dataloader_train, dataloader_test, model):
     pickle.dump((netvlad_vectors_train, netvlad_vectors_test), open('netvlad_vectors.pkl','wb'))
     print('Saved NetVLAD-vectors')
 
-def eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), thresholds=[(10,np.pi/6), (20,np.pi/3), (500,np.pi*2)], reduce_indices=None):
+def eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), thresholds=[(1.25,30), (1.5,60), (2.0,90)], reduce_indices=None):
     assert reduce_indices in (None,'scene-voting','scene-voting-double-k')
     print(f'eval_netvlad_retrieval(): # training: {len(dataset_train)}, # test: {len(dataset_test)}')
     print('Reduce indices:',reduce_indices)
@@ -97,6 +98,8 @@ def eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, n
                     thresh_results[t][k].append(None)
             else:
                 for t in thresholds:
+                    absolute_pos_thresh= t[0]*np.min(pos_dists)
+                    absolute_ori_threhs= np.deg2rad(t[1])
                     thresh_results[t][k].append( np.mean( (topk_pos_dists<=t[0]) & (topk_ori_dists<=t[1]) ) )
 
 

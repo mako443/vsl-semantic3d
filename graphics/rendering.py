@@ -177,6 +177,11 @@ if __name__ == "__main__":
     #     print(scene_name,calculate_scene_size(xyz))
 
     # quit()
+
+    poses_train=pickle.load(open('/home/imanox/Documents/Text2Image/Semantic3D-Net/data/pointcloud_images_o3d_merged/train/sg27_station1_intensity_rgb/poses.pkl' ,'rb'))
+    poses_test =pickle.load(open('/home/imanox/Documents/Text2Image/Semantic3D-Net/data/pointcloud_images_o3d_merged/test/sg27_station1_intensity_rgb/poses.pkl' ,'rb'))
+    quit()
+
     '''
     Data creation: Open3D rendering for clusters, read poses -> render images
     '''

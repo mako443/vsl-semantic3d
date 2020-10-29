@@ -58,7 +58,7 @@ def print_topK(thresh_results, scene_results):
     top_k=sorted(list(scene_results.keys()))
     top_t=sorted(list(thresh_results.keys()))
     for t in top_t: 
-        print(f'{t[0]}/{t[1]:0.2f}', end="")
+        print(f'{t[0]}/{ t[1] :0.0f}', end="")
         for k in top_k:
             print('\t', end="")
     print('Scene')
@@ -71,7 +71,7 @@ def print_topK(thresh_results, scene_results):
             print(f'{thresh_results[t][k]:0.2f} \t', end="")
     for k in top_k:
         print(f'{scene_results[k]:0.2f} \t', end="")   
-    print('----->\n')                 
+    print('\n----->\n')                 
     
 
 
