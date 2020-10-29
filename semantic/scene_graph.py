@@ -258,20 +258,20 @@ if __name__ == "__main__":
     scene_view_objects=pickle.load( open(os.path.join(base_path,split,scene_name,'view_objects.pkl'), 'rb') )
 
     #file_name=np.random.choice(list(scene_view_objects.keys()))
-    file_name='009.png'
+    file_name='016.png'
     view_objects=scene_view_objects[file_name]
     print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
     sg0=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, flip_relations=True)
     sg0_debug=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=True, flip_relations=True)
     img=cv2.imread(os.path.join(base_path,split, scene_name,'rgb', file_name))
-    print('Text:',sg0.get_text_extensive())
+
     draw_view_objects(img, view_objects, [o.label for o in view_objects])
     draw_scenegraph(img,sg0_debug)
-    #cv2.imshow(file_name,img)
-    # objs=semantic.scene_graph_cluster3d_scoring.extract_scenegraph_objects(sg0)
-    # for o in objs: print(o)
 
-    # sg_image=draw_scenegraph_data(sg0)
+    score,_ = semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects_nnRels_2(sg0, view_objects, unused_factor=0.5)
+    print('score',score)
+    score,_ = semantic.scene_graph_cluster3d_scoring.score_sceneGraph_to_viewObjects_nnRels(sg0, view_objects, unused_factor=0.5)
+    print('score',score)    
 
     cv2.imshow("img", img)
     # cv2.imshow("sg", sg_image)

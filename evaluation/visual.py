@@ -19,7 +19,7 @@ from dataloading.data_loading import Semantic3dDataset
 from retrieval import networks
 from retrieval.netvlad import NetVLAD, EmbedNet
 
-from evaluation.utils import evaluate_topK, generate_sanity_check_dataset
+from evaluation.utils import evaluate_topK, reduce_topK, generate_sanity_check_dataset
 import evaluation.utils
 
 def gather_netvlad_vectors(dataloader_train, dataloader_test, model):
@@ -41,11 +41,7 @@ def gather_netvlad_vectors(dataloader_train, dataloader_test, model):
     pickle.dump((netvlad_vectors_train, netvlad_vectors_test), open('netvlad_vectors.pkl','wb'))
     print('Saved NetVLAD-vectors')
 
-#TODO
-#Sanity-check same performance ✓
-#Sanity-check top-3 combine ✓
-#Evaluate scene-voting ✓ works!
-def eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices=None):
+def eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), thresholds=[(10,np.pi/6), (20,np.pi/3), (500,np.pi*2)], reduce_indices=None):
     assert reduce_indices in (None,'scene-voting','scene-voting-double-k')
     print(f'eval_netvlad_retrieval(): # training: {len(dataset_train)}, # test: {len(dataset_test)}')
     print('Reduce indices:',reduce_indices)
@@ -60,9 +56,10 @@ def eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, n
     #Sanity check
     #netvlad_vectors_train, netvlad_vectors_test, image_positions_train, image_positions_test, image_orientations_train, image_orientations_test, scene_names_train, scene_names_test=generate_sanity_check_dataset()
 
-    pos_results  ={k:[] for k in top_k}
-    ori_results  ={k:[] for k in top_k}
-    scene_results={k:[] for k in top_k}
+    # pos_results  ={k:[] for k in top_k}
+    # ori_results  ={k:[] for k in top_k}
+    thresh_results= {t: {k:[] for k in top_k} for t in thresholds }
+    scene_results = {k:[] for k in top_k}
         
     test_indices=np.arange(len(dataset_test))    
     for test_index in test_indices:
@@ -90,21 +87,36 @@ def eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, n
             if k==np.max(top_k): retrieval_dict[test_index]=sorted_indices                
 
             scene_correct=np.array([scene_name_gt == scene_names_train[retrieved_index] for retrieved_index in sorted_indices])
-            topk_pos_dists=pos_dists[sorted_indices]
-            topk_ori_dists=ori_dists[sorted_indices]    
+            scene_results[k].append( np.mean(scene_correct) ) #Always append the scene-scores
+
+            topk_pos_dists=pos_dists[sorted_indices][scene_correct==True]
+            topk_ori_dists=ori_dists[sorted_indices][scene_correct==True]  
+
+            if np.sum(scene_correct)==0:
+                for t in thresholds:
+                    thresh_results[t][k].append(None)
+            else:
+                for t in thresholds:
+                    thresh_results[t][k].append( np.mean( (topk_pos_dists<=t[0]) & (topk_ori_dists<=t[1]) ) )
+
+
+    return reduce_topK(thresh_results, scene_results)
+            # topk_pos_dists=pos_dists[sorted_indices]
+            # topk_ori_dists=ori_dists[sorted_indices]    
 
             #Append the average pos&ori. errors *for the cases that the scene was hit*
-            pos_results[k].append( np.mean( topk_pos_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
-            ori_results[k].append( np.mean( topk_ori_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
-            scene_results[k].append( np.mean(scene_correct) ) #Always append the scene-scores
+            # pos_results[k].append( np.mean( topk_pos_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
+            # ori_results[k].append( np.mean( topk_ori_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
+            # scene_results[k].append( np.mean(scene_correct) ) #Always append the scene-scores
     
-    assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==len(test_indices)
+    #assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==len(test_indices)
 
-    print('Saving retrieval results...')
-    pickle.dump(retrieval_dict, open('retrievals_NV-S3D.pkl','wb'))
+    #print('Saving retrieval results...')
+    #pickle.dump(retrieval_dict, open('retrievals_NV-S3D.pkl','wb'))
 
-    return evaluate_topK(pos_results, ori_results, scene_results)
+    #return evaluate_topK(pos_results, ori_results, scene_results)
 
+#TODO sanity checks: same scene-acc, 100% for large thresh, 0% for small thresh
 if __name__ == "__main__":
     IMAGE_LIMIT=3000
     BATCH_SIZE=6
@@ -118,6 +130,10 @@ if __name__ == "__main__":
 
     dataset_train=Semantic3dDataset('data/pointcloud_images_o3d_merged','train',transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True)
     dataset_test =Semantic3dDataset('data/pointcloud_images_o3d_merged','test', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True)
+
+    thresh_results, scene_results= eval_netvlad_retrieval(dataset_train, dataset_test, np.random.rand(len(dataset_train),10), np.random.rand(len(dataset_test),10), reduce_indices=None)
+
+    quit()
 
     dataloader_train=DataLoader(dataset_train, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #CARE: put shuffle off
     dataloader_test =DataLoader(dataset_test , batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)        
