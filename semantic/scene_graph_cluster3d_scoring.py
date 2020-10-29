@@ -284,60 +284,63 @@ def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_fac
     else:
         return np.prod(best_scores), best_groundings  
 
-def score_sceneGraph_to_viewObjects_nnRels_2(scene_graph, view_objects, unused_factor=0.5, use_nn_score=False, ablation=None):
-    assert ablation in (None, 'colors', 'relationships')
-    MIN_SCORE=0.1 #OPTION: hardest penalty for relationship not found
-    best_groundings=[None for i in range(len(scene_graph.relationships))]
-    best_scores=[MIN_SCORE for i in range(len(scene_graph.relationships))]    
+''''
+Attempt to unify the scoring -> Works but gives worse results, discarded
+''''
+# def score_sceneGraph_to_viewObjects_nnRels_2(scene_graph, view_objects, unused_factor=0.5, use_nn_score=False, ablation=None):
+#     assert ablation in (None, 'colors', 'relationships')
+#     MIN_SCORE=0.1 #OPTION: hardest penalty for relationship not found
+#     best_groundings=[None for i in range(len(scene_graph.relationships))]
+#     best_scores=[MIN_SCORE for i in range(len(scene_graph.relationships))]    
 
-    if scene_graph.is_empty() or len(view_objects)<2:
-        return 0.0, None
-    for i_relation, relation in enumerate(scene_graph.relationships):
-        assert type(relation[0] is SceneGraphObject)
+#     if scene_graph.is_empty() or len(view_objects)<2:
+#         return 0.0, None
+#     for i_relation, relation in enumerate(scene_graph.relationships):
+#         assert type(relation[0] is SceneGraphObject)
 
-        #subject_label, rel_type, object_label = relation[0].label, relation[1], relation[2].label
-        #subject_color, object_color = relation[0].color,relation[2].color
-        sub_sgo, rel_type, obj_sgo= relation
+#         #subject_label, rel_type, object_label = relation[0].label, relation[1], relation[2].label
+#         #subject_color, object_color = relation[0].color,relation[2].color
+#         sub_sgo, rel_type, obj_sgo= relation
 
-        for sub_vo in [obj for obj in view_objects if obj.label==sub_sgo.label]: 
-            #sub_min_dist=np.min( [np.linalg.norm(sub.get_center_c_world() - obj.get_center_c_world()) for obj in view_objects if obj is not sub] )
-            sub_nn_dists= [ np.linalg.norm(sub_vo.get_center_c_world() - v.get_center_c_world()) for v in view_objects if v is not sub_vo]
+#         for sub_vo in [obj for obj in view_objects if obj.label==sub_sgo.label]: 
+#             #sub_min_dist=np.min( [np.linalg.norm(sub.get_center_c_world() - obj.get_center_c_world()) for obj in view_objects if obj is not sub] )
+#             sub_nn_dists= [ np.linalg.norm(sub_vo.get_center_c_world() - v.get_center_c_world()) for v in view_objects if v is not sub_vo]
             
-            sub_vo_color_dists=np.linalg.norm(sub_vo.color - COLORS, axis=1)
-            s_color_sub= 1.0- ( np.linalg.norm(COLORS[COLOR_NAMES.index(sub_sgo.color)] - sub_vo.color) - np.min(sub_vo_color_dists) ) / np.max(sub_vo_color_dists)
+#             sub_vo_color_dists=np.linalg.norm(sub_vo.color - COLORS, axis=1)
+#             s_color_sub= 1.0- ( np.linalg.norm(COLORS[COLOR_NAMES.index(sub_sgo.color)] - sub_vo.color) - np.min(sub_vo_color_dists) ) / np.max(sub_vo_color_dists)
 
-            for obj_vo in [v for v in view_objects if v.label==obj_sgo.label and v!=sub_vo]:
-                s_reltype=score_relationship_type(sub_vo, rel_type, obj_vo) #TODO: branch here for SG-SG, mention in document (alg. footnote)
+#             for obj_vo in [v for v in view_objects if v.label==obj_sgo.label and v!=sub_vo]:
+#                 s_reltype=score_relationship_type(sub_vo, rel_type, obj_vo) #TODO: branch here for SG-SG, mention in document (alg. footnote)
 
-                obj_vo_color_dists=np.linalg.norm(obj_vo.color - COLORS, axis=1)
-                s_color_obj= 1.0- ( np.linalg.norm(COLORS[COLOR_NAMES.index(obj_sgo.color)] - obj_vo.color) - np.min(obj_vo_color_dists) ) / np.max(obj_vo_color_dists)
+#                 obj_vo_color_dists=np.linalg.norm(obj_vo.color - COLORS, axis=1)
+#                 s_color_obj= 1.0- ( np.linalg.norm(COLORS[COLOR_NAMES.index(obj_sgo.color)] - obj_vo.color) - np.min(obj_vo_color_dists) ) / np.max(obj_vo_color_dists)
                 
-                # nn_score= sub_min_dist / np.linalg.norm(sub.get_center_c_world() - obj.get_center_c_world()) #Score whether Obj is Sub's nearest neighbor
-                s_nn= 1.0 - ( np.linalg.norm(sub_vo.get_center_c_world() - obj_vo.get_center_c_world()) - np.min(sub_nn_dists) ) / np.max(sub_nn_dists)
+#                 # nn_score= sub_min_dist / np.linalg.norm(sub.get_center_c_world() - obj.get_center_c_world()) #Score whether Obj is Sub's nearest neighbor
+#                 s_nn= 1.0 - ( np.linalg.norm(sub_vo.get_center_c_world() - obj_vo.get_center_c_world()) - np.min(sub_nn_dists) ) / np.max(sub_nn_dists)
                 
-                if ablation=='colors':
-                    color_score_sub=1.0
-                    color_score_obj=1.0
-                if ablation=='relationships':
-                    relationship_score=1.0
+#                 if ablation=='colors':
+#                     color_score_sub=1.0
+#                     color_score_obj=1.0
+#                 if ablation=='relationships':
+#                     relationship_score=1.0
                 
-                s_ground=s_reltype * s_color_sub * s_color_obj
-                if use_nn_score: s_ground*= s_nn
+#                 s_ground=s_reltype * s_color_sub * s_color_obj
+#                 if use_nn_score: s_ground*= s_nn
 
-                if s_ground>best_scores[i_relation]:
-                    best_groundings[i_relation]=(sub_vo,rel_type,obj_vo)
-                    best_scores[i_relation]=s_ground
+#                 if s_ground>best_scores[i_relation]:
+#                     best_groundings[i_relation]=(sub_vo,rel_type,obj_vo)
+#                     best_scores[i_relation]=s_ground
 
-    if unused_factor is not None:
-        unused_view_objects=[v for v in view_objects]
-        for grounding in best_groundings:
-            if grounding is not None:
-                if grounding[0] in unused_view_objects: unused_view_objects.remove(grounding[0])                    
-                if grounding[2] in unused_view_objects: unused_view_objects.remove(grounding[2])
+#     if unused_factor is not None:
+#         unused_view_objects=[v for v in view_objects]
+#         for grounding in best_groundings:
+#             if grounding is not None:
+#                 if grounding[0] in unused_view_objects: unused_view_objects.remove(grounding[0])                    
+#                 if grounding[2] in unused_view_objects: unused_view_objects.remove(grounding[2])
 
-        return np.prod(best_scores) * unused_factor**(len(unused_view_objects)), best_groundings #, unused_view_objects
-    else:
-        return np.prod(best_scores), best_groundings                 
+#         return np.prod(best_scores) * unused_factor**(len(unused_view_objects)), best_groundings #, unused_view_objects
+#     else:
+#         return np.prod(best_scores), best_groundings                 
 
 def extract_scenegraph_objects(sg):
     unique_objects=[]

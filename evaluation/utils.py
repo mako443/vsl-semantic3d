@@ -35,7 +35,45 @@ def evaluate_topK(pos_results, ori_results, scene_results):
         ori[k]=np.float16(np.mean( ori_results_valid )) if len(ori_results_valid)>0 else np.nan
         scene[k]=np.float16(np.mean(scene_results[k]))
 
-    return pos, ori, scene      
+    return pos, ori, scene 
+
+def reduce_topK(thresh_results, scene_results):
+    top_k=list(scene_results.keys())
+    length=len(scene_results[top_k[0]])
+    for k in top_k:
+        scene_results[k]=np.float16(np.mean(scene_results[k]))
+
+    top_t=list(thresh_results.keys())
+
+    for t in top_t:
+        for k in top_k:
+            assert len(thresh_results[t][k])==length
+            res=np.array(thresh_results[t][k])
+            thresh_results[t][k]= np.float16(np.mean( res[res!=None]) ) if np.sum(res!=None)>0 else np.nan
+            
+    return thresh_results, scene_results
+
+def print_topK(thresh_results, scene_results):
+    print('<-----')
+    top_k=sorted(list(scene_results.keys()))
+    top_t=sorted(list(thresh_results.keys()))
+    for t in top_t: 
+        print(f'{t[0]}/{ t[1] :0.0f}', end="")
+        for k in top_k:
+            print('\t', end="")
+    print('Scene')
+    for t in top_t + [None,]:
+        for k in top_k:
+            print(f'{k} \t', end="")
+    print('\n------')
+    for t in top_t:
+        for k in top_k:
+            print(f'{thresh_results[t][k]:0.2f} \t', end="")
+    for k in top_k:
+        print(f'{scene_results[k]:0.2f} \t', end="")   
+    print('\n----->\n')                 
+    
+
 
 #One index in test that has 3 exact matches in train and 7 non-matches in train
 def generate_sanity_check_dataset():
