@@ -169,6 +169,14 @@ if __name__ == "__main__":
         gather_netvlad_vectors(dataloader_train, dataloader_test, netvlad_model,'Occ-Occ_m0.5_o0.4')                        
 
     if 'netvlad' in sys.argv:
+        features_name='features_netvlad_Occ-Occ_m0.5_o0.3.pkl'
+        netvlad_vectors_train,netvlad_vectors_test=pickle.load(open('evaluation_res/'+features_name,'rb')); print(f'Using features {features_name}')        
+        pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(10,15,20), reduce_indices=None)
+        print(pos_results, ori_results, scene_results)
+        pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(10,15,20), reduce_indices='scene-voting')
+        print(pos_results, ori_results, scene_results) 
+        quit()
+
         features_name='features_netvlad-S3D.pkl'
         netvlad_vectors_train,netvlad_vectors_test=pickle.load(open('evaluation_res/'+features_name,'rb')); print(f'Using features {features_name}')
         pos_results, ori_results, scene_results=eval_netvlad_retrieval(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, top_k=(1,3,5,10), reduce_indices=None)

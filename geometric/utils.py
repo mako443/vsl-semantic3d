@@ -115,9 +115,11 @@ def create_scenegraph_data_co_reference(scene_graph, node_dict, edge_dict):
         edges.append((0,1))
         edge_features.append(edge_dict['attribute'])
         edges=np.array(edges).reshape((2,1))
-        return torch_geometric.data.Data(x=torch.from_numpy(np.array(node_features,dtype=np.int64)),
+        data= torch_geometric.data.Data(x=torch.from_numpy(np.array(node_features,dtype=np.int64)),
                                         edge_index=torch.from_numpy(np.array(edges,dtype=np.int64)),
                                         edge_attr= torch.from_numpy(np.array(edge_features,dtype=np.float32)))
+
+        return data, 0
 
     node_objects={} # {SG-Object: node-index}
     num_coref=0

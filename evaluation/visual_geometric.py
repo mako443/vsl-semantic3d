@@ -373,15 +373,52 @@ if __name__ == "__main__":
         dataloader_train=DataLoader(dataset_train, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #CARE: put shuffle off
         dataloader_test =DataLoader(dataset_test , batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) 
 
-        #Gather Ge
+        # #Gather Ge
+        # EMBED_DIM_GEOMETRIC=100
+        # geometric_embedding=GraphEmbedding(EMBED_DIM_GEOMETRIC)
+        # geometric_embedding_model_name='model_GraphEmbed_l3000_dOCC_b12_g0.75_e100_sTrue_m0.5_lr0.0005.pth'
+        # print('Model:',geometric_embedding_model_name)
+        # geometric_embedding.load_state_dict(torch.load('models/'+geometric_embedding_model_name))
+        # geometric_embedding.eval()
+        # geometric_embedding.cuda()         
+        # gather_GE_vectors(dataloader_train, dataloader_test, geometric_embedding)
+
+        #GE-v2
         EMBED_DIM_GEOMETRIC=100
         geometric_embedding=GraphEmbedding(EMBED_DIM_GEOMETRIC)
-        geometric_embedding_model_name='model_GraphEmbed_l3000_dOCC_b12_g0.75_e100_sTrue_m0.5_lr0.0005.pth'
+        geometric_embedding_model_name='model_GraphEmbed-v2_l3000_dOCC_b12_g0.75_e100_sTrue_m0.5_lr0.0005_o0.5.pth'
         print('Model:',geometric_embedding_model_name)
         geometric_embedding.load_state_dict(torch.load('models/'+geometric_embedding_model_name))
         geometric_embedding.eval()
         geometric_embedding.cuda()         
-        gather_GE_vectors(dataloader_train, dataloader_test, geometric_embedding)        
+        gather_GE_vectors(dataloader_train, dataloader_test, geometric_embedding)                  
+
+        #VGE-CO-v2
+        EMBED_DIM_GEOMETRIC=1024               
+        vgg=create_image_model_vgg11()
+        vge_co_model=VisualGraphEmbeddingCombined(vgg, EMBED_DIM_GEOMETRIC).cuda()
+        vge_co_model_name='model_VGE-CO-v2_l3000_b12_g0.75_e1024_sTrue_m0.5_lr5e-05_o0.5.pth'
+        vge_co_model.load_state_dict(torch.load('models/'+vge_co_model_name)); print('Model:',vge_co_model_name)
+        vge_co_model.eval()
+        vge_co_model.cuda()
+        gather_VGE_CO_vectors(dataloader_train, dataloader_test, vge_co_model, use_random_graphs=False)               
+
+    if 'gather-coref' in sys.argv:
+        dataset_train=Semantic3dDataset('data/pointcloud_images_o3d_merged','train',transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True, return_graph_data=True, use_coref_graphs=True)
+        dataset_test =Semantic3dDataset('data/pointcloud_images_o3d_merged','test', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True, return_graph_data=True, use_coref_graphs=True)
+        dataloader_train=DataLoader(dataset_train, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #CARE: put shuffle off
+        dataloader_test =DataLoader(dataset_test , batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)          
+
+        EMBED_DIM_GEOMETRIC=100
+        geometric_embedding=GraphEmbedding(EMBED_DIM_GEOMETRIC)
+        geometric_embedding_model_name='model_GraphEmbed_l3000_dBASE-COREF_b12_g0.75_e100_sTrue_m0.5_lr0.0005.pth'
+        print('Model:',geometric_embedding_model_name)
+        geometric_embedding.load_state_dict(torch.load('models/'+geometric_embedding_model_name))
+        geometric_embedding.eval()
+        geometric_embedding.cuda()         
+        gather_GE_vectors(dataloader_train, dataloader_test, geometric_embedding)
+
+        quit()  
 
     if 'gather' in sys.argv:
         # #Gather Ge
@@ -392,7 +429,7 @@ if __name__ == "__main__":
         # geometric_embedding.load_state_dict(torch.load('models/'+geometric_embedding_model_name))
         # geometric_embedding.eval()
         # geometric_embedding.cuda()         
-        # gather_GE_vectors(dataloader_train, dataloader_test, geometric_embedding)
+        # gather_GE_vectors(dataloader_train, dataloader_test, geometric_embedding)      
 
         # EMBED_DIM_GEOMETRIC=300
         # geometric_embedding=GraphEmbedding(EMBED_DIM_GEOMETRIC)
@@ -447,14 +484,14 @@ if __name__ == "__main__":
         # gather_VGE_CO_vectors(dataloader_train, dataloader_test, vge_co_model, use_random_graphs=True)         
 
         # Gather VGE-AS
-        EMBED_DIM_GEOMETRIC=1024               
-        vgg=create_image_model_vgg11()
-        vge_co_model=VisualGraphEmbeddingAsymetric(vgg, EMBED_DIM_GEOMETRIC).cuda()
-        vge_co_model_name='model_VGE-AS_l3000_b10_g0.75_e1024_sTrue_m0.5_lr5e-4.pth'
-        vge_co_model.load_state_dict(torch.load('models/'+vge_co_model_name)); print('Model:',vge_co_model_name)
-        vge_co_model.eval()
-        vge_co_model.cuda()
-        gather_VGE_AS_vectors(dataloader_train, dataloader_test, vge_co_model, use_random_graphs=False)   
+        # EMBED_DIM_GEOMETRIC=1024               
+        # vgg=create_image_model_vgg11()
+        # vge_co_model=VisualGraphEmbeddingAsymetric(vgg, EMBED_DIM_GEOMETRIC).cuda()
+        # vge_co_model_name='model_VGE-AS_l3000_b10_g0.75_e1024_sTrue_m0.5_lr5e-4.pth'
+        # vge_co_model.load_state_dict(torch.load('models/'+vge_co_model_name)); print('Model:',vge_co_model_name)
+        # vge_co_model.eval()
+        # vge_co_model.cuda()
+        # gather_VGE_AS_vectors(dataloader_train, dataloader_test, vge_co_model, use_random_graphs=False)   
 
         #Gather VGE-AS (random graphs)
         # EMBED_DIM_GEOMETRIC=1024               
@@ -478,6 +515,7 @@ if __name__ == "__main__":
         # vge_nv_model.eval()
         # vge_nv_model.cuda()
         # gather_VGE_NV_ImageOnly_vectors(dataloader_train, dataloader_test, vge_nv_model)         
+        pass      
 
 
     if 'GE-match' in sys.argv:
@@ -493,7 +531,22 @@ if __name__ == "__main__":
         pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2',top_k=(1,3,5,10), reduce_indices=None)
         print(pos_results, ori_results, scene_results,'\n') 
         pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2',top_k=(1,3,5,10), reduce_indices='scene-voting')
+        print(pos_results, ori_results, scene_results,'\n')    
+
+        ge_vectors_filename='features_GE-v2_o0.3_e100.pkl'
+        ge_vectors_train, ge_vectors_test=pickle.load(open('evaluation_res/'+ge_vectors_filename,'rb')); print('Using vectors',ge_vectors_filename)
+        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2',top_k=(1,3,5,10), reduce_indices=None)
+        print(pos_results, ori_results, scene_results,'\n')
+
+        ge_vectors_filename='features_GE-v2_o0.5_e100.pkl'
+        ge_vectors_train, ge_vectors_test=pickle.load(open('evaluation_res/'+ge_vectors_filename,'rb')); print('Using vectors',ge_vectors_filename)
+        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2',top_k=(1,3,5,10), reduce_indices=None)
         print(pos_results, ori_results, scene_results,'\n')           
+
+        ge_vectors_filename='features_GE-COREF_e100.pkl'
+        ge_vectors_train, ge_vectors_test=pickle.load(open('evaluation_res/'+ge_vectors_filename,'rb')); print('Using vectors',ge_vectors_filename)
+        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2',top_k=(1,3,5,10), reduce_indices=None)
+        print(pos_results, ori_results, scene_results,'\n')                           
 
         # ge_vectors_filename='features_GE_e300.pkl'
         # ge_vectors_train, ge_vectors_test=pickle.load(open('evaluation_res/'+ge_vectors_filename,'rb')); print('Using vectors',ge_vectors_filename)
@@ -513,6 +566,18 @@ if __name__ == "__main__":
         print(pos_results, ori_results, scene_results,'\n')
         pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, ge_vectors_train, ge_vectors_test ,top_k=(1,3,5,10), combine='scene-voting->netvlad')
         print(pos_results, ori_results, scene_results,'\n')
+
+        #v2
+        netvlad_vectors_filename='features_netvlad_Occ-Occ_m0.5_o0.3.pkl'
+        netvlad_vectors_train,netvlad_vectors_test=pickle.load(open('evaluation_res/'+netvlad_vectors_filename,'rb')); print('Using vectors:', netvlad_vectors_filename)
+
+        ge_vectors_filename='features_GE-v2_o0.3_e100.pkl'
+        ge_vectors_train, ge_vectors_test=pickle.load(open('evaluation_res/'+ge_vectors_filename,'rb')); print('Using vectors',ge_vectors_filename)        
+
+        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, ge_vectors_train, ge_vectors_test ,top_k=(1,3,5,10,15,20), combine='distance-sum')
+        print(pos_results, ori_results, scene_results,'\n')
+        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, ge_vectors_train, ge_vectors_test ,top_k=(1,3,5,10,15,20), combine='scene-voting->netvlad')
+        print(pos_results, ori_results, scene_results,'\n')        
 
     if 'VGE-UE-match' in sys.argv:
         vge_vectors_filename='features_VGE-UE_e1024.pkl'
@@ -614,7 +679,17 @@ if __name__ == "__main__":
         pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices=None)
         print(pos_results, ori_results, scene_results,'\n')  
         pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices='scene-voting')
-        print(pos_results, ori_results, scene_results,'\n')        
+        print(pos_results, ori_results, scene_results,'\n')   
+
+        vge_vectors_filename='features_VGE-CO-v2_o0.3_e1024_rgFalse.pkl'
+        vge_vectors_train, vge_vectors_test=pickle.load(open('evaluation_res/'+vge_vectors_filename,'rb')); print('Using vectors',vge_vectors_filename)
+        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices=None)
+        print(pos_results, ori_results, scene_results,'\n')  
+
+        vge_vectors_filename='features_VGE-CO-v2_o0.5_e1024_rgFalse.pkl'
+        vge_vectors_train, vge_vectors_test=pickle.load(open('evaluation_res/'+vge_vectors_filename,'rb')); print('Using vectors',vge_vectors_filename)
+        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices=None)
+        print(pos_results, ori_results, scene_results,'\n')                       
 
     if 'VGE-AS-match' in sys.argv:
         vge_vectors_filename='features_VGE-AS_e1024.pkl'

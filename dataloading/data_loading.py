@@ -9,7 +9,7 @@ from torchvision import transforms
 from graphics.imports import Pose, COMBINED_SCENE_NAMES
 from semantic.patches import Patch
 from semantic.imports import SceneGraph, SceneGraphObject, ViewObject
-from geometric.utils import create_scenegraph_data
+from geometric.utils import create_scenegraph_data, create_scenegraph_data_co_reference
 from torch_geometric.data import DataLoader
 
 
@@ -24,7 +24,7 @@ TODO
 '''
 #Dataset is used for all loading during all training and evaluation, but never during data creation!
 class Semantic3dDataset(Dataset):
-    def __init__(self, dirpath_main,split, transform=None, image_limit=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=False, return_graph_data=False, make_graphs_empty=False):
+    def __init__(self, dirpath_main,split, transform=None, image_limit=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=False, return_graph_data=False, use_coref_graphs=False, make_graphs_empty=False):
         assert split in ('train','test')
         dirpath_main=os.path.join(dirpath_main,split)
 
@@ -139,7 +139,18 @@ class Semantic3dDataset(Dataset):
                 for i in range(len(self.view_scenegraphs)):
                     self.view_scenegraphs[i].relationships=[]
 
-            self.view_scenegraph_data=[ create_scenegraph_data(sg, self.node_embeddings, self.edge_embeddings) for sg in self.view_scenegraphs ]
+            if use_coref_graphs: 
+                print('CARE: using co-ref graphs!')
+                num_coref=0
+                self.view_scenegraph_data=[]
+                for sg in self.view_scenegraphs:
+                    sgd, cr= create_scenegraph_data_co_reference(sg, self.node_embeddings, self.edge_embeddings)
+                    self.view_scenegraph_data.append(sgd)
+                    num_coref+=cr
+                print('Average coref per image:', num_coref/len(self.image_poses))
+            else:
+                self.view_scenegraph_data=[ create_scenegraph_data(sg, self.node_embeddings, self.edge_embeddings) for sg in self.view_scenegraphs ]
+
             assert len(self.view_scenegraph_data)==len(self.image_poses)
             empty_graphs=[1 for sg in self.view_scenegraphs if sg.is_empty()]
             print(f'Empty Graphs: {np.sum(empty_graphs)} of {len(self.image_poses)}, {np.sum(empty_graphs) / len(self.image_poses)}')
@@ -188,8 +199,8 @@ class Semantic3dDataset(Dataset):
 
 #Subclass to load the images as trainig triplets (naively via positional and orientational differences)
 class Semantic3dDatasetTriplet(Semantic3dDataset):
-    def __init__(self, dirpath_main,split, transform=None, image_limit=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=False, return_graph_data=False):
-        super().__init__(dirpath_main,split, transform=transform, image_limit=image_limit, load_viewObjects=load_viewObjects, load_sceneGraphs=load_sceneGraphs, return_captions=return_captions, return_graph_data=return_graph_data)
+    def __init__(self, dirpath_main,split, transform=None, image_limit=None, load_viewObjects=True, load_sceneGraphs=True, return_captions=False, return_graph_data=False, use_coref_graphs=False):
+        super().__init__(dirpath_main,split, transform=transform, image_limit=image_limit, load_viewObjects=load_viewObjects, load_sceneGraphs=load_sceneGraphs, return_captions=return_captions, return_graph_data=return_graph_data, use_coref_graphs=use_coref_graphs)
         self.positive_thresh=(7.5, 2*np.pi/10*1.01) #The 2 images left&right
         self.negative_thresh=(10,  np.pi / 2)
 
@@ -327,6 +338,9 @@ class Semantic3dDatasetIdTriplets(Semantic3dDataset):
 
 
 if __name__ == "__main__":
+    dataset=Semantic3dDataset('data/pointcloud_images_o3d_merged','test',transform=None, load_viewObjects=True, load_sceneGraphs=True, return_graph_data=True)
+    quit()
+
     dataset=Semantic3dDatasetIdTriplets('data/pointcloud_images_o3d_merged','test',transform=None, positive_overlap=0.5, negative_overlap=0.05)
 
     a,p,n=dataset[np.random.randint(len(dataset))]

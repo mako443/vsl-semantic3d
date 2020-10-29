@@ -39,7 +39,7 @@ transform=transforms.Compose([
 ])
 
 #data_set=Semantic3dDatasetTriplet('data/pointcloud_images_o3d_merged','train', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True, return_graph_data=True)
-data_set=Semantic3dDatasetIdTriplets('data/pointcloud_images_o3d_merged_occ','train', transform=transform, image_limit=IMAGE_LIMIT, return_graph_data=True)
+data_set=Semantic3dDatasetIdTriplets('data/pointcloud_images_o3d_merged_occ','train', transform=transform, positive_overlap=0.5, image_limit=IMAGE_LIMIT, return_graph_data=True)
 #Option: shuffle, pin_memory crashes on my system, 
 data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=False, shuffle=SHUFFLE) 
 

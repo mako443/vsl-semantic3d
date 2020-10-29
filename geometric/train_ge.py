@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 from torch_geometric.data import DataLoader #Use the PyG DataLoader
 
-from dataloading.data_loading import Semantic3dDatasetIdTriplets
+from dataloading.data_loading import Semantic3dDatasetTriplet, Semantic3dDatasetIdTriplets
 
 from .graph_embedding import GraphEmbedding
 
@@ -30,7 +30,7 @@ SHUFFLE=True
 DECAY=None #Tested, no decay here
 MARGIN=0.5 #0.2: works, 0.4: increases loss, 1.0: TODO: acc, 2.0: loss unstable
 
-DATASET='OCC'
+DATASET='BASE-COREF'
 
 #Capture arguments
 LR=float(sys.argv[-1])
@@ -44,7 +44,8 @@ transform=transforms.Compose([
 ])
 
 if DATASET=='BASE': data_set=Semantic3dDatasetTriplet('data/pointcloud_images_o3d_merged','train', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True, return_graph_data=True)
-if DATASET=='OCC':  data_set=Semantic3dDatasetIdTriplets('data/pointcloud_images_o3d_merged_occ','train', transform=transform, image_limit=IMAGE_LIMIT, return_graph_data=True)
+if DATASET=='BASE-COREF': data_set=Semantic3dDatasetTriplet('data/pointcloud_images_o3d_merged','train', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True, return_graph_data=True, use_coref_graphs=True)
+if DATASET=='OCC':  data_set=Semantic3dDatasetIdTriplets('data/pointcloud_images_o3d_merged_occ','train', transform=transform,positive_overlap=0.5, image_limit=IMAGE_LIMIT, return_graph_data=True)
 #Option: shuffle, pin_memory crashes on my system, 
 data_loader=DataLoader(data_set, batch_size=BATCH_SIZE, num_workers=2, pin_memory=False, shuffle=SHUFFLE) 
 
@@ -95,7 +96,7 @@ for lr in (LR,):
         best_model=model
 
 print('\n----')           
-model_name=f'model_GraphEmbed-v2_l{IMAGE_LIMIT}_d{DATASET}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM_GEOMETRIC}_s{SHUFFLE}_m{MARGIN}_lr{LR}.pth'
+model_name=f'model_GraphEmbed_l{IMAGE_LIMIT}_d{DATASET}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM_GEOMETRIC}_s{SHUFFLE}_m{MARGIN}_lr{LR}.pth'
 print('Saving best model',model_name)
 torch.save(best_model.state_dict(),model_name)
 
@@ -106,4 +107,4 @@ for k in loss_dict.keys():
 plt.gca().set_ylim(bottom=0.0) #Set the bottom to 0.0
 plt.legend()
 #plt.show()
-plt.savefig(f'loss_GraphEmbed-v2_l{IMAGE_LIMIT}_d{DATASET}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM_GEOMETRIC}_s{SHUFFLE}_m{MARGIN}_lr{LR}.png')    
+plt.savefig(f'loss_GraphEmbed_l{IMAGE_LIMIT}_d{DATASET}_b{BATCH_SIZE}_g{LR_GAMMA:0.2f}_e{EMBED_DIM_GEOMETRIC}_s{SHUFFLE}_m{MARGIN}_lr{LR}.png')    

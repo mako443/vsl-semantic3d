@@ -251,40 +251,40 @@ def create_captions_nnRels(base_path,split, scene):
 
 
 if __name__ == "__main__":
-    ## Scene graph debugging for Cluster3d
-    base_path='data/pointcloud_images_o3d_merged/'
-    scene_name='sg27_station2_intensity_rgb'
-    split='test'
-    scene_view_objects=pickle.load( open(os.path.join(base_path,split,scene_name,'view_objects.pkl'), 'rb') )
+    # ## Scene graph debugging for Cluster3d
+    # base_path='data/pointcloud_images_o3d_merged/'
+    # scene_name='sg27_station2_intensity_rgb'
+    # split='test'
+    # scene_view_objects=pickle.load( open(os.path.join(base_path,split,scene_name,'view_objects.pkl'), 'rb') )
 
-    #file_name=np.random.choice(list(scene_view_objects.keys()))
-    file_name='009.png'
-    view_objects=scene_view_objects[file_name]
-    print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
-    sg0=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, flip_relations=True)
-    sg0_debug=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=True, flip_relations=True)
-    img=cv2.imread(os.path.join(base_path,split, scene_name,'rgb', file_name))
-    print('Text:',sg0.get_text_extensive())
-    draw_view_objects(img, view_objects, [o.label for o in view_objects])
-    draw_scenegraph(img,sg0_debug)
-    #cv2.imshow(file_name,img)
-    # objs=semantic.scene_graph_cluster3d_scoring.extract_scenegraph_objects(sg0)
-    # for o in objs: print(o)
+    # #file_name=np.random.choice(list(scene_view_objects.keys()))
+    # file_name='009.png'
+    # view_objects=scene_view_objects[file_name]
+    # print(f'{scene_name} - {file_name} {len(view_objects)} view objects')
+    # sg0=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=False, flip_relations=True)
+    # sg0_debug=scenegraph_for_view_cluster3d_nnRels(view_objects, keep_viewobjects=True, flip_relations=True)
+    # img=cv2.imread(os.path.join(base_path,split, scene_name,'rgb', file_name))
+    # print('Text:',sg0.get_text_extensive())
+    # draw_view_objects(img, view_objects, [o.label for o in view_objects])
+    # draw_scenegraph(img,sg0_debug)
+    # #cv2.imshow(file_name,img)
+    # # objs=semantic.scene_graph_cluster3d_scoring.extract_scenegraph_objects(sg0)
+    # # for o in objs: print(o)
 
-    # sg_image=draw_scenegraph_data(sg0)
+    # # sg_image=draw_scenegraph_data(sg0)
 
-    cv2.imshow("img", img)
-    # cv2.imshow("sg", sg_image)
-    cv2.waitKey()
+    # cv2.imshow("img", img)
+    # # cv2.imshow("sg", sg_image)
+    # cv2.waitKey()
 
-    vert_dict, edge_dict=pickle.load(open('/home/imanox/Documents/Text2Image/Semantic3D-Net/data/pointcloud_images_o3d_merged/graph_embeddings.pkl','rb'))
-    from geometric.utils import create_scenegraph_data_co_reference
-    from geometric.utils import create_scenegraph_data
+    # vert_dict, edge_dict=pickle.load(open('/home/imanox/Documents/Text2Image/Semantic3D-Net/data/pointcloud_images_o3d_merged/graph_embeddings.pkl','rb'))
+    # from geometric.utils import create_scenegraph_data_co_reference
+    # from geometric.utils import create_scenegraph_data
 
-    data0=create_scenegraph_data(sg0, vert_dict, edge_dict)
-    data1, num_coref=create_scenegraph_data_co_reference(sg0, vert_dict, edge_dict)
+    # data0=create_scenegraph_data(sg0, vert_dict, edge_dict)
+    # data1, num_coref=create_scenegraph_data_co_reference(sg0, vert_dict, edge_dict)
 
-    quit()
+    # quit()
 
     # file_name='009.png'
     # view_objects=scene_view_objects[file_name]
