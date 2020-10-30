@@ -23,6 +23,7 @@ def reduceIndices_sceneVoting(scene_names_train, indices0, indices1=None):
         most_frequent_scene_name=max(set(indices_scene_names), key=list(indices_scene_names).count)
         return indices0[indices0_scene_names==most_frequent_scene_name], indices1[indices1_scene_names==most_frequent_scene_name]
 
+#DEPRECATED, old way of scoring pos/ori separately
 def evaluate_topK(pos_results, ori_results, scene_results):
     top_k=list(pos_results.keys())
 
@@ -64,13 +65,13 @@ def print_topK(thresh_results, scene_results):
     print('Scene')
     for t in top_t + [None,]:
         for k in top_k:
-            print(f'{k} \t', end="")
+            print(f'{k}\t', end="")
     print('\n------')
     for t in top_t:
         for k in top_k:
-            print(f'{thresh_results[t][k]:0.2f} \t', end="")
+            print(f'{thresh_results[t][k]:0.3f}\t', end="")
     for k in top_k:
-        print(f'{scene_results[k]:0.2f} \t', end="")   
+        print(f'{scene_results[k]:0.3f}\t', end="")   
     print('\n----->\n')                 
     
 

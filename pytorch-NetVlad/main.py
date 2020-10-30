@@ -24,6 +24,8 @@ from tensorboardX import SummaryWriter
 import numpy as np
 import netvlad
 
+import sys
+sys.path.insert(0,'../')
 from dataloading.data_loading import Semantic3dDataset 
 from evaluation.utils import evaluate_topK, generate_sanity_check_dataset
 import pickle
@@ -508,8 +510,8 @@ if __name__ == "__main__":
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])  
 
-    data_set_train=Semantic3dDataset('data/pointcloud_images_o3d_merged','train',transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True)
-    data_set_test =Semantic3dDataset('data/pointcloud_images_o3d_merged','test', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True)
+    data_set_train=Semantic3dDataset('../data/pointcloud_images_o3d_merged','train',transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True)
+    data_set_test =Semantic3dDataset('../data/pointcloud_images_o3d_merged','test', transform=transform, image_limit=IMAGE_LIMIT, load_viewObjects=True, load_sceneGraphs=True)
 
     data_loader_train=DataLoader(data_set_train, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False) #CARE: put shuffle off
     data_loader_test =DataLoader(data_set_test , batch_size=BATCH_SIZE, num_workers=2, pin_memory=True, shuffle=False)        
@@ -530,6 +532,9 @@ if __name__ == "__main__":
 
     netvlad_vectors_train=netvlad_vectors_train.cpu().detach().numpy()
     netvlad_vectors_test=netvlad_vectors_test.cpu().detach().numpy()
+
+    pickle.dump((netvlad_vectors_train, netvlad_vectors_test), open(f'features_netvlad_Pitts.pkl','wb'))
+    print('Saved NetVLAD-vectors,','features_netvlad_Pitts.pkl')    
     
     image_positions_train, image_orientations_train = data_loader_train.dataset.image_positions, data_loader_train.dataset.image_orientations
     image_positions_test, image_orientations_test = data_loader_test.dataset.image_positions, data_loader_test.dataset.image_orientations

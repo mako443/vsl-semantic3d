@@ -17,7 +17,8 @@ from retrieval.netvlad import NetVLAD, EmbedNet
 
 from semantic.imports import SceneGraph, SceneGraphObject, ViewObject
 from semantic.scene_graph_cluster3d_scoring import score_sceneGraph_to_viewObjects_nnRels
-from evaluation.utils import evaluate_topK, generate_sanity_check_dataset
+# from evaluation.utils import evaluate_topK, generate_sanity_check_dataset
+from evaluation.utils import reduce_topK, print_topK
 import evaluation.utils
 
 from visual_semantic.visual_semantic_embedding import VisualSemanticEmbedding
@@ -221,7 +222,7 @@ def gather_VGE_NV_ImageOnly_vectors(dataloader_train, dataloader_test, model):
 Goes from query-side embed-vectors to db-side embed vectors
 Used for vectors from GE, VGE-UE and VGE-NV
 '''
-def eval_GE_scoring(dataset_train, dataset_test, embedding_train, embedding_test, similarity_measure, top_k=(1,3,5,10), reduce_indices=None):
+def eval_GE_scoring(dataset_train, dataset_test, embedding_train, embedding_test, similarity_measure, top_k=(1,3,5,10), thresholds=[(15.0,45), (25.0,60), (50.0,90)], reduce_indices=None):
     assert len(embedding_train)==len(dataset_train) and len(embedding_test)==len(dataset_test)
     assert similarity_measure in ('cosine','l2')
     assert reduce_indices in (None, 'scene-voting')
@@ -235,9 +236,13 @@ def eval_GE_scoring(dataset_train, dataset_test, embedding_train, embedding_test
 
     retrieval_dict={}
 
-    pos_results  ={k:[] for k in top_k}
-    ori_results  ={k:[] for k in top_k}
-    scene_results={k:[] for k in top_k}   
+    # pos_results  ={k:[] for k in top_k}
+    # ori_results  ={k:[] for k in top_k}
+    # scene_results={k:[] for k in top_k}   
+
+    thresh_hits  = {t: {k:[] for k in top_k} for t in thresholds }
+    scene_hits   = {k:[] for k in top_k}    
+    scene_counts = {k:[] for k in top_k}    
 
     test_indices=np.arange(len(dataset_test))    
     for test_index in test_indices:
@@ -265,29 +270,42 @@ def eval_GE_scoring(dataset_train, dataset_test, embedding_train, embedding_test
                 sorted_indices=evaluation.utils.reduceIndices_sceneVoting(scene_names_train, sorted_indices)
 
             if k==np.max(top_k): retrieval_dict[test_index]=sorted_indices
+            assert len(sorted_indices)<=k        
 
             scene_correct=np.array([scene_name_gt == scene_names_train[retrieved_index] for retrieved_index in sorted_indices[0:k]])
-            topk_pos_dists=pos_dists[sorted_indices[0:k]]
-            topk_ori_dists=ori_dists[sorted_indices[0:k]]    
+            topk_pos_dists=pos_dists[sorted_indices][scene_correct==True]
+            topk_ori_dists=ori_dists[sorted_indices][scene_correct==True]
 
-            #Append the average pos&ori. errors *for the cases that the scene was hit*
-            pos_results[k].append( np.mean( topk_pos_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
-            ori_results[k].append( np.mean( topk_ori_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
-            scene_results[k].append( np.mean(scene_correct) ) #Always append the scene-scores
-    
-    assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==len(test_indices)  
+             #Count how many of the considered retrievals hit the correct scene
+            scene_hits[k].append(np.sum(scene_correct))
+            #Count how many retrievals were considered 
+            scene_counts[k].append(len(scene_correct))
+            assert scene_counts[k][-1]<=k
 
-    print('Saving retrieval results...')
-    pickle.dump(retrieval_dict, open(f'retrievals_GE.pkl','wb'))
+            #Count how many of the considered retrievals hit the thresholds
+            if np.sum(scene_correct)>0:
+                for t in thresholds:
+                    absolute_pos_thresh=t[0]
+                    absolute_ori_thresh=np.deg2rad(t[1])
+                    thresh_hits[t][k].append( np.sum( (topk_pos_dists<=absolute_pos_thresh) & (topk_ori_dists<=absolute_ori_thresh) ) )
+                    assert thresh_hits[t][k][-1] <= scene_hits[k][-1]
 
-    return evaluate_topK(pos_results, ori_results, scene_results)  
+    for k in top_k:
+        for t in thresholds:
+            #Number of threshold hits over the number of considered retrievals (= number of scene-hits)
+            thresh_hits[t][k]= np.sum(thresh_hits[t][k]) / np.sum(scene_counts[k])
+        # Number of scene hits over the number of considered retrievals (all top-k)
+        scene_hits[k]= np.sum(scene_hits[k]) / np.sum(scene_counts[k])
+
+    return thresh_hits, scene_hits
+
 
 '''
 Different ways of combining the the NetVLAD retrievals and GE retrievals
 -Summing up the NV- and GE-distances (care: weighting cos-similarity vs. L2-distance)
 -Combining both retrievals -> scene voting -> NetVLAD
 '''
-def eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_train, netvlad_test, embedding_train, embedding_test ,top_k=(1,3,5,10), combine='distance-sum'):
+def eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_train, netvlad_test, embedding_train, embedding_test ,top_k=(1,3,5,10), thresholds=[(15.0,45), (25.0,60), (50.0,90)], combine='distance-sum'):
     assert combine in ('distance-sum','scene-voting->netvlad')
     print('\n eval_netvlad_embeddingVectors():', combine)
 
@@ -299,9 +317,13 @@ def eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_train, ne
 
     retrieval_dict={}
 
-    pos_results  ={k:[] for k in top_k}
-    ori_results  ={k:[] for k in top_k}
-    scene_results={k:[] for k in top_k}   
+    # pos_results  ={k:[] for k in top_k}
+    # ori_results  ={k:[] for k in top_k}
+    # scene_results={k:[] for k in top_k}   
+
+    thresh_hits  = {t: {k:[] for k in top_k} for t in thresholds }
+    scene_hits   = {k:[] for k in top_k}    
+    scene_counts = {k:[] for k in top_k}     
 
     test_indices=np.arange(len(dataset_test))    
     for test_index in test_indices:
@@ -330,23 +352,35 @@ def eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_train, ne
                 sorted_indices_netvlad,sorted_indices_ge=evaluation.utils.reduceIndices_sceneVoting(scene_names_train, indices_netvlad, indices_scenegraph)
                 sorted_indices = sorted_indices_netvlad if len(sorted_indices_netvlad)>0 else sorted_indices_ge # Trust GE-indices if they are united enough to overrule NetVLAD, proved as best approach!
 
-            if k==np.max(top_k): retrieval_dict[test_index]=sorted_indices                 
+            if k==np.max(top_k): retrieval_dict[test_index]=sorted_indices  
+            assert len(sorted_indices)<=k        
 
             scene_correct=np.array([scene_name_gt == scene_names_train[retrieved_index] for retrieved_index in sorted_indices[0:k]])
-            topk_pos_dists=pos_dists[sorted_indices[0:k]]
-            topk_ori_dists=ori_dists[sorted_indices[0:k]]    
+            topk_pos_dists=pos_dists[sorted_indices][scene_correct==True]
+            topk_ori_dists=ori_dists[sorted_indices][scene_correct==True]                           
 
-            #Append the average pos&ori. errors *for the cases that the scene was hit*
-            pos_results[k].append( np.mean( topk_pos_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
-            ori_results[k].append( np.mean( topk_ori_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
-            scene_results[k].append( np.mean(scene_correct) ) #Always append the scene-scores
-    
-    assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==len(test_indices)  
+            #Count how many of the considered retrievals hit the correct scene
+            scene_hits[k].append(np.sum(scene_correct))
+            #Count how many retrievals were considered 
+            scene_counts[k].append(len(scene_correct))
+            assert scene_counts[k][-1]<=k
 
-    print('Saving retrieval results...')
-    pickle.dump(retrieval_dict, open(f'retrievals_netvlad_graph-embed_{combine}.pkl','wb'))
+            #Count how many of the considered retrievals hit the thresholds
+            if np.sum(scene_correct)>0:
+                for t in thresholds:
+                    absolute_pos_thresh=t[0]
+                    absolute_ori_thresh=np.deg2rad(t[1])
+                    thresh_hits[t][k].append( np.sum( (topk_pos_dists<=absolute_pos_thresh) & (topk_ori_dists<=absolute_ori_thresh) ) )
+                    assert thresh_hits[t][k][-1] <= scene_hits[k][-1]
 
-    return evaluate_topK(pos_results, ori_results, scene_results)            
+    for k in top_k:
+        for t in thresholds:
+            #Number of threshold hits over the number of considered retrievals (= number of scene-hits)
+            thresh_hits[t][k]= np.sum(thresh_hits[t][k]) / np.sum(scene_counts[k])
+        # Number of scene hits over the number of considered retrievals (all top-k)
+        scene_hits[k]= np.sum(scene_hits[k]) / np.sum(scene_counts[k])
+
+    return thresh_hits, scene_hits   
 
 if __name__ == "__main__":
     IMAGE_LIMIT=3000
@@ -521,39 +555,25 @@ if __name__ == "__main__":
     if 'GE-match' in sys.argv:
         ge_vectors_filename='features_GE_e100.pkl'
         ge_vectors_train, ge_vectors_test=pickle.load(open('evaluation_res/'+ge_vectors_filename,'rb')); print('Using vectors',ge_vectors_filename)
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2',top_k=(1,3,5,10), reduce_indices=None)
-        print(pos_results, ori_results, scene_results,'\n') 
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2',top_k=(1,3,5,10), reduce_indices='scene-voting')
-        print(pos_results, ori_results, scene_results,'\n')      
-
-        ge_vectors_filename='features_GE_e100-Occ-Occ.pkl'
-        ge_vectors_train, ge_vectors_test=pickle.load(open('evaluation_res/'+ge_vectors_filename,'rb')); print('Using vectors',ge_vectors_filename)
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2',top_k=(1,3,5,10), reduce_indices=None)
-        print(pos_results, ori_results, scene_results,'\n') 
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2',top_k=(1,3,5,10), reduce_indices='scene-voting')
-        print(pos_results, ori_results, scene_results,'\n')    
-
-        ge_vectors_filename='features_GE-v2_o0.3_e100.pkl'
-        ge_vectors_train, ge_vectors_test=pickle.load(open('evaluation_res/'+ge_vectors_filename,'rb')); print('Using vectors',ge_vectors_filename)
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2',top_k=(1,3,5,10), reduce_indices=None)
-        print(pos_results, ori_results, scene_results,'\n')
-
-        ge_vectors_filename='features_GE-v2_o0.5_e100.pkl'
-        ge_vectors_train, ge_vectors_test=pickle.load(open('evaluation_res/'+ge_vectors_filename,'rb')); print('Using vectors',ge_vectors_filename)
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2',top_k=(1,3,5,10), reduce_indices=None)
-        print(pos_results, ori_results, scene_results,'\n')           
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2', reduce_indices=None)
+        print_topK(thresh_results, scene_results)
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2', reduce_indices='scene-voting')
+        print_topK(thresh_results, scene_results) 
 
         ge_vectors_filename='features_GE-COREF_e100.pkl'
         ge_vectors_train, ge_vectors_test=pickle.load(open('evaluation_res/'+ge_vectors_filename,'rb')); print('Using vectors',ge_vectors_filename)
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2',top_k=(1,3,5,10), reduce_indices=None)
-        print(pos_results, ori_results, scene_results,'\n')                           
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2', reduce_indices=None)
+        print_topK(thresh_results, scene_results)    
 
-        # ge_vectors_filename='features_GE_e300.pkl'
-        # ge_vectors_train, ge_vectors_test=pickle.load(open('evaluation_res/'+ge_vectors_filename,'rb')); print('Using vectors',ge_vectors_filename)
-        # pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2',top_k=(1,3,5,10), reduce_indices=None)
-        # print(pos_results, ori_results, scene_results,'\n') 
-        # pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2'    ,top_k=(1,3,5,10), reduce_indices='scene-voting')
-        # print(pos_results, ori_results, scene_results,'\n')                 
+        ge_vectors_filename='features_GE_e300.pkl'
+        ge_vectors_train, ge_vectors_test=pickle.load(open('evaluation_res/'+ge_vectors_filename,'rb')); print('Using vectors',ge_vectors_filename)
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2', reduce_indices=None)
+        print_topK(thresh_results, scene_results)        
+
+        ge_vectors_filename='features_GE-v2_o0.3_e100.pkl'
+        ge_vectors_train, ge_vectors_test=pickle.load(open('evaluation_res/'+ge_vectors_filename,'rb')); print('Using vectors',ge_vectors_filename)
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, ge_vectors_train, ge_vectors_test,'l2', reduce_indices=None)
+        print_topK(thresh_results, scene_results)                        
 
     if 'NetVLAD+GE-match' in sys.argv:
         netvlad_vectors_filename='features_netvlad-S3D.pkl'
@@ -562,11 +582,12 @@ if __name__ == "__main__":
         ge_vectors_filename='features_GE_e100.pkl'
         ge_vectors_train, ge_vectors_test=pickle.load(open('evaluation_res/'+ge_vectors_filename,'rb')); print('Using vectors',ge_vectors_filename)        
 
-        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, ge_vectors_train, ge_vectors_test ,top_k=(1,3,5,10), combine='distance-sum')
-        print(pos_results, ori_results, scene_results,'\n')
-        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, ge_vectors_train, ge_vectors_test ,top_k=(1,3,5,10), combine='scene-voting->netvlad')
-        print(pos_results, ori_results, scene_results,'\n')
+        thresh_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, ge_vectors_train, ge_vectors_test, combine='distance-sum')
+        print_topK(thresh_results, scene_results)
+        thresh_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, ge_vectors_train, ge_vectors_test, combine='scene-voting->netvlad')
+        print_topK(thresh_results, scene_results)
 
+    if 'NV-S3D-v2+GE-v2-match' in sys.argv:
         #v2
         netvlad_vectors_filename='features_netvlad_Occ-Occ_m0.5_o0.3.pkl'
         netvlad_vectors_train,netvlad_vectors_test=pickle.load(open('evaluation_res/'+netvlad_vectors_filename,'rb')); print('Using vectors:', netvlad_vectors_filename)
@@ -574,26 +595,31 @@ if __name__ == "__main__":
         ge_vectors_filename='features_GE-v2_o0.3_e100.pkl'
         ge_vectors_train, ge_vectors_test=pickle.load(open('evaluation_res/'+ge_vectors_filename,'rb')); print('Using vectors',ge_vectors_filename)        
 
-        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, ge_vectors_train, ge_vectors_test ,top_k=(1,3,5,10,15,20), combine='distance-sum')
-        print(pos_results, ori_results, scene_results,'\n')
-        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, ge_vectors_train, ge_vectors_test ,top_k=(1,3,5,10,15,20), combine='scene-voting->netvlad')
-        print(pos_results, ori_results, scene_results,'\n')        
+        thresh_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, ge_vectors_train, ge_vectors_test ,top_k=(1,3,5,10), combine='distance-sum')
+        print_topK(thresh_results, scene_results)
+        thresh_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, ge_vectors_train, ge_vectors_test ,top_k=(10,15,20), combine='distance-sum')
+        print_topK(thresh_results, scene_results)
+        print('\n---\n')
+        thresh_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, ge_vectors_train, ge_vectors_test ,top_k=(1,3,5,10), combine='scene-voting->netvlad')
+        print_topK(thresh_results, scene_results) 
+        thresh_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, ge_vectors_train, ge_vectors_test ,top_k=(10,15,20), combine='scene-voting->netvlad')
+        print_topK(thresh_results, scene_results)                
 
     if 'VGE-UE-match' in sys.argv:
         vge_vectors_filename='features_VGE-UE_e1024.pkl'
         vge_vectors_visual_train, vge_vectors_graph_train, vge_vectors_visual_test, vge_vectors_graph_test=pickle.load(open('evaluation_res/'+vge_vectors_filename,'rb')); print('Using vectors',vge_vectors_filename)        
 
         print('Eval VGE-UE image-image')
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_visual_train, vge_vectors_visual_test ,top_k=(1,3,5,10))
-        print(pos_results, ori_results, scene_results,'\n')
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_visual_train, vge_vectors_visual_test, 'cosine')
+        print_topK(thresh_results, scene_results)   
 
         print('Eval VGE-UE graph-graph')
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_graph_train, vge_vectors_graph_test ,top_k=(1,3,5,10)) 
-        print(pos_results, ori_results, scene_results,'\n')
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_graph_train, vge_vectors_graph_test, 'cosine') 
+        print_topK(thresh_results, scene_results)
 
         print('Eval VGE-UE graph-image')
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_visual_train, vge_vectors_graph_test ,top_k=(1,3,5,10))                
-        print(pos_results, ori_results, scene_results,'\n')
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_visual_train, vge_vectors_graph_test, 'cosine')
+        print_topK(thresh_results, scene_results)
 
     if 'NetVLAD+VGE-UE-match' in sys.argv:
         netvlad_vectors_filename='features_netvlad-S3D.pkl'
@@ -603,26 +629,34 @@ if __name__ == "__main__":
         vge_vectors_visual_train, vge_vectors_graph_train, vge_vectors_visual_test, vge_vectors_graph_test=pickle.load(open('evaluation_res/'+vge_vectors_filename,'rb')); print('Using vectors',vge_vectors_filename)        
 
         print('Eval NetVLAD + VGE-UE (graph->image)')
-        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vge_vectors_visual_train, vge_vectors_graph_test ,top_k=(1,3,5,10), combine='distance-sum')
-        print(pos_results, ori_results, scene_results,'\n')
-        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vge_vectors_visual_train, vge_vectors_graph_test ,top_k=(1,3,5,10), combine='scene-voting->netvlad')
-        print(pos_results, ori_results, scene_results,'\n')         
+        thresh_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vge_vectors_visual_train, vge_vectors_graph_test, combine='distance-sum')
+        print_topK(thresh_results, scene_results)
+        thresh_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vge_vectors_visual_train, vge_vectors_graph_test, combine='scene-voting->netvlad')
+        print_topK(thresh_results, scene_results)         
 
     if 'VGE-NV-match' in sys.argv:
         vge_vectors_filename='features_VGE-NV_e1024.pkl'
         vge_vectors_visual_train, vge_vectors_graph_train, vge_vectors_visual_test, vge_vectors_graph_test=pickle.load(open('evaluation_res/'+vge_vectors_filename,'rb')); print('Using vectors',vge_vectors_filename)        
 
         print('Eval VGE-NV image-image')
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_visual_train, vge_vectors_visual_test ,top_k=(1,3,5,10))
-        print(pos_results, ori_results, scene_results,'\n')
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_visual_train, vge_vectors_visual_test, 'cosine')
+        print_topK(thresh_results, scene_results)       
 
         print('Eval VGE-NV graph-graph')
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_graph_train, vge_vectors_graph_test ,top_k=(1,3,5,10)) 
-        print(pos_results, ori_results, scene_results,'\n')
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_graph_train, vge_vectors_graph_test,'cosine')
+        print_topK(thresh_results, scene_results)
 
         print('Eval VGE-NV graph-image')
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_visual_train, vge_vectors_graph_test ,top_k=(1,3,5,10))                
-        print(pos_results, ori_results, scene_results,'\n')    
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_visual_train, vge_vectors_graph_test,'cosine')
+        print_topK(thresh_results, scene_results)  
+
+    if 'VGE-NV-ImageOnly-match' in sys.argv:
+        vge_vectors_filename='features_VGE-NV-ImageOnly_e1024_m1.0_PRL.pkl'
+        features_train, features_test=pickle.load(open('evaluation_res/'+vge_vectors_filename,'rb')); print('Using vectors',vge_vectors_filename)        
+
+        print('Eval VGE-NV image-image')
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, features_train, features_test, 'cosine')
+        print_topK(thresh_results, scene_results)        
 
     if 'NetVLAD+VGE-NV-match' in sys.argv:
         netvlad_vectors_filename='features_netvlad-S3D.pkl'
@@ -632,13 +666,13 @@ if __name__ == "__main__":
         vge_vectors_visual_train, vge_vectors_graph_train, vge_vectors_visual_test, vge_vectors_graph_test=pickle.load(open('evaluation_res/'+vge_vectors_filename,'rb')); print('Using vectors',vge_vectors_filename)        
 
         print('Eval NetVLAD + VGE-NV (graph->image)')
-        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vge_vectors_visual_train, vge_vectors_graph_test ,top_k=(1,3,5,10), combine='distance-sum')
-        print(pos_results, ori_results, scene_results,'\n')
-        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vge_vectors_visual_train, vge_vectors_graph_test ,top_k=(1,3,5,10), combine='scene-voting->netvlad')
-        print(pos_results, ori_results, scene_results,'\n')  
+        thresh_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vge_vectors_visual_train, vge_vectors_graph_test, combine='distance-sum')
+        print_topK(thresh_results, scene_results)  
+        thresh_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vge_vectors_visual_train, vge_vectors_graph_test, combine='scene-voting->netvlad')
+        print_topK(thresh_results, scene_results)    
 
-    if 'VGE-UE-match-cambridge' in sys.argv:
-        print('Eval VGE-UE (trained on S3D) on Cambridge (image-image)')
+    if 'VGE-NV-match-cambridge' in sys.argv:
+        print('Eval VGE-NV (trained on S3D) on Cambridge (image-image)')
         #Build dataset
         data_set_train_cambridge=CambridgeDataset('data_cambridge','train',transform=transform)
         data_set_test_cambridge =CambridgeDataset('data_cambridge','test', transform=transform)
@@ -661,67 +695,54 @@ if __name__ == "__main__":
 
         #Perform evaluation
         print('Eval VGE-NV image-image on Cambridge')
-        pos_results, ori_results, scene_results=eval_GE_scoring(data_set_train_cambridge, data_set_test_cambridge, embed_vectors_train, embed_vectors_test, 'cosine' ,top_k=(1,3,5,10))
-        print(pos_results, ori_results, scene_results,'\n')       
-        pos_results, ori_results, scene_results=eval_GE_scoring(data_set_train_cambridge, data_set_test_cambridge, embed_vectors_train, embed_vectors_test, 'l2' ,top_k=(1,3,5,10))
-        print(pos_results, ori_results, scene_results,'\n')       
+        thresh_results, scene_results=eval_GE_scoring(data_set_train_cambridge, data_set_test_cambridge, embed_vectors_train, embed_vectors_test, 'cosine' ,top_k=(1,3,5,10))
+        print_topK(thresh_results, scene_results)       
 
     if 'VGE-CO-match' in sys.argv:
         vge_vectors_filename='features_VGE-CO_e1024.pkl'
         vge_vectors_train, vge_vectors_test=pickle.load(open('evaluation_res/'+vge_vectors_filename,'rb')); print('Using vectors',vge_vectors_filename)
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices=None)
-        print(pos_results, ori_results, scene_results,'\n')  
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices='scene-voting')
-        print(pos_results, ori_results, scene_results,'\n')  
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine', reduce_indices=None)
+        print_topK(thresh_results, scene_results)  
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine', reduce_indices='scene-voting')
+        print_topK(thresh_results, scene_results)  
 
         vge_vectors_filename='features_VGE-CO_e1024_rgTrue.pkl'
         vge_vectors_train, vge_vectors_test=pickle.load(open('evaluation_res/'+vge_vectors_filename,'rb')); print('Using vectors',vge_vectors_filename)
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices=None)
-        print(pos_results, ori_results, scene_results,'\n')  
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices='scene-voting')
-        print(pos_results, ori_results, scene_results,'\n')   
-
-        vge_vectors_filename='features_VGE-CO-v2_o0.3_e1024_rgFalse.pkl'
-        vge_vectors_train, vge_vectors_test=pickle.load(open('evaluation_res/'+vge_vectors_filename,'rb')); print('Using vectors',vge_vectors_filename)
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices=None)
-        print(pos_results, ori_results, scene_results,'\n')  
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine', reduce_indices=None)
+        print_topK(thresh_results, scene_results)    
 
         vge_vectors_filename='features_VGE-CO-v2_o0.5_e1024_rgFalse.pkl'
         vge_vectors_train, vge_vectors_test=pickle.load(open('evaluation_res/'+vge_vectors_filename,'rb')); print('Using vectors',vge_vectors_filename)
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices=None)
-        print(pos_results, ori_results, scene_results,'\n')                       
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine', reduce_indices=None)
+        print_topK(thresh_results, scene_results)                       
 
     if 'VGE-AS-match' in sys.argv:
         vge_vectors_filename='features_VGE-AS_e1024.pkl'
         vge_vectors_train, vge_vectors_test=pickle.load(open('evaluation_res/'+vge_vectors_filename,'rb')); print('Using vectors',vge_vectors_filename)
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices=None)
-        print(pos_results, ori_results, scene_results,'\n')  
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices='scene-voting')
-        print(pos_results, ori_results, scene_results,'\n')   
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine', reduce_indices=None)
+        print_topK(thresh_results, scene_results)  
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine', reduce_indices='scene-voting')
+        print_topK(thresh_results, scene_results)   
 
         #Trained normally, eval with random vectors
         vge_vectors_filename='features_VGE-AS_e1024_rgTrue.pkl'
         vge_vectors_train, vge_vectors_test=pickle.load(open('evaluation_res/'+vge_vectors_filename,'rb')); print('Using vectors',vge_vectors_filename)
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices=None)
-        print(pos_results, ori_results, scene_results,'\n')  
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices='scene-voting')
-        print(pos_results, ori_results, scene_results,'\n')   
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine', reduce_indices=None)
+        print_topK(thresh_results, scene_results)    
 
         #Train & eval with empty graphs
         vge_vectors_filename='features_VGE-AS_e1024_EmptyGraphsTrainEval.pkl'
         vge_vectors_train, vge_vectors_test=pickle.load(open('evaluation_res/'+vge_vectors_filename,'rb')); print('Using vectors',vge_vectors_filename)
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices=None)
-        print(pos_results, ori_results, scene_results,'\n')  
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine',top_k=(1,3,5,10), reduce_indices='scene-voting')
-        print(pos_results, ori_results, scene_results,'\n')                       
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_train, vge_vectors_test,'cosine', reduce_indices=None)
+        print_topK(thresh_results, scene_results)                       
 
     if 'VGE-NV-ImageOnly-match' in sys.argv:
         vge_vectors_filename='features_VGE-NV-ImageOnly_e1024_m1.0_PRL.pkl'
         vge_vectors_visual_train, vge_vectors_visual_test=pickle.load(open('evaluation_res/'+vge_vectors_filename,'rb')); print('Using vectors',vge_vectors_filename)        
 
         print('Eval VGE-NV image-image')
-        pos_results, ori_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_visual_train, vge_vectors_visual_test, 'l2', top_k=(1,3,5,10))
-        print(pos_results, ori_results, scene_results,'\n')      
+        thresh_results, scene_results=eval_GE_scoring(dataset_train, dataset_test, vge_vectors_visual_train, vge_vectors_visual_test, 'l2')
+        print_topK(thresh_results, scene_results)
 
     if 'VGE-NV-ImageOnly-match-cambridge' in sys.argv:
         print('Eval VGE-NV-ImageOnly (trained on S3D) on Cambridge (image-image)')
@@ -746,10 +767,8 @@ if __name__ == "__main__":
         embed_vectors_train, embed_vectors_test=gather_VGE_NV_ImageOnly_vectors(data_loader_train_cambridge, data_loader_test_cambridge, vge_nv_model)                                 
 
         #Perform evaluation
-        print('Eval VGE-NV image-image on Cambridge')
-        pos_results, ori_results, scene_results=eval_GE_scoring(data_set_train_cambridge, data_set_test_cambridge, embed_vectors_train, embed_vectors_test, 'cosine' ,top_k=(1,3,5,10))
-        print(pos_results, ori_results, scene_results,'\n')       
-        pos_results, ori_results, scene_results=eval_GE_scoring(data_set_train_cambridge, data_set_test_cambridge, embed_vectors_train, embed_vectors_test, 'l2' ,top_k=(1,3,5,10))
-        print(pos_results, ori_results, scene_results,'\n')          
+        print('Eval VGE-NV-ImageOnly image-image on Cambridge')
+        thresh_results, scene_results=eval_GE_scoring(data_set_train_cambridge, data_set_test_cambridge, embed_vectors_train, embed_vectors_test, 'cosine' ,top_k=(1,3,5,10))
+        print_topK(thresh_results, scene_results)  
                    
 

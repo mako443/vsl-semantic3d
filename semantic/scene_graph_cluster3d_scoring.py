@@ -209,9 +209,6 @@ def scenegraph_similarity(source,target):
 
     return np.prod(best_scores)
 
-def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_factor=0.5):
-    return np.prod(best_scores) 
-
 def extract_scenegraph_objects(sg):
     unique_objects=[]
     for candidate in [rel[0] for rel in sg.relationships] + [rel[2] for rel in sg.relationships]:
@@ -284,9 +281,9 @@ def score_sceneGraph_to_viewObjects_nnRels(scene_graph, view_objects, unused_fac
     else:
         return np.prod(best_scores), best_groundings  
 
-''''
-Attempt to unify the scoring -> Works but gives worse results, discarded
-''''
+###
+#Attempt to unify the scoring -> Works but gives worse results, discarded
+###
 # def score_sceneGraph_to_viewObjects_nnRels_2(scene_graph, view_objects, unused_factor=0.5, use_nn_score=False, ablation=None):
 #     assert ablation in (None, 'colors', 'relationships')
 #     MIN_SCORE=0.1 #OPTION: hardest penalty for relationship not found

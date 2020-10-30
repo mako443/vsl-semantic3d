@@ -17,8 +17,8 @@ from retrieval.netvlad import NetVLAD, EmbedNet
 
 from semantic.imports import SceneGraph, SceneGraphObject, ViewObject
 from semantic.scene_graph_cluster3d_scoring import score_sceneGraph_to_viewObjects_nnRels, score_sceneGraph_to_sceneGraph_nnRels
-from semantic.scene_graph_cluster3d_scoring import score_sceneGraph_to_viewObjects_nnRels_2
-from evaluation.utils import evaluate_topK, generate_sanity_check_dataset
+# from evaluation.utils import evaluate_topK, generate_sanity_check_dataset
+from evaluation.utils import reduce_topK, print_topK
 import evaluation.utils
 
 def gather_sceneGraph2viewObjects(dataset_train, dataset_test, ablation=None):
@@ -61,7 +61,7 @@ def gather_sceneGraph2sceneGraph(dataset_train, dataset_test):
     print('Saving SG-scores...')
     pickle.dump(score_dict, open('scores_sceneGraph2sceneGraph.pkl','wb'))
 
-def eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10)):
+def eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10), thresholds=[(25,30), (50,60), (500,90)]):
     assert len(scenegraph_scores)==len(dataset_test)
     assert len(scenegraph_scores[0])==len(dataset_train)
 
@@ -72,9 +72,12 @@ def eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k
 
     retrieval_dict={}
 
-    pos_results  ={k:[] for k in top_k}
-    ori_results  ={k:[] for k in top_k}
-    scene_results={k:[] for k in top_k}  
+    # pos_results  ={k:[] for k in top_k}
+    # ori_results  ={k:[] for k in top_k}
+    # scene_results={k:[] for k in top_k}  
+    thresh_hits  = {t: {k:[] for k in top_k} for t in thresholds }
+    scene_hits   = {k:[] for k in top_k}    
+    scene_counts = {k:[] for k in top_k}      
 
     test_indices=np.arange(len(dataset_test))    
     for test_index in test_indices:
@@ -94,25 +97,42 @@ def eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k
 
         for k in top_k:
             scene_correct=np.array([scene_name_gt == scene_names_train[retrieved_index] for retrieved_index in sorted_indices[0:k]])
-            topk_pos_dists=pos_dists[sorted_indices[0:k]]
-            topk_ori_dists=ori_dists[sorted_indices[0:k]]    
+            topk_pos_dists=pos_dists[sorted_indices[0:k]][scene_correct==True]
+            topk_ori_dists=ori_dists[sorted_indices[0:k]][scene_correct==True]   
 
-            #Append the average pos&ori. errors *for the cases that the scene was hit*
-            pos_results[k].append( np.mean( topk_pos_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
-            ori_results[k].append( np.mean( topk_ori_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
-            scene_results[k].append( np.mean(scene_correct) ) #Always append the scene-scores
+            #Count how many of the considered retrievals hit the correct scene
+            scene_hits[k].append(np.sum(scene_correct))
+            #Count how many retrievals were considered 
+            scene_counts[k].append(len(scene_correct))
+            assert scene_counts[k][-1]  
+
+            if np.sum(scene_correct)>0:
+                for t in thresholds:
+                    absolute_pos_thresh=t[0]
+                    absolute_ori_thresh=np.deg2rad(t[1])
+                    thresh_hits[t][k].append( np.sum( (topk_pos_dists<=absolute_pos_thresh) & (topk_ori_dists<=absolute_ori_thresh) ) )
+                    assert thresh_hits[t][k][-1] <= scene_hits[k][-1]                       
+
+            # #Append the average pos&ori. errors *for the cases that the scene was hit*
+            # pos_results[k].append( np.mean( topk_pos_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
+            # ori_results[k].append( np.mean( topk_ori_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
+            # scene_results[k].append( np.mean(scene_correct) ) #Always append the scene-scores
     
-    assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==len(test_indices)  
+    # assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==len(test_indices)  
 
-    print('Saving retrieval results...')
-    pickle.dump(retrieval_dict, open(f'retrievals_SGmatch.pkl','wb'))
+    for k in top_k:
+        for t in thresholds:
+            #Number of threshold hits over the number of considered retrievals (= number of scene-hits)
+            thresh_hits[t][k]= np.sum(thresh_hits[t][k]) / np.sum(scene_counts[k])
+        # Number of scene hits over the number of considered retrievals (all top-k)
+        scene_hits[k]= np.sum(scene_hits[k]) / np.sum(scene_counts[k])
 
-    return evaluate_topK(pos_results, ori_results, scene_results) 
+    return thresh_hits, scene_hits
 
 #Pure-NetVLAD sanity-check ✓
 #Sum-combine sanity check ✓
 #Scene-Voting
-def eval_netvlad__sceneGraphScoring(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, scenegraph_scores, top_k=(1,3,5,10), combine='sum'):
+def eval_netvlad__sceneGraphScoring(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, scenegraph_scores, top_k=(1,3,5,10), thresholds=[(25,30), (50,60), (500,90)], combine='sum'):
     assert combine in ('sum','scene-voting->netvlad')
     print(f'eval_netvlad__sceneGraphScoring(): combine {str(combine)}')
 
@@ -123,9 +143,13 @@ def eval_netvlad__sceneGraphScoring(dataset_train, dataset_test, netvlad_vectors
 
     retrieval_dict={}
 
-    pos_results  ={k:[] for k in top_k}
-    ori_results  ={k:[] for k in top_k}
-    scene_results={k:[] for k in top_k}    
+    # pos_results  ={k:[] for k in top_k}
+    # ori_results  ={k:[] for k in top_k}
+    # scene_results={k:[] for k in top_k}    
+
+    thresh_hits  = {t: {k:[] for k in top_k} for t in thresholds }
+    scene_hits   = {k:[] for k in top_k}    
+    scene_counts = {k:[] for k in top_k}    
 
     test_indices=np.arange(len(dataset_test))    
     for test_index in test_indices:
@@ -152,23 +176,53 @@ def eval_netvlad__sceneGraphScoring(dataset_train, dataset_test, netvlad_vectors
                 sorted_indices = sorted_indices_netvlad if len(sorted_indices_netvlad)>0 else sorted_indices_sg # Trust SG-indices if they are united enough to overrule NetVLAD, proved as best approach!
 
             if k==np.max(top_k): retrieval_dict[test_index]=sorted_indices                
+            assert len(sorted_indices)<=k              
 
             scene_correct=np.array([scene_name_gt == scene_names_train[retrieved_index] for retrieved_index in sorted_indices])
+            topk_pos_dists=pos_dists[sorted_indices][scene_correct==True]
+            topk_ori_dists=ori_dists[sorted_indices][scene_correct==True]
+            #scene_results[k].append( np.mean(scene_correct) ) #Always append the scene-scores
 
-            topk_pos_dists=pos_dists[sorted_indices]
-            topk_ori_dists=ori_dists[sorted_indices]    
+            #Count how many of the considered retrievals hit the correct scene
+            scene_hits[k].append(np.sum(scene_correct))
+            #Count how many retrievals were considered 
+            scene_counts[k].append(len(scene_correct))
+            assert scene_counts[k][-1]<=k            
 
-            #Append the average pos&ori. errors *for the cases that the scene was hit*
-            pos_results[k].append( np.mean( topk_pos_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
-            ori_results[k].append( np.mean( topk_ori_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
-            scene_results[k].append( np.mean(scene_correct) ) #Always append the scene-scores
+            #Count how many of the considered retrievals hit the thresholds
+            if np.sum(scene_correct)>0:
+                for t in thresholds:
+                    absolute_pos_thresh=t[0]
+                    absolute_ori_thresh=np.deg2rad(t[1])
+                    thresh_hits[t][k].append( np.sum( (topk_pos_dists<=absolute_pos_thresh) & (topk_ori_dists<=absolute_ori_thresh) ) )
+                    assert thresh_hits[t][k][-1] <= scene_hits[k][-1]
+
+    for k in top_k:
+        for t in thresholds:
+            #Number of threshold hits over the number of considered retrievals (= number of scene-hits)
+            thresh_hits[t][k]= np.sum(thresh_hits[t][k]) / np.sum(scene_counts[k])
+        # Number of scene hits over the number of considered retrievals (all top-k)
+        scene_hits[k]= np.sum(scene_hits[k]) / np.sum(scene_counts[k])
+
+    return thresh_hits, scene_hits
+
+
+    #         scene_correct=np.array([scene_name_gt == scene_names_train[retrieved_index] for retrieved_index in sorted_indices])
+
+    #         topk_pos_dists=pos_dists[sorted_indices]
+    #         topk_ori_dists=ori_dists[sorted_indices]    
+
+    #         #Append the average pos&ori. errors *for the cases that the scene was hit*
+    #         pos_results[k].append( np.mean( topk_pos_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
+    #         ori_results[k].append( np.mean( topk_ori_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
+    #         scene_results[k].append( np.mean(scene_correct) ) #Always append the scene-scores
     
-    assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==len(test_indices)
+    # assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==len(test_indices)
 
-    print('Saving retrieval results...')
-    pickle.dump(retrieval_dict, open('retrievals_netvlad_plus_sceneGraph.pkl','wb'))
+    # print('Saving retrieval results...')
+    # pickle.dump(retrieval_dict, open('retrievals_netvlad_plus_sceneGraph.pkl','wb'))
 
-    return evaluate_topK(pos_results, ori_results, scene_results)    
+    # return evaluate_topK(pos_results, ori_results, scene_results)    
 
 if __name__ == "__main__":
     IMAGE_LIMIT=3000
@@ -191,43 +245,25 @@ if __name__ == "__main__":
     #scenegraph_scores=pickle.load(open('scenegraph_scores.pkl','rb'))
 
     if 'SG-match' in sys.argv:
-        scores_filename='scores_sceneGraph2viewObjects-v2_aNone.pkl'
-        scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
-        pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
-        print(pos_results, ori_results, scene_results,'\n') 
-        quit()
-
-        scores_filename='scores_sceneGraph2viewObjects.pkl'
-        scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
-        pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
-        print(pos_results, ori_results, scene_results,'\n') 
-
-        scores_filename='scores_sceneGraph2sceneGraph.pkl'
-        scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
-        pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
-        print(pos_results, ori_results, scene_results,'\n')  
-
-        scores_filename='scores_sceneGraph2viewObjects_Occ.pkl'
-        scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
-        pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
-        print(pos_results, ori_results, scene_results,'\n')              
-
-    if 'SG-match-ablation' in sys.argv:
         scores_filename='scores_sceneGraph2viewObjects_None.pkl'
         scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
-        pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
-        print(pos_results, ori_results, scene_results,'\n') 
+        thresh_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores)
+        print_topK(thresh_results, scene_results)
 
         scores_filename='scores_sceneGraph2viewObjects_colors.pkl'
         scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
-        pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
-        print(pos_results, ori_results, scene_results,'\n') 
+        thresh_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores)
+        print_topK(thresh_results, scene_results) 
 
         scores_filename='scores_sceneGraph2viewObjects_relationships.pkl'
         scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
-        pos_results, ori_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores, top_k=(1,3,5,10))
-        print(pos_results, ori_results, scene_results,'\n')                 
+        thresh_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores)
+        print_topK(thresh_results, scene_results)                
 
+        scores_filename='scores_sceneGraph2sceneGraph.pkl'
+        scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
+        thresh_results, scene_results = eval_sceneGraphScoring(dataset_train, dataset_test, scenegraph_scores)
+        print_topK(thresh_results, scene_results) 
 
     if 'NetVLAD+SG-match' in sys.argv:
         netvlad_vectors_filename='features_netvlad-S3D.pkl'
@@ -237,17 +273,17 @@ if __name__ == "__main__":
         scores_filename='scores_sceneGraph2viewObjects.pkl'
         scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
 
-        pos_results, ori_results, scene_results = eval_netvlad__sceneGraphScoring(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, scenegraph_scores, top_k=(1,3,5,10), combine='sum')
-        print(pos_results, ori_results, scene_results,'\n')        
-        pos_results, ori_results, scene_results = eval_netvlad__sceneGraphScoring(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, scenegraph_scores, top_k=(1,3,5,10), combine='scene-voting->netvlad')
-        print(pos_results, ori_results, scene_results,'\n')  
+        thresh_results, scene_results = eval_netvlad__sceneGraphScoring(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, scenegraph_scores, combine='sum')
+        print_topK(thresh_results, scene_results) 
+        thresh_results, scene_results = eval_netvlad__sceneGraphScoring(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, scenegraph_scores, combine='scene-voting->netvlad')
+        print_topK(thresh_results, scene_results) 
 
         #SG->SG
         scores_filename='scores_sceneGraph2sceneGraph.pkl'
         scenegraph_scores=pickle.load(open('evaluation_res/'+scores_filename,'rb')); print('Using scores',scores_filename)
 
-        pos_results, ori_results, scene_results = eval_netvlad__sceneGraphScoring(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, scenegraph_scores, top_k=(1,3,5,10), combine='sum')
-        print(pos_results, ori_results, scene_results,'\n')        
-        pos_results, ori_results, scene_results = eval_netvlad__sceneGraphScoring(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, scenegraph_scores, top_k=(1,3,5,10), combine='scene-voting->netvlad')
-        print(pos_results, ori_results, scene_results,'\n')               
+        thresh_results, scene_results = eval_netvlad__sceneGraphScoring(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, scenegraph_scores, combine='sum')
+        print_topK(thresh_results, scene_results) 
+        thresh_results, scene_results = eval_netvlad__sceneGraphScoring(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, scenegraph_scores, combine='scene-voting->netvlad')
+        print_topK(thresh_results, scene_results)               
 

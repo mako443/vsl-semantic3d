@@ -9,4 +9,4 @@
 #SBATCH --output=slurm-%j.out
 #SBATCH --error=slurm-%j.out
 
-srun python3 -m evaluation.visual_semantic VSE-NV-match NetVLAD+VSE-NV-match
+srun python3 -m evaluation.visual_semantic "$@"

@@ -15,7 +15,8 @@ from dataloading.data_loading import Semantic3dDataset
 from retrieval import networks
 from retrieval.netvlad import NetVLAD, EmbedNet
 
-from evaluation.utils import evaluate_topK, generate_sanity_check_dataset
+# from evaluation.utils import evaluate_topK, generate_sanity_check_dataset
+from evaluation.utils import reduce_topK, print_topK
 import evaluation.utils
 
 from visual_semantic.visual_semantic_embedding import VisualSemanticEmbedding, VisualSemanticEmbeddingNetVLAD, VisualSemanticEmbeddingCombined
@@ -95,7 +96,7 @@ def gather_VSE_CO_vectors(dataloader_train, dataloader_test, model):
 Goes from query-side embed-vectors to db-side embed vectors
 Used for vectors from SE, VSE-UE and VSE-NV
 '''
-def eval_SE_scoring(dataset_train, dataset_test, embedding_train, embedding_test, similarity_measure ,top_k=(1,3,5,10), reduce_indices=None):
+def eval_SE_scoring(dataset_train, dataset_test, embedding_train, embedding_test, similarity_measure ,top_k=(1,3,5,10), thresholds=[(15.0,45), (25.0,60), (50.0,90)], reduce_indices=None):
     assert len(embedding_train)==len(dataset_train) and len(embedding_test)==len(dataset_test)
     assert similarity_measure in ('cosine','l2')
     assert reduce_indices in (None, 'scene-voting')
@@ -109,9 +110,14 @@ def eval_SE_scoring(dataset_train, dataset_test, embedding_train, embedding_test
 
     retrieval_dict={}
 
-    pos_results  ={k:[] for k in top_k}
-    ori_results  ={k:[] for k in top_k}
-    scene_results={k:[] for k in top_k}   
+    # pos_results  ={k:[] for k in top_k}
+    # ori_results  ={k:[] for k in top_k}
+    # scene_results={k:[] for k in top_k}   
+
+    thresh_hits  = {t: {k:[] for k in top_k} for t in thresholds }
+    scene_hits   = {k:[] for k in top_k}    
+    scene_counts = {k:[] for k in top_k}    
+
 
     test_indices=np.arange(len(dataset_test))    
     for test_index in test_indices:
@@ -139,29 +145,41 @@ def eval_SE_scoring(dataset_train, dataset_test, embedding_train, embedding_test
                 sorted_indices=evaluation.utils.reduceIndices_sceneVoting(scene_names_train, sorted_indices)
 
             if k==np.max(top_k): retrieval_dict[test_index]=sorted_indices
+            assert len(sorted_indices)<=k        
 
             scene_correct=np.array([scene_name_gt == scene_names_train[retrieved_index] for retrieved_index in sorted_indices[0:k]])
-            topk_pos_dists=pos_dists[sorted_indices[0:k]]
-            topk_ori_dists=ori_dists[sorted_indices[0:k]]    
+            topk_pos_dists=pos_dists[sorted_indices][scene_correct==True]
+            topk_ori_dists=ori_dists[sorted_indices][scene_correct==True]
 
-            #Append the average pos&ori. errors *for the cases that the scene was hit*
-            pos_results[k].append( np.mean( topk_pos_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
-            ori_results[k].append( np.mean( topk_ori_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
-            scene_results[k].append( np.mean(scene_correct) ) #Always append the scene-scores
-    
-    assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==len(test_indices)  
+             #Count how many of the considered retrievals hit the correct scene
+            scene_hits[k].append(np.sum(scene_correct))
+            #Count how many retrievals were considered 
+            scene_counts[k].append(len(scene_correct))
+            assert scene_counts[k][-1]<=k
 
-    print('Saving retrieval results...')
-    pickle.dump(retrieval_dict, open(f'retrievals_SE.pkl','wb'))
+            #Count how many of the considered retrievals hit the thresholds
+            if np.sum(scene_correct)>0:
+                for t in thresholds:
+                    absolute_pos_thresh=t[0]
+                    absolute_ori_thresh=np.deg2rad(t[1])
+                    thresh_hits[t][k].append( np.sum( (topk_pos_dists<=absolute_pos_thresh) & (topk_ori_dists<=absolute_ori_thresh) ) )
+                    assert thresh_hits[t][k][-1] <= scene_hits[k][-1]
 
-    return evaluate_topK(pos_results, ori_results, scene_results)   
+    for k in top_k:
+        for t in thresholds:
+            #Number of threshold hits over the number of considered retrievals (= number of scene-hits)
+            thresh_hits[t][k]= np.sum(thresh_hits[t][k]) / np.sum(scene_counts[k])
+        # Number of scene hits over the number of considered retrievals (all top-k)
+        scene_hits[k]= np.sum(scene_hits[k]) / np.sum(scene_counts[k])
+
+    return thresh_hits, scene_hits   
 
 '''
 Different ways of combining the the NetVLAD retrievals and GE retrievals
 -Summing up the NV- and GE-distances (care: weighting cos-similarity vs. L2-distance)
 -Combining both retrievals -> scene voting -> NetVLAD
 '''
-def eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_train, netvlad_test, embedding_train, embedding_test ,top_k=(1,3,5,10), combine='distance-sum'):
+def eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_train, netvlad_test, embedding_train, embedding_test ,top_k=(1,3,5,10), thresholds=[(15.0,45), (25.0,60), (50.0,90)], combine='distance-sum'):
     assert combine in ('distance-sum','scene-voting->netvlad')
     print('\n eval_netvlad_embeddingVectors():', combine)
 
@@ -173,9 +191,13 @@ def eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_train, ne
 
     retrieval_dict={}
 
-    pos_results  ={k:[] for k in top_k}
-    ori_results  ={k:[] for k in top_k}
-    scene_results={k:[] for k in top_k}   
+    # pos_results  ={k:[] for k in top_k}
+    # ori_results  ={k:[] for k in top_k}
+    # scene_results={k:[] for k in top_k}   
+
+    thresh_hits  = {t: {k:[] for k in top_k} for t in thresholds }
+    scene_hits   = {k:[] for k in top_k}    
+    scene_counts = {k:[] for k in top_k}       
 
     test_indices=np.arange(len(dataset_test))    
     for test_index in test_indices:
@@ -205,22 +227,34 @@ def eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_train, ne
                 sorted_indices = sorted_indices_netvlad if len(sorted_indices_netvlad)>0 else sorted_indices_ge # Trust GE-indices if they are united enough to overrule NetVLAD, proved as best approach!
 
             if k==np.max(top_k): retrieval_dict[test_index]=sorted_indices                 
+            assert len(sorted_indices)<=k        
 
             scene_correct=np.array([scene_name_gt == scene_names_train[retrieved_index] for retrieved_index in sorted_indices[0:k]])
-            topk_pos_dists=pos_dists[sorted_indices[0:k]]
-            topk_ori_dists=ori_dists[sorted_indices[0:k]]    
+            topk_pos_dists=pos_dists[sorted_indices][scene_correct==True]
+            topk_ori_dists=ori_dists[sorted_indices][scene_correct==True]                           
 
-            #Append the average pos&ori. errors *for the cases that the scene was hit*
-            pos_results[k].append( np.mean( topk_pos_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
-            ori_results[k].append( np.mean( topk_ori_dists[scene_correct==True]) if np.sum(scene_correct)>0 else None )
-            scene_results[k].append( np.mean(scene_correct) ) #Always append the scene-scores
-    
-    assert len(pos_results[k])==len(ori_results[k])==len(scene_results[k])==len(test_indices)  
+            #Count how many of the considered retrievals hit the correct scene
+            scene_hits[k].append(np.sum(scene_correct))
+            #Count how many retrievals were considered 
+            scene_counts[k].append(len(scene_correct))
+            assert scene_counts[k][-1]<=k
 
-    print('Saving retrieval results...')
-    pickle.dump(retrieval_dict, open(f'retrievals_netvlad_semantic-embed_{combine}.pkl','wb'))
+            #Count how many of the considered retrievals hit the thresholds
+            if np.sum(scene_correct)>0:
+                for t in thresholds:
+                    absolute_pos_thresh=t[0]
+                    absolute_ori_thresh=np.deg2rad(t[1])
+                    thresh_hits[t][k].append( np.sum( (topk_pos_dists<=absolute_pos_thresh) & (topk_ori_dists<=absolute_ori_thresh) ) )
+                    assert thresh_hits[t][k][-1] <= scene_hits[k][-1]
 
-    return evaluate_topK(pos_results, ori_results, scene_results)       
+    for k in top_k:
+        for t in thresholds:
+            #Number of threshold hits over the number of considered retrievals (= number of scene-hits)
+            thresh_hits[t][k]= np.sum(thresh_hits[t][k]) / np.sum(scene_counts[k])
+        # Number of scene hits over the number of considered retrievals (all top-k)
+        scene_hits[k]= np.sum(scene_hits[k]) / np.sum(scene_counts[k])
+
+    return thresh_hits, scene_hits      
 
 if __name__ == "__main__":
     IMAGE_LIMIT=3000
@@ -284,12 +318,17 @@ if __name__ == "__main__":
         # gather_VSE_CO_vectors(dataloader_train, dataloader_test, vse_co_model)                
 
     if 'SE-match' in sys.argv:
+        se_vectors_filename='features_SE_e100.pkl'
+        se_vectors_train, se_vectors_test=pickle.load(open('evaluation_res/'+se_vectors_filename,'rb')); print('Using vectors',se_vectors_filename)
+        thresh_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, se_vectors_train, se_vectors_test,'l2', reduce_indices=None)
+        print_topK(thresh_results, scene_results)
+
         se_vectors_filename='features_SE_e512.pkl'
         se_vectors_train, se_vectors_test=pickle.load(open('evaluation_res/'+se_vectors_filename,'rb')); print('Using vectors',se_vectors_filename)
-        pos_results, ori_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, se_vectors_train, se_vectors_test,'l2'    ,top_k=(1,3,5,10), reduce_indices=None)
-        print(pos_results, ori_results, scene_results,'\n')    
-        pos_results, ori_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, se_vectors_train, se_vectors_test,'l2'    ,top_k=(1,3,5,10), reduce_indices='scene-voting')
-        print(pos_results, ori_results, scene_results,'\n')          
+        thresh_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, se_vectors_train, se_vectors_test,'l2', reduce_indices=None)
+        print_topK(thresh_results, scene_results)
+        thresh_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, se_vectors_train, se_vectors_test,'l2', reduce_indices='scene-voting')
+        print_topK(thresh_results, scene_results)      
 
     if 'NetVLAD+SE-match' in sys.argv:
         netvlad_vectors_filename='features_netvlad-S3D.pkl'
@@ -298,26 +337,26 @@ if __name__ == "__main__":
         se_vectors_filename='features_SE_e512.pkl'
         se_vectors_train, se_vectors_test=pickle.load(open('evaluation_res/'+se_vectors_filename,'rb')); print('Using vectors',se_vectors_filename)        
 
-        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, se_vectors_train, se_vectors_test ,top_k=(1,3,5,10), combine='distance-sum')
-        print(pos_results, ori_results, scene_results,'\n')
-        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, se_vectors_train, se_vectors_test ,top_k=(1,3,5,10), combine='scene-voting->netvlad')
-        print(pos_results, ori_results, scene_results,'\n')     
+        thresh_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, se_vectors_train, se_vectors_test, combine='distance-sum')
+        print_topK(thresh_results, scene_results)
+        thresh_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, se_vectors_train, se_vectors_test, combine='scene-voting->netvlad')
+        print_topK(thresh_results, scene_results)     
 
     if 'VSE-UE-match' in sys.argv:
         vse_vectors_filename='features_VSE-UE_e1024.pkl'
         vse_vectors_visual_train, vse_vectors_caption_train, vse_vectors_visual_test, vse_vectors_caption_test=pickle.load(open('evaluation_res/'+vse_vectors_filename,'rb')); print('Using vectors',vse_vectors_filename)        
 
         print('Eval VSE-UE image-image')
-        pos_results, ori_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_visual_train, vse_vectors_visual_test, 'l2', top_k=(1,3,5,10))
-        print(pos_results, ori_results, scene_results,'\n')
+        thresh_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_visual_train, vse_vectors_visual_test, 'l2')
+        print_topK(thresh_results, scene_results)
 
         print('Eval VSE-UE caption-caption')
-        pos_results, ori_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_caption_train, vse_vectors_caption_test, 'l2', top_k=(1,3,5,10)) 
-        print(pos_results, ori_results, scene_results,'\n')
+        thresh_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_caption_train, vse_vectors_caption_test, 'l2') 
+        print_topK(thresh_results, scene_results)
 
         print('Eval VSE-UE caption-image')
-        pos_results, ori_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_visual_train, vse_vectors_caption_test, 'l2', top_k=(1,3,5,10))                
-        print(pos_results, ori_results, scene_results,'\n')  
+        thresh_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_visual_train, vse_vectors_caption_test, 'l2')                
+        print_topK(thresh_results, scene_results)  
 
     if 'NetVLAD+VSE-UE-match' in sys.argv:
         netvlad_vectors_filename='features_netvlad-S3D.pkl'
@@ -327,26 +366,26 @@ if __name__ == "__main__":
         vse_vectors_visual_train, vse_vectors_caption_train, vse_vectors_visual_test, vse_vectors_caption_test=pickle.load(open('evaluation_res/'+vse_vectors_filename,'rb')); print('Using vectors',vse_vectors_filename)        
 
         print('Eval NetVLAD + VSE-UE (captions->image)')
-        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vse_vectors_visual_train, vse_vectors_caption_test ,top_k=(1,3,5,10), combine='distance-sum')
-        print(pos_results, ori_results, scene_results,'\n')
-        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vse_vectors_visual_train, vse_vectors_caption_test ,top_k=(1,3,5,10), combine='scene-voting->netvlad')
-        print(pos_results, ori_results, scene_results,'\n')                
+        thresh_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vse_vectors_visual_train, vse_vectors_caption_test, combine='distance-sum')
+        print_topK(thresh_results, scene_results)
+        thresh_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vse_vectors_visual_train, vse_vectors_caption_test, combine='scene-voting->netvlad')
+        print_topK(thresh_results, scene_results)                
               
     if 'VSE-NV-match' in sys.argv:
         vse_vectors_filename='features_VSE-NV_e1024.pkl'
         vse_vectors_visual_train, vse_vectors_caption_train, vse_vectors_visual_test, vse_vectors_caption_test=pickle.load(open('evaluation_res/'+vse_vectors_filename,'rb')); print('Using vectors',vse_vectors_filename)        
 
         print('Eval VSE-NV image-image')
-        pos_results, ori_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_visual_train, vse_vectors_visual_test, 'l2', top_k=(1,3,5,10))
-        print(pos_results, ori_results, scene_results,'\n')
+        thresh_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_visual_train, vse_vectors_visual_test, 'l2')
+        print_topK(thresh_results, scene_results)
 
         print('Eval VSE-NV caption-caption')
-        pos_results, ori_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_caption_train, vse_vectors_caption_test, 'l2', top_k=(1,3,5,10)) 
-        print(pos_results, ori_results, scene_results,'\n')
+        thresh_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_caption_train, vse_vectors_caption_test, 'l2') 
+        print_topK(thresh_results, scene_results)
 
         print('Eval VSE-NV caption-image')
-        pos_results, ori_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_visual_train, vse_vectors_caption_test, 'l2', top_k=(1,3,5,10))                
-        print(pos_results, ori_results, scene_results,'\n')  
+        thresh_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_visual_train, vse_vectors_caption_test, 'l2')                
+        print_topK(thresh_results, scene_results)  
 
     if 'NetVLAD+VSE-NV-match' in sys.argv:
         netvlad_vectors_filename='features_netvlad-S3D.pkl'
@@ -356,16 +395,15 @@ if __name__ == "__main__":
         vse_vectors_visual_train, vse_vectors_caption_train, vse_vectors_visual_test, vse_vectors_caption_test=pickle.load(open('evaluation_res/'+vse_vectors_filename,'rb')); print('Using vectors',vse_vectors_filename)        
 
         print('Eval NetVLAD + VSE-NV (captions->image)')
-        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vse_vectors_visual_train, vse_vectors_caption_test ,top_k=(1,3,5,10), combine='distance-sum')
-        print(pos_results, ori_results, scene_results,'\n')
-        pos_results, ori_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vse_vectors_visual_train, vse_vectors_caption_test ,top_k=(1,3,5,10), combine='scene-voting->netvlad')
-        print(pos_results, ori_results, scene_results,'\n')                
-       
+        thresh_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vse_vectors_visual_train, vse_vectors_caption_test, combine='distance-sum')
+        print_topK(thresh_results, scene_results)
+        thresh_results, scene_results=eval_netvlad_embeddingVectors(dataset_train, dataset_test, netvlad_vectors_train, netvlad_vectors_test, vse_vectors_visual_train, vse_vectors_caption_test, combine='scene-voting->netvlad')
+        print_topK(thresh_results, scene_results)                
 
     if 'VSE-CO-match' in sys.argv:
         vse_vectors_filename='features_VSE-CO_e1024.pkl'
         vse_vectors_train, vse_vectors_test=pickle.load(open('evaluation_res/'+vse_vectors_filename,'rb')); print('Using vectors',vse_vectors_filename)
-        pos_results, ori_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_train, vse_vectors_test,'l2',top_k=(1,3,5,10), reduce_indices=None)
-        print(pos_results, ori_results, scene_results,'\n')  
-        pos_results, ori_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_train, vse_vectors_test,'l2',top_k=(1,3,5,10), reduce_indices='scene-voting')
-        print(pos_results, ori_results, scene_results,'\n')        
+        thresh_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_train, vse_vectors_test,'l2', reduce_indices=None)
+        print_topK(thresh_results, scene_results) 
+        thresh_results, scene_results=eval_SE_scoring(dataset_train, dataset_test, vse_vectors_train, vse_vectors_test,'l2', reduce_indices='scene-voting')
+        print_topK(thresh_results, scene_results)       
